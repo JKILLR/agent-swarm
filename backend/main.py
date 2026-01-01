@@ -9,8 +9,12 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+import base64
+import mimetypes
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 # Add parent directory to path for imports
@@ -199,6 +203,262 @@ async def chat(data: ChatMessage) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# File Management Endpoints
+def get_file_info(file_path: Path, workspace: Path) -> Dict[str, Any]:
+    """Get file information including type and size."""
+    relative_path = file_path.relative_to(workspace)
+    stat = file_path.stat()
+    mime_type, _ = mimetypes.guess_type(str(file_path))
+
+    # Determine file category
+    if mime_type:
+        if mime_type.startswith("image/"):
+            category = "image"
+        elif mime_type.startswith("text/") or mime_type in ["application/json", "application/javascript"]:
+            category = "text"
+        elif mime_type == "application/pdf":
+            category = "pdf"
+        else:
+            category = "binary"
+    else:
+        # Check by extension
+        ext = file_path.suffix.lower()
+        if ext in [".py", ".js", ".ts", ".tsx", ".jsx", ".md", ".txt", ".yaml", ".yml", ".json", ".toml", ".cfg", ".ini", ".sh", ".css", ".html"]:
+            category = "text"
+        elif ext in [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"]:
+            category = "image"
+        else:
+            category = "binary"
+
+    return {
+        "name": file_path.name,
+        "path": str(relative_path),
+        "size": stat.st_size,
+        "modified": stat.st_mtime,
+        "is_dir": file_path.is_dir(),
+        "mime_type": mime_type,
+        "category": category,
+    }
+
+
+@app.get("/api/swarms/{name}/files")
+async def list_files(name: str, path: str = "") -> Dict[str, Any]:
+    """List files in a swarm's workspace."""
+    orch = get_orchestrator()
+    swarm = orch.get_swarm(name)
+
+    if not swarm:
+        raise HTTPException(status_code=404, detail=f"Swarm '{name}' not found")
+
+    workspace = swarm.workspace
+    target_path = workspace / path if path else workspace
+
+    if not target_path.exists():
+        raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+
+    if not target_path.is_dir():
+        raise HTTPException(status_code=400, detail=f"Path is not a directory: {path}")
+
+    # Security check - ensure we're within workspace
+    try:
+        target_path.resolve().relative_to(workspace.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied: path outside workspace")
+
+    files = []
+    dirs = []
+
+    for item in sorted(target_path.iterdir()):
+        if item.name.startswith("."):
+            continue  # Skip hidden files
+
+        try:
+            info = get_file_info(item, workspace)
+            if item.is_dir():
+                # Count items in directory
+                try:
+                    info["item_count"] = len(list(item.iterdir()))
+                except PermissionError:
+                    info["item_count"] = 0
+                dirs.append(info)
+            else:
+                files.append(info)
+        except (PermissionError, OSError):
+            continue
+
+    return {
+        "current_path": path,
+        "workspace": str(workspace),
+        "directories": dirs,
+        "files": files,
+    }
+
+
+@app.get("/api/swarms/{name}/files/content")
+async def get_file_content(name: str, path: str) -> Dict[str, Any]:
+    """Get content of a file in the workspace."""
+    orch = get_orchestrator()
+    swarm = orch.get_swarm(name)
+
+    if not swarm:
+        raise HTTPException(status_code=404, detail=f"Swarm '{name}' not found")
+
+    workspace = swarm.workspace
+    file_path = workspace / path
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {path}")
+
+    if file_path.is_dir():
+        raise HTTPException(status_code=400, detail=f"Path is a directory: {path}")
+
+    # Security check
+    try:
+        file_path.resolve().relative_to(workspace.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied: path outside workspace")
+
+    info = get_file_info(file_path, workspace)
+
+    # Return content based on category
+    if info["category"] == "text":
+        try:
+            content = file_path.read_text()
+            return {**info, "content": content, "encoding": "utf-8"}
+        except UnicodeDecodeError:
+            content = base64.b64encode(file_path.read_bytes()).decode()
+            return {**info, "content": content, "encoding": "base64"}
+    elif info["category"] == "image":
+        content = base64.b64encode(file_path.read_bytes()).decode()
+        return {**info, "content": content, "encoding": "base64"}
+    else:
+        # Binary file - return base64
+        content = base64.b64encode(file_path.read_bytes()).decode()
+        return {**info, "content": content, "encoding": "base64"}
+
+
+@app.post("/api/swarms/{name}/files")
+async def upload_file(
+    name: str,
+    file: UploadFile = File(None),
+    path: str = Form(""),
+    filename: str = Form(None),
+    content: str = Form(None),
+    is_text: bool = Form(True),
+) -> Dict[str, Any]:
+    """Upload or create a file in the workspace."""
+    orch = get_orchestrator()
+    swarm = orch.get_swarm(name)
+
+    if not swarm:
+        raise HTTPException(status_code=404, detail=f"Swarm '{name}' not found")
+
+    workspace = swarm.workspace
+
+    # Determine target path and filename
+    if file:
+        # File upload
+        target_filename = filename or file.filename
+        target_path = workspace / path / target_filename if path else workspace / target_filename
+        file_content = await file.read()
+    elif content is not None and filename:
+        # Text content creation
+        target_path = workspace / path / filename if path else workspace / filename
+        if is_text:
+            file_content = content.encode("utf-8")
+        else:
+            # Base64 encoded content
+            file_content = base64.b64decode(content)
+    else:
+        raise HTTPException(status_code=400, detail="Must provide either file upload or content with filename")
+
+    # Security check
+    try:
+        target_path.resolve().relative_to(workspace.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied: path outside workspace")
+
+    # Create parent directories if needed
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write file
+    target_path.write_bytes(file_content)
+
+    logger.info(f"Created file: {target_path}")
+
+    return {
+        "success": True,
+        "path": str(target_path.relative_to(workspace)),
+        "size": len(file_content),
+    }
+
+
+@app.post("/api/swarms/{name}/files/directory")
+async def create_directory(name: str, path: str = Form(...)) -> Dict[str, Any]:
+    """Create a directory in the workspace."""
+    orch = get_orchestrator()
+    swarm = orch.get_swarm(name)
+
+    if not swarm:
+        raise HTTPException(status_code=404, detail=f"Swarm '{name}' not found")
+
+    workspace = swarm.workspace
+    target_path = workspace / path
+
+    # Security check
+    try:
+        target_path.resolve().relative_to(workspace.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied: path outside workspace")
+
+    target_path.mkdir(parents=True, exist_ok=True)
+
+    return {
+        "success": True,
+        "path": path,
+    }
+
+
+@app.delete("/api/swarms/{name}/files")
+async def delete_file(name: str, path: str) -> Dict[str, Any]:
+    """Delete a file or empty directory from workspace."""
+    orch = get_orchestrator()
+    swarm = orch.get_swarm(name)
+
+    if not swarm:
+        raise HTTPException(status_code=404, detail=f"Swarm '{name}' not found")
+
+    workspace = swarm.workspace
+    target_path = workspace / path
+
+    if not target_path.exists():
+        raise HTTPException(status_code=404, detail=f"Path not found: {path}")
+
+    # Security check
+    try:
+        target_path.resolve().relative_to(workspace.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied: path outside workspace")
+
+    # Don't allow deleting workspace root
+    if target_path.resolve() == workspace.resolve():
+        raise HTTPException(status_code=403, detail="Cannot delete workspace root")
+
+    if target_path.is_dir():
+        if any(target_path.iterdir()):
+            raise HTTPException(status_code=400, detail="Directory is not empty")
+        target_path.rmdir()
+    else:
+        target_path.unlink()
+
+    logger.info(f"Deleted: {target_path}")
+
+    return {
+        "success": True,
+        "path": path,
+    }
 
 
 # WebSocket for streaming chat
