@@ -1,6 +1,6 @@
 ---
 name: benchmarker
-type: benchmarker
+type: worker
 description: ASA experiment runner. Measures performance, ensures reproducibility, reports metrics.
 tools:
   - Read
