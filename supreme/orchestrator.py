@@ -5,44 +5,21 @@ from __future__ import annotations
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import yaml
 
 from shared.agent_base import AgentConfig, BaseAgent
+from shared.agent_definitions import AgentDefinition, load_agent_from_file, parse_frontmatter
 from shared.swarm_interface import Swarm, SwarmConfig, load_swarm
 
+try:
+    from claude_agent_sdk import query, ClaudeAgentOptions
+except ImportError:
+    query = None
+    ClaudeAgentOptions = None
+
 logger = logging.getLogger(__name__)
-
-
-ROUTING_SYSTEM_PROMPT = """You are the Supreme Orchestrator, the top-level coordinator for a multi-swarm AI system. Your role is to intelligently route user requests to the appropriate swarm.
-
-## Available Swarms
-{swarms_info}
-
-## Your Responsibilities
-
-1. **Request Analysis**: Understand what the user is asking for
-2. **Swarm Selection**: Choose the most appropriate swarm to handle the request
-3. **Directive Formulation**: Formulate clear directives for the selected swarm
-4. **Status Monitoring**: Provide overviews of all swarm activities when asked
-
-## Routing Guidelines
-
-- Consider each swarm's description and priorities
-- Route to the swarm with the most relevant expertise
-- If no swarm is suitable, suggest creating a new one
-- For meta-questions about the system, answer directly
-
-## Response Format
-
-When routing a request, respond with:
-1. Your analysis of the request
-2. Which swarm should handle it and why
-3. The formulated directive for that swarm
-
-When providing status, give a clear overview of all swarms.
-"""
 
 
 class SupremeOrchestrator:
@@ -50,28 +27,37 @@ class SupremeOrchestrator:
 
     def __init__(
         self,
-        swarms_dir: Path,
+        base_path: Path,
         config_path: Optional[Path] = None,
         logs_dir: Optional[Path] = None,
     ) -> None:
         """Initialize the Supreme Orchestrator.
 
         Args:
-            swarms_dir: Directory containing swarm directories
+            base_path: Base path for the agent-swarm system
             config_path: Path to main config.yaml
             logs_dir: Directory for logs
         """
-        self.swarms_dir = Path(swarms_dir)
-        self.config_path = config_path
-        self.logs_dir = logs_dir or Path("./logs")
+        self.base_path = Path(base_path)
+        self.swarms_dir = self.base_path / "swarms"
+        self.config_path = config_path or (self.base_path / "config.yaml")
+        self.logs_dir = logs_dir or (self.base_path / "logs")
         self.swarms: Dict[str, Swarm] = {}
         self._config: Dict[str, Any] = {}
 
+        # Agent definition for supreme orchestrator
+        self.agent: Optional[AgentDefinition] = None
+        # All agents across all swarms (for cross-swarm dispatch)
+        self.all_agents: Dict[str, AgentDefinition] = {}
+
         # Load configuration
-        if config_path and config_path.exists():
+        if self.config_path.exists():
             self._load_config()
 
-        # Create routing agent
+        # Load supreme agent
+        self._load_supreme_agent()
+
+        # Create routing agent for backward compatibility
         self._routing_agent = self._create_routing_agent()
 
         # Discover swarms
@@ -79,37 +65,107 @@ class SupremeOrchestrator:
 
     def _load_config(self) -> None:
         """Load configuration from config.yaml."""
-        if self.config_path and self.config_path.exists():
+        if self.config_path.exists():
             with open(self.config_path) as f:
                 self._config = yaml.safe_load(f) or {}
             logger.debug(f"Loaded config from {self.config_path}")
 
-    def _create_routing_agent(self) -> BaseAgent:
-        """Create the routing agent."""
-        model = self._config.get("orchestrator", {}).get(
-            "routing_model",
-            self._config.get("models", {}).get("default", "claude-sonnet-4-5-20250929"),
+    def _load_supreme_agent(self) -> None:
+        """Load the supreme orchestrator agent definition."""
+        prompt_file = self.base_path / "supreme" / "agents" / "supreme.md"
+
+        if prompt_file.exists():
+            try:
+                self.agent = load_agent_from_file(prompt_file)
+                self.all_agents["supreme"] = self.agent
+                logger.debug("Loaded supreme orchestrator agent from file")
+            except Exception as e:
+                logger.warning(f"Failed to load supreme agent: {e}")
+                self._create_default_supreme_agent()
+        else:
+            self._create_default_supreme_agent()
+
+    def _create_default_supreme_agent(self) -> None:
+        """Create default supreme agent definition."""
+        self.agent = AgentDefinition(
+            name="supreme",
+            description="Supreme orchestrator. Routes to swarms, spawns parallel agents.",
+            prompt=self._get_default_prompt(),
+            tools=["Task", "Read", "Bash", "Glob"],
+            model="opus",
+            agent_type="orchestrator",
         )
+        self.all_agents["supreme"] = self.agent
+
+    def _get_default_prompt(self) -> str:
+        """Get default supreme orchestrator prompt."""
+        return """You are the Supreme Orchestrator managing multiple project swarms.
+
+## Parallel Execution Patterns
+
+When given a complex task, spawn subagents IN PARALLEL using the Task tool:
+
+### Standard Pattern
+Spawn in parallel:
+1. [swarm]/researcher (background): Gather information
+2. [swarm]/implementer (background): Begin implementation
+3. [swarm]/critic (background): Prepare challenges
+Wait for all, then synthesize.
+
+### Cross-Swarm Pattern
+For tasks affecting multiple projects, spawn agents from different swarms in parallel.
+
+### Monitor Pattern
+Spawn in background (don't wait):
+1. [swarm]/monitor: Watch for problems, wake me if issues
+Then continue with main task.
+
+## Wake Handling
+When subagents wake you with findings, synthesize all before responding to user.
+
+## Available Swarms
+{swarms_info}
+
+Analyze requests and route to appropriate swarms. For complex tasks, use parallel execution."""
+
+    def _create_routing_agent(self) -> BaseAgent:
+        """Create the routing agent for backward compatibility."""
+        model = self._config.get("models", {}).get("orchestrator", "claude-opus-4-5-20251101")
 
         config = AgentConfig(
             name="supreme_orchestrator",
             role="orchestrator",
             model=model,
-            system_prompt=ROUTING_SYSTEM_PROMPT.format(swarms_info="[No swarms loaded yet]"),
-            max_turns=15,
+            system_prompt=self._get_default_prompt().format(swarms_info="[No swarms loaded yet]"),
+            tools=["Task", "Read", "Bash", "Glob"],
+            max_turns=25,
         )
 
         return BaseAgent(config, logs_dir=self.logs_dir)
 
+    def _collect_all_agents(self) -> None:
+        """Collect all agent definitions from all swarms."""
+        self.all_agents = {"supreme": self.agent} if self.agent else {}
+
+        for swarm_name, swarm in self.swarms.items():
+            for agent_name, agent_def in swarm.agent_definitions.items():
+                qualified_name = f"{swarm_name}/{agent_name}"
+                self.all_agents[qualified_name] = agent_def
+
+        logger.debug(f"Collected {len(self.all_agents)} agents across all swarms")
+
     def _update_routing_agent_prompt(self) -> None:
         """Update the routing agent's system prompt with current swarm info."""
         swarms_info = self._format_swarms_info()
-        self._routing_agent._system_prompt = ROUTING_SYSTEM_PROMPT.format(
-            swarms_info=swarms_info
-        )
+        prompt = self._get_default_prompt().format(swarms_info=swarms_info)
+        self._routing_agent._system_prompt = prompt
+
+        # Also update the agent definition
+        if self.agent:
+            self.agent.prompt = prompt
 
     def _format_swarms_info(self) -> str:
-        """Format swarm information for the routing prompt."""
+        """Format swarm information for prompts."""
         if not self.swarms:
             return "No swarms available. Consider creating one."
 
@@ -119,7 +175,15 @@ class SupremeOrchestrator:
             lines.append(f"### {name}")
             lines.append(f"- Description: {status['description']}")
             lines.append(f"- Status: {status['status']}")
-            lines.append(f"- Agents: {status['agent_count']}")
+
+            # List agents with their types
+            agent_list = []
+            for agent_info in status['agents']:
+                agent_type = agent_info.get('type', agent_info.get('role', 'worker'))
+                bg = " [bg]" if agent_info.get('background') else ""
+                agent_list.append(f"{agent_info['name']} ({agent_type}){bg}")
+            lines.append(f"- Agents: {', '.join(agent_list)}")
+
             if status['priorities']:
                 lines.append(f"- Priorities: {', '.join(status['priorities'][:3])}")
             lines.append("")
@@ -156,7 +220,8 @@ class SupremeOrchestrator:
                 except Exception as e:
                     logger.error(f"Failed to load swarm from {item}: {e}")
 
-        # Update routing agent with new swarm info
+        # Collect all agents and update prompts
+        self._collect_all_agents()
         self._update_routing_agent_prompt()
 
         return discovered
@@ -188,11 +253,40 @@ class SupremeOrchestrator:
         """
         return {
             "total_swarms": len(self.swarms),
+            "total_agents": len(self.all_agents),
             "swarms": {
                 name: swarm.get_status()
                 for name, swarm in self.swarms.items()
             },
         }
+
+    async def chat(self, user_input: str) -> AsyncIterator[Any]:
+        """Chat with the Supreme Orchestrator using parallel agent dispatch.
+
+        Args:
+            user_input: User's input
+
+        Yields:
+            Messages from the orchestrator and subagents
+        """
+        # Build SDK agents dict
+        sdk_agents = {}
+        for name, defn in self.all_agents.items():
+            sdk_agents[name] = defn.to_sdk_definition()
+
+        if query is not None and ClaudeAgentOptions is not None:
+            options = ClaudeAgentOptions(
+                allowed_tools=["Task", "Read", "Bash", "Glob"],
+                agents=sdk_agents,
+                cwd=str(self.base_path),
+            )
+            async for message in query(user_input, options):
+                yield message
+        else:
+            # Fallback when SDK not available
+            logger.warning("Claude Agent SDK not available, using routing agent")
+            response = await self.route_request(user_input)
+            yield {"type": "text", "content": response}
 
     async def route_request(self, user_input: str) -> str:
         """Route a user request to the appropriate swarm.
@@ -212,12 +306,14 @@ class SupremeOrchestrator:
 Available Swarms:
 {self._format_swarms_info()}
 
-Analyze this request and determine which swarm should handle it, or respond directly if it's a meta-question about the system."""
+Available agents for parallel dispatch:
+{', '.join(self.all_agents.keys())}
+
+Analyze this request and determine which swarm should handle it.
+For complex tasks, spawn multiple agents IN PARALLEL using the Task tool.
+For meta-questions about the system, answer directly."""
 
         response = await self._routing_agent.run_sync(context)
-
-        # Parse response to see if we should forward to a swarm
-        # For now, return the routing agent's analysis
         return response
 
     async def send_directive(self, swarm_name: str, directive: str) -> str:
@@ -235,6 +331,40 @@ Analyze this request and determine which swarm should handle it, or respond dire
             return f"Swarm '{swarm_name}' not found."
 
         return await swarm.receive_directive(directive)
+
+    async def run_parallel_on_swarm(
+        self,
+        swarm_name: str,
+        directive: str,
+    ) -> AsyncIterator[Any]:
+        """Run parallel agents on a specific swarm.
+
+        Args:
+            swarm_name: Name of the swarm
+            directive: The directive/task
+
+        Yields:
+            Messages from agents
+        """
+        swarm = self.get_swarm(swarm_name)
+        if not swarm:
+            yield {"type": "error", "content": f"Swarm '{swarm_name}' not found."}
+            return
+
+        # Build tasks for parallel execution
+        tasks = []
+        for agent_name, defn in swarm.agent_definitions.items():
+            if defn.agent_type == "orchestrator":
+                continue  # Skip orchestrator for parallel tasks
+
+            tasks.append({
+                "agent": agent_name,
+                "prompt": f"{defn.agent_type.title()}: {directive}",
+                "background": defn.background,
+            })
+
+        async for message in swarm.run_parallel(tasks):
+            yield message
 
     def create_swarm(
         self,
@@ -279,7 +409,8 @@ Analyze this request and determine which swarm should handle it, or respond dire
         swarm = load_swarm(new_swarm_path, self.logs_dir)
         self.swarms[swarm.name] = swarm
 
-        # Update routing agent
+        # Update agent collections
+        self._collect_all_agents()
         self._update_routing_agent_prompt()
 
         logger.info(f"Created new swarm: {name}")

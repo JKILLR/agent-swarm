@@ -6,12 +6,19 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import yaml
 
 from .agent_base import AgentConfig, BaseAgent
+from .agent_definitions import AgentDefinition, load_agent_from_file, AGENT_TYPES
 from .consensus import ConsensusResult, ConsensusProtocol
+
+try:
+    from claude_agent_sdk import query, ClaudeAgentOptions
+except ImportError:
+    query = None
+    ClaudeAgentOptions = None
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +133,18 @@ class SwarmInterface(ABC):
         """
         pass
 
+    @abstractmethod
+    async def run_parallel(self, tasks: List[Dict[str, Any]]) -> AsyncIterator[Any]:
+        """Run multiple agents in parallel.
+
+        Args:
+            tasks: List of task definitions
+
+        Yields:
+            Messages from agents
+        """
+        pass
+
 
 class Swarm(SwarmInterface):
     """Swarm implementation that manages agents and handles directives."""
@@ -147,6 +166,7 @@ class Swarm(SwarmInterface):
         self.swarm_path = swarm_path
         self.logs_dir = logs_dir or Path("./logs")
         self.agents: Dict[str, BaseAgent] = {}
+        self.agent_definitions: Dict[str, AgentDefinition] = {}
         self.consensus_protocol = ConsensusProtocol(
             logs_dir=self.logs_dir / "consensus"
         )
@@ -164,22 +184,89 @@ class Swarm(SwarmInterface):
             if isinstance(agent_def, str):
                 # Simple string reference to agent file
                 agent_name = agent_def
-                prompt_file = f"agents/{agent_name}.md"
+                prompt_file = agents_dir / f"{agent_name}.md"
+
+                # Try to load using AgentDefinition if file exists
+                if prompt_file.exists():
+                    try:
+                        agent_definition = load_agent_from_file(prompt_file)
+                        self.agent_definitions[agent_name] = agent_definition
+
+                        # Create BaseAgent for backward compatibility
+                        agent_config = AgentConfig(
+                            name=agent_definition.name,
+                            role=agent_definition.agent_type,
+                            model=self._resolve_model(agent_definition.model),
+                            system_prompt=agent_definition.prompt,
+                            tools=agent_definition.tools,
+                        )
+                        agent = BaseAgent(
+                            config=agent_config,
+                            swarm_path=self.swarm_path,
+                            logs_dir=self.logs_dir,
+                        )
+                        self.agents[agent_name] = agent
+                        logger.debug(f"Loaded agent: {agent_name} ({agent_definition.agent_type})")
+                        continue
+                    except Exception as e:
+                        logger.warning(f"Failed to load agent definition: {e}")
+
+                # Fallback to old method
                 role = self._infer_role(agent_name)
                 agent_config = AgentConfig(
                     name=agent_name,
                     role=role,
-                    system_prompt_file=prompt_file,
+                    system_prompt_file=f"agents/{agent_name}.md",
                 )
             elif isinstance(agent_def, dict):
                 # Full agent configuration
                 agent_name = agent_def.get("name", "unnamed")
-                prompt_file = agent_def.get("prompt_file", f"agents/{agent_name}.md")
+                prompt_file_path = agent_def.get("prompt_file", f"agents/{agent_name}.md")
+                prompt_file = self.swarm_path / prompt_file_path
+
+                # Try to load using AgentDefinition
+                if prompt_file.exists():
+                    try:
+                        agent_type = agent_def.get("type") or agent_def.get("role", "worker")
+                        agent_definition = load_agent_from_file(prompt_file)
+
+                        # Override with explicit config values
+                        agent_definition.name = agent_name
+                        if "model" in agent_def:
+                            agent_definition.model = agent_def["model"]
+                        if "tools" in agent_def:
+                            agent_definition.tools = agent_def["tools"]
+                        if "background" in agent_def:
+                            agent_definition.background = agent_def["background"]
+
+                        self.agent_definitions[agent_name] = agent_definition
+
+                        agent_config = AgentConfig(
+                            name=agent_definition.name,
+                            role=agent_definition.agent_type,
+                            model=self._resolve_model(agent_definition.model),
+                            system_prompt=agent_definition.prompt,
+                            tools=agent_definition.tools,
+                            max_turns=agent_def.get("max_turns", 25),
+                            settings=agent_def.get("settings", {}),
+                        )
+                        agent = BaseAgent(
+                            config=agent_config,
+                            swarm_path=self.swarm_path,
+                            logs_dir=self.logs_dir,
+                        )
+                        self.agents[agent_name] = agent
+                        logger.debug(f"Loaded agent: {agent_name} ({agent_definition.agent_type})")
+                        continue
+                    except Exception as e:
+                        logger.warning(f"Failed to load agent definition: {e}")
+
+                # Fallback to old method
                 agent_config = AgentConfig(
                     name=agent_name,
                     role=agent_def.get("role", self._infer_role(agent_name)),
                     model=agent_def.get("model", "claude-sonnet-4-5-20250929"),
-                    system_prompt_file=prompt_file,
+                    system_prompt_file=prompt_file_path,
                     tools=agent_def.get("tools"),
                     max_turns=agent_def.get("max_turns", 25),
                     settings=agent_def.get("settings", {}),
@@ -200,6 +287,15 @@ class Swarm(SwarmInterface):
         if not self.agents and agents_dir.exists():
             self._auto_discover_agents(agents_dir)
 
+    def _resolve_model(self, model: str) -> str:
+        """Resolve model shorthand to full model name."""
+        model_map = {
+            "opus": "claude-opus-4-5-20251101",
+            "sonnet": "claude-sonnet-4-5-20250929",
+            "haiku": "claude-haiku-4-5-20251001",
+        }
+        return model_map.get(model, model)
+
     def _auto_discover_agents(self, agents_dir: Path) -> None:
         """Auto-discover agent configs from agents/ subdirectory."""
         for prompt_file in agents_dir.glob("*.md"):
@@ -207,27 +303,50 @@ class Swarm(SwarmInterface):
             if agent_name.startswith("_"):
                 continue  # Skip files starting with underscore
 
-            role = self._infer_role(agent_name)
-            agent_config = AgentConfig(
-                name=agent_name,
-                role=role,
-                system_prompt_file=f"agents/{prompt_file.name}",
-            )
+            try:
+                agent_definition = load_agent_from_file(prompt_file)
+                self.agent_definitions[agent_name] = agent_definition
 
-            agent = BaseAgent(
-                config=agent_config,
-                swarm_path=self.swarm_path,
-                logs_dir=self.logs_dir,
-            )
-            self.agents[agent_name] = agent
-            logger.debug(f"Auto-discovered agent: {agent_name} ({role})")
+                agent_config = AgentConfig(
+                    name=agent_definition.name,
+                    role=agent_definition.agent_type,
+                    model=self._resolve_model(agent_definition.model),
+                    system_prompt=agent_definition.prompt,
+                    tools=agent_definition.tools,
+                )
+                agent = BaseAgent(
+                    config=agent_config,
+                    swarm_path=self.swarm_path,
+                    logs_dir=self.logs_dir,
+                )
+                self.agents[agent_name] = agent
+                logger.debug(f"Auto-discovered agent: {agent_name} ({agent_definition.agent_type})")
+            except Exception as e:
+                logger.warning(f"Failed to auto-discover {agent_name}: {e}")
+                # Fallback
+                role = self._infer_role(agent_name)
+                agent_config = AgentConfig(
+                    name=agent_name,
+                    role=role,
+                    system_prompt_file=f"agents/{prompt_file.name}",
+                )
+                agent = BaseAgent(
+                    config=agent_config,
+                    swarm_path=self.swarm_path,
+                    logs_dir=self.logs_dir,
+                )
+                self.agents[agent_name] = agent
+                logger.debug(f"Auto-discovered agent (fallback): {agent_name} ({role})")
 
     def _infer_role(self, name: str) -> str:
         """Infer agent role from name."""
         name_lower = name.lower()
-        if "orchestrator" in name_lower or "coordinator" in name_lower:
+        for type_name in AGENT_TYPES:
+            if type_name in name_lower:
+                return type_name
+        if "coordinator" in name_lower:
             return "orchestrator"
-        elif "critic" in name_lower or "reviewer" in name_lower:
+        elif "reviewer" in name_lower:
             return "critic"
         return "worker"
 
@@ -248,6 +367,10 @@ class Swarm(SwarmInterface):
         """Get agent by name."""
         return self.agents.get(name)
 
+    def get_agent_definition(self, name: str) -> Optional[AgentDefinition]:
+        """Get agent definition by name."""
+        return self.agent_definitions.get(name)
+
     def get_orchestrator(self) -> Optional[BaseAgent]:
         """Get the orchestrator agent if one exists."""
         for agent in self.agents.values():
@@ -257,15 +380,22 @@ class Swarm(SwarmInterface):
 
     def get_status(self) -> Dict[str, Any]:
         """Get current swarm status."""
+        agents_info = []
+        for name, agent in self.agents.items():
+            agent_info = {"name": name, "role": agent.role}
+            if name in self.agent_definitions:
+                defn = self.agent_definitions[name]
+                agent_info["type"] = defn.agent_type
+                agent_info["background"] = defn.background
+                agent_info["model"] = defn.model
+            agents_info.append(agent_info)
+
         return {
             "name": self.config.name,
             "description": self.config.description,
             "version": self.config.version,
             "status": self.config.status,
-            "agents": [
-                {"name": a.name, "role": a.role}
-                for a in self.agents.values()
-            ],
+            "agents": agents_info,
             "agent_count": len(self.agents),
             "priorities": self.config.priorities,
             "workspace": str(self.workspace),
@@ -279,6 +409,57 @@ class Swarm(SwarmInterface):
     def set_priorities(self, priorities: List[str]) -> None:
         """Set priorities."""
         self.config.priorities = priorities
+
+    def _format_parallel_dispatch(self, tasks: List[Dict[str, Any]]) -> str:
+        """Format tasks for parallel dispatch prompt.
+
+        Args:
+            tasks: List of task definitions with agent, prompt, and optional background flag
+
+        Returns:
+            Formatted prompt for parallel execution
+        """
+        lines = ["Spawn these subagents IN PARALLEL using the Task tool:"]
+        for i, task in enumerate(tasks, 1):
+            agent = task.get("agent", "worker")
+            prompt = task.get("prompt", "")
+            bg = " (background)" if task.get("background") else ""
+            lines.append(f"{i}. {agent}{bg}: {prompt}")
+        lines.append("\nWait for all to complete and synthesize their findings.")
+        return "\n".join(lines)
+
+    async def run_parallel(self, tasks: List[Dict[str, Any]]) -> AsyncIterator[Any]:
+        """Run multiple agents in parallel with wake messaging.
+
+        Args:
+            tasks: List of task definitions
+                   [{"agent": "researcher", "prompt": "...", "background": True}, ...]
+
+        Yields:
+            Messages from agents
+        """
+        prompt = self._format_parallel_dispatch(tasks)
+
+        # Build agents dict for SDK
+        sdk_agents = {}
+        for name, defn in self.agent_definitions.items():
+            sdk_agents[name] = defn.to_sdk_definition()
+
+        if query is not None and ClaudeAgentOptions is not None:
+            options = ClaudeAgentOptions(
+                allowed_tools=["Task", "Read", "Bash"],
+                agents=sdk_agents,
+                cwd=str(self.workspace),
+            )
+            async for message in query(prompt, options):
+                yield message
+        else:
+            # Fallback when SDK not available
+            logger.warning("Claude Agent SDK not available, using mock parallel execution")
+            yield {
+                "type": "text",
+                "content": f"[Mock parallel execution]\n{prompt}",
+            }
 
     async def receive_directive(self, directive: str) -> str:
         """Receive and process a directive from the supreme orchestrator."""
@@ -296,6 +477,16 @@ class Swarm(SwarmInterface):
         if not orchestrator:
             return f"Swarm {self.name} has no agents to process directive."
 
+        # Build agent list for context
+        agent_info = []
+        for name, agent in self.agents.items():
+            defn = self.agent_definitions.get(name)
+            if defn:
+                bg_info = " [background]" if defn.background else ""
+                agent_info.append(f"- {name} ({defn.agent_type}){bg_info}: {defn.description}")
+            else:
+                agent_info.append(f"- {name} ({agent.role})")
+
         # Have the orchestrator process the directive
         prompt = f"""You have received the following directive from the Supreme Orchestrator:
 
@@ -304,8 +495,11 @@ class Swarm(SwarmInterface):
 Current swarm priorities:
 {chr(10).join(f"- {p}" for p in self.config.priorities) or "No priorities set"}
 
-Available agents in this swarm:
-{chr(10).join(f"- {a.name} ({a.role})" for a in self.agents.values())}
+Available agents in this swarm (use Task tool to spawn in parallel):
+{chr(10).join(agent_info)}
+
+For complex tasks, spawn multiple agents IN PARALLEL using the Task tool.
+Example: Spawn researcher, implementer, and critic simultaneously.
 
 Please acknowledge this directive and outline how you will proceed."""
 

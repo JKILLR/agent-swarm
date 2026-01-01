@@ -8,30 +8,46 @@ status: "paused"  # active, paused, archived
 
 # Agents in this swarm
 # Reference agent prompt files in the agents/ directory
+# Agent types: orchestrator, researcher, implementer, critic, monitor
 agents:
   - name: "orchestrator"
-    role: "orchestrator"
+    type: "orchestrator"
     prompt_file: "agents/orchestrator.md"
     max_turns: 30
-  - name: "worker"
-    role: "worker"
+    background: false
+  - name: "researcher"
+    type: "researcher"
+    prompt_file: "agents/researcher.md"
+    max_turns: 25
+    background: true
+  - name: "implementer"
+    type: "implementer"
     prompt_file: "agents/worker.md"
     max_turns: 25
+    background: true
   - name: "critic"
-    role: "critic"
+    type: "critic"
     prompt_file: "agents/critic.md"
     max_turns: 20
+    background: true
+  - name: "monitor"
+    type: "monitor"
+    prompt_file: "agents/monitor.md"
+    max_turns: 10
+    background: true
 
 # Workspace for swarm-specific files
 workspace: "./workspace"
 
 # Swarm settings
 settings:
-  max_concurrent_tasks: 3
+  max_concurrent_tasks: 5
   require_consensus: true
   consensus_threshold: 0.7
   timeout: 300
   min_voters: 2
+  parallel_execution: true
+  wake_messaging: true
 
 # Current priorities (update as project evolves)
 priorities:

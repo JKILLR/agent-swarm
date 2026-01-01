@@ -15,6 +15,8 @@ from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.table import Table
 from rich.markdown import Markdown
+from rich.live import Live
+from rich.spinner import Spinner
 
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent
@@ -37,14 +39,10 @@ def setup_logging(level: str = "INFO") -> None:
 
 def get_orchestrator() -> SupremeOrchestrator:
     """Get or create the Supreme Orchestrator."""
-    config_path = PROJECT_ROOT / "config.yaml"
-    swarms_dir = PROJECT_ROOT / "swarms"
-    logs_dir = PROJECT_ROOT / "logs"
-
     return SupremeOrchestrator(
-        swarms_dir=swarms_dir,
-        config_path=config_path if config_path.exists() else None,
-        logs_dir=logs_dir,
+        base_path=PROJECT_ROOT,
+        config_path=PROJECT_ROOT / "config.yaml",
+        logs_dir=PROJECT_ROOT / "logs",
     )
 
 
@@ -54,7 +52,7 @@ def cli(verbose: bool) -> None:
     """Agent Swarm - Hierarchical AI Agent Management System.
 
     Manage multiple AI-assisted projects through a Supreme Orchestrator
-    that coordinates specialized swarms of agents.
+    that coordinates specialized swarms of agents with parallel execution.
     """
     level = "DEBUG" if verbose else "INFO"
     setup_logging(level)
@@ -98,6 +96,9 @@ def list_swarms() -> None:
 
     console.print(table)
 
+    # Show total agents
+    console.print(f"\n[dim]Total agents across all swarms: {len(orchestrator.all_agents)}[/dim]")
+
 
 @cli.command("status")
 @click.argument("swarm", required=False)
@@ -124,7 +125,10 @@ def show_status(swarm: Optional[str]) -> None:
         details.append("")
         details.append("**Agents:**")
         for agent in status["agents"]:
-            details.append(f"  - {agent['name']} ({agent['role']})")
+            agent_type = agent.get('type', agent.get('role', 'worker'))
+            bg_marker = " [bg]" if agent.get('background') else ""
+            model = agent.get('model', 'sonnet')
+            details.append(f"  - {agent['name']} ({agent_type}){bg_marker} - {model}")
         details.append("")
         details.append("**Priorities:**")
         for i, priority in enumerate(status.get("priorities", []), 1):
@@ -140,7 +144,8 @@ def show_status(swarm: Optional[str]) -> None:
         # Show all swarms overview
         all_status = orchestrator.get_all_status()
 
-        console.print(f"\n[bold]Total Swarms:[/bold] {all_status['total_swarms']}\n")
+        console.print(f"\n[bold]Total Swarms:[/bold] {all_status['total_swarms']}")
+        console.print(f"[bold]Total Agents:[/bold] {all_status.get('total_agents', 0)}\n")
 
         for name, status in all_status["swarms"].items():
             status_color = {
@@ -149,13 +154,20 @@ def show_status(swarm: Optional[str]) -> None:
                 "archived": "dim",
             }.get(status["status"], "white")
 
+            # Format agents with types
+            agent_list = []
+            for agent in status.get("agents", []):
+                agent_type = agent.get('type', agent.get('role', 'worker'))
+                bg = "*" if agent.get('background') else ""
+                agent_list.append(f"{agent['name']}{bg}")
+
             console.print(Panel(
                 f"Status: [{status_color}]{status['status']}[/{status_color}]\n"
-                f"Agents: {status['agent_count']}\n"
+                f"Agents: {', '.join(agent_list)}\n"
                 f"Tasks: {status.get('current_tasks', 0)}",
                 title=f"[bold]{name}[/bold]",
                 border_style=status_color,
-                width=50,
+                width=60,
             ))
 
 
@@ -190,6 +202,7 @@ def interactive_chat() -> None:
     console.print(Panel(
         "[bold]Agent Swarm - Interactive Mode[/bold]\n\n"
         "Chat with the Supreme Orchestrator to manage your swarms.\n"
+        "The orchestrator can spawn parallel agents for complex tasks.\n\n"
         "Type 'quit' or 'exit' to leave.\n"
         "Type 'help' for available commands.",
         border_style="cyan",
@@ -200,7 +213,8 @@ def interactive_chat() -> None:
         console.print("\n[dim]Available swarms:[/dim]")
         for name, swarm in orchestrator.swarms.items():
             status = swarm.config.status
-            console.print(f"  • {name} [{status}]")
+            agent_count = len(swarm.agents)
+            console.print(f"  • {name} [{status}] - {agent_count} agents")
     else:
         console.print("\n[yellow]No swarms found. Create one with 'new <name>'[/yellow]")
 
@@ -230,7 +244,8 @@ def interactive_chat() -> None:
                 "**Or ask anything:**\n"
                 "  • Route requests to swarms\n"
                 "  • Get project overviews\n"
-                "  • Coordinate cross-swarm activities",
+                "  • Coordinate cross-swarm activities\n"
+                "  • Run parallel agent tasks",
                 title="Help",
                 border_style="green",
             ))
@@ -270,8 +285,12 @@ def interactive_chat() -> None:
 @cli.command("run")
 @click.argument("swarm")
 @click.argument("directive")
-def run_directive(swarm: str, directive: str) -> None:
-    """Send a directive to a specific swarm."""
+@click.option("--parallel", "-p", is_flag=True, help="Run with parallel agents")
+def run_directive(swarm: str, directive: str, parallel: bool) -> None:
+    """Send a directive to a specific swarm.
+
+    Use --parallel to spawn researcher, implementer, and critic in parallel.
+    """
     orchestrator = get_orchestrator()
 
     swarm_obj = orchestrator.get_swarm(swarm)
@@ -279,17 +298,82 @@ def run_directive(swarm: str, directive: str) -> None:
         console.print(f"[red]Swarm '{swarm}' not found.[/red]")
         return
 
-    console.print(f"[dim]Sending directive to {swarm}...[/dim]")
+    if parallel:
+        console.print(f"[bold]Running on {swarm} with parallel agents...[/bold]\n")
 
-    try:
-        response = asyncio.run(orchestrator.send_directive(swarm, directive))
-        console.print(Panel(
-            Markdown(response),
-            title=f"[bold]{swarm} Response[/bold]",
-            border_style="green",
-        ))
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
+        async def run_parallel():
+            collected_output = []
+            async for message in orchestrator.run_parallel_on_swarm(swarm, directive):
+                if isinstance(message, dict):
+                    content = message.get("content", message.get("result", str(message)))
+                else:
+                    content = str(message)
+                collected_output.append(content)
+                console.print(f"[dim]{content[:200]}...[/dim]" if len(content) > 200 else f"[dim]{content}[/dim]")
+
+            return "\n".join(collected_output)
+
+        try:
+            result = asyncio.run(run_parallel())
+            console.print(Panel(
+                Markdown(result) if result else "[dim]No output[/dim]",
+                title=f"[bold]{swarm} Parallel Execution Complete[/bold]",
+                border_style="green",
+            ))
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+    else:
+        console.print(f"[dim]Sending directive to {swarm}...[/dim]")
+
+        try:
+            response = asyncio.run(orchestrator.send_directive(swarm, directive))
+            console.print(Panel(
+                Markdown(response),
+                title=f"[bold]{swarm} Response[/bold]",
+                border_style="green",
+            ))
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+
+
+@cli.command("agents")
+@click.argument("swarm", required=False)
+def list_agents(swarm: Optional[str]) -> None:
+    """List all agents, optionally filtered by swarm."""
+    orchestrator = get_orchestrator()
+
+    table = Table(title="Available Agents", show_header=True, header_style="bold cyan")
+    table.add_column("Agent", style="green")
+    table.add_column("Type", style="yellow")
+    table.add_column("Model")
+    table.add_column("Background", justify="center")
+    table.add_column("Description")
+
+    if swarm:
+        swarm_obj = orchestrator.get_swarm(swarm)
+        if not swarm_obj:
+            console.print(f"[red]Swarm '{swarm}' not found.[/red]")
+            return
+
+        for name, defn in swarm_obj.agent_definitions.items():
+            table.add_row(
+                name,
+                defn.agent_type,
+                defn.model,
+                "✓" if defn.background else "",
+                defn.description[:50] + "..." if len(defn.description) > 50 else defn.description,
+            )
+    else:
+        for name, defn in orchestrator.all_agents.items():
+            table.add_row(
+                name,
+                defn.agent_type,
+                defn.model,
+                "✓" if defn.background else "",
+                defn.description[:50] + "..." if len(defn.description) > 50 else defn.description,
+            )
+
+    console.print(table)
 
 
 @cli.command("pause")

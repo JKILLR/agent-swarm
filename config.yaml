@@ -2,28 +2,56 @@
 
 system:
   name: "Agent Swarm"
-  version: "0.1.0"
+  version: "0.2.0"
   log_level: "INFO"
   logs_dir: "./logs"
 
-# Model configuration
+# Model configuration by role
 models:
   default: "claude-sonnet-4-5-20250929"
+  orchestrator: "claude-opus-4-5-20251101"
+  worker: "claude-sonnet-4-5-20250929"
+  researcher: "claude-sonnet-4-5-20250929"
+  implementer: "claude-sonnet-4-5-20250929"
+  critic: "claude-sonnet-4-5-20250929"
+  monitor: "claude-haiku-4-5-20251001"
 
 # Supreme Orchestrator settings
 orchestrator:
   auto_discover: true
-  routing_model: "claude-sonnet-4-5-20250929"
+  routing_model: "claude-opus-4-5-20251101"
 
-# Default agent settings
+# Execution settings for parallel/background agents
+execution:
+  default_mode: "parallel"  # parallel, sequential
+  wake_messaging: true
+  background_monitors: true
+  max_parallel_agents: 5
+  agent_timeout: 300  # seconds
+
+# Default agent settings by type
 agent_defaults:
   max_turns: 25
   timeout: 300  # seconds
   tools:
     orchestrator:
+      - "Task"
       - "Read"
       - "Glob"
       - "Bash"
+    researcher:
+      - "Read"
+      - "Bash"
+      - "Grep"
+      - "Glob"
+      - "WebSearch"
+    implementer:
+      - "Read"
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Grep"
+      - "Glob"
     worker:
       - "Read"
       - "Write"
@@ -32,7 +60,12 @@ agent_defaults:
       - "Glob"
     critic:
       - "Read"
+      - "Grep"
       - "Glob"
+    monitor:
+      - "Bash"
+      - "Read"
+      - "Grep"
 
 # Consensus protocol settings
 consensus:
