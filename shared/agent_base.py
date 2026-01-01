@@ -207,14 +207,25 @@ class BaseAgent:
         )
 
         async for message in query(prompt=full_prompt, options=options):
+            # Handle different message formats from SDK
             if hasattr(message, 'content'):
-                chunk = message.content
+                content = message.content
+                # Content may be a list of content blocks
+                if isinstance(content, list):
+                    chunk = "".join(
+                        block.get('text', '') if isinstance(block, dict) else str(block)
+                        for block in content
+                    )
+                else:
+                    chunk = str(content)
             elif isinstance(message, str):
                 chunk = message
             else:
                 chunk = str(message)
-            full_response += chunk
-            yield chunk
+
+            if chunk:
+                full_response += chunk
+                yield chunk
 
         # Log the conversation
         self._log_conversation(prompt, full_response, workspace)

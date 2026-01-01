@@ -444,8 +444,19 @@ class Swarm(SwarmInterface):
         )
 
         async for message in query(prompt=prompt, options=options):
+            # Handle different message formats from SDK
             if hasattr(message, 'content'):
-                yield {"type": "text", "content": message.content}
+                content = message.content
+                # Content may be a list of content blocks
+                if isinstance(content, list):
+                    text = "".join(
+                        block.get('text', '') if isinstance(block, dict) else str(block)
+                        for block in content
+                    )
+                else:
+                    text = str(content)
+                if text:
+                    yield {"type": "text", "content": text}
             elif isinstance(message, str):
                 yield {"type": "text", "content": message}
             else:
