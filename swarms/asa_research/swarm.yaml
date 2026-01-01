@@ -25,6 +25,12 @@ agents:
     prompt_file: agents/critic.md
     max_turns: 20
 
+  - name: benchmarker
+    role: benchmarker
+    prompt_file: agents/benchmarker.md
+    max_turns: 25
+    background: true
+
 workspace: ./workspace
 
 settings:
