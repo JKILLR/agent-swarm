@@ -203,27 +203,11 @@ class BaseAgent:
 
         full_response = ""
 
-        if query is None:
-            # SDK not available - return mock response
-            mock_response = f"[{self.name} ({self.role})]: Acknowledged. {prompt[:50]}..."
-            full_response = mock_response
-            yield mock_response
-        else:
-            # Build options for Claude Agent SDK
-            options = ClaudeAgentOptions(
-                model=self.config.model,
-                system_prompt=self.system_prompt,
-                max_turns=self.config.max_turns,
-                tools=self.config.tools,
-            )
-
-            if workspace:
-                options.cwd = workspace
-
-            # Run the agent
-            async for chunk in query(prompt, options):
-                full_response += chunk
-                yield chunk
+        # Always use mock response for now - SDK API compatibility TBD
+        # The claude_agent_sdk package exists but has different API than expected
+        mock_response = f"[{self.name} ({self.role})]: Acknowledged.\n\nProcessing: {prompt[:200]}{'...' if len(prompt) > 200 else ''}\n\nThis is a simulated response. To enable real agent execution, configure the Claude API integration."
+        full_response = mock_response
+        yield mock_response
 
         # Log the conversation
         self._log_conversation(prompt, full_response, workspace)

@@ -274,19 +274,9 @@ Analyze requests and route to appropriate swarms. For complex tasks, use paralle
         for name, defn in self.all_agents.items():
             sdk_agents[name] = defn.to_sdk_definition()
 
-        if query is not None and ClaudeAgentOptions is not None:
-            options = ClaudeAgentOptions(
-                allowed_tools=["Task", "Read", "Bash", "Glob"],
-                agents=sdk_agents,
-                cwd=str(self.base_path),
-            )
-            async for message in query(user_input, options):
-                yield message
-        else:
-            # Fallback when SDK not available
-            logger.warning("Claude Agent SDK not available, using routing agent")
-            response = await self.route_request(user_input)
-            yield {"type": "text", "content": response}
+        # Use routing agent - SDK API compatibility TBD
+        response = await self.route_request(user_input)
+        yield {"type": "text", "content": response}
 
     async def route_request(self, user_input: str) -> str:
         """Route a user request to the appropriate swarm.
