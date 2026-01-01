@@ -22,7 +22,8 @@ interface SwarmDetails {
 
 export default function SwarmPage() {
   const params = useParams()
-  const name = params.name as string
+  // Decode URL-encoded name (e.g., "ASA%20Research" -> "ASA Research")
+  const name = decodeURIComponent(params.name as string)
 
   const [swarm, setSwarm] = useState<SwarmDetails | null>(null)
   const [agents, setAgents] = useState<Agent[]>([])
