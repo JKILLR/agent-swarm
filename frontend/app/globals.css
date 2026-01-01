@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 24, 24, 27;
+  --background-end-rgb: 9, 9, 11;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #27272a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #52525b;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #71717a;
+}
+
+/* Agent type border colors */
+.border-agent-orchestrator {
+  border-color: #3b82f6;
+}
+
+.border-agent-researcher {
+  border-color: #22c55e;
+}
+
+.border-agent-implementer {
+  border-color: #eab308;
+}
+
+.border-agent-critic {
+  border-color: #ef4444;
+}
+
+.border-agent-benchmarker {
+  border-color: #a855f7;
+}
+
+.border-agent-monitor {
+  border-color: #06b6d4;
+}
+
+.border-agent-summary {
+  border-color: #14b8a6;
+}
+
+/* Text colors for agent types */
+.text-agent-orchestrator {
+  color: #3b82f6;
+}
+
+.text-agent-researcher {
+  color: #22c55e;
+}
+
+.text-agent-implementer {
+  color: #eab308;
+}
+
+.text-agent-critic {
+  color: #ef4444;
+}
+
+.text-agent-benchmarker {
+  color: #a855f7;
+}
+
+.text-agent-monitor {
+  color: #06b6d4;
+}
+
+.text-agent-summary {
+  color: #14b8a6;
+}
+
+/* Thinking animation */
+@keyframes thinking {
+  0%, 80%, 100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.thinking-dot {
+  animation: thinking 1.4s infinite ease-in-out both;
+}
+
+.thinking-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.thinking-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
