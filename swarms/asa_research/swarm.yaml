@@ -1,28 +1,90 @@
 name: ASA Research
-description: Artificial Superintelligence Alignment research project
-version: 0.1.0
+description: Atomic Semantic Attention — transformer attention with predetermined linguistic sparsity
+version: 0.2.0
 status: active
+
 agents:
-- name: orchestrator
-  role: orchestrator
-  prompt_file: agents/orchestrator.md
-  max_turns: 30
-- name: worker
-  role: worker
-  prompt_file: agents/worker.md
-  max_turns: 25
-- name: critic
-  role: critic
-  prompt_file: agents/critic.md
-  max_turns: 20
+  - name: orchestrator
+    role: orchestrator
+    prompt_file: agents/orchestrator.md
+    max_turns: 30
+
+  - name: researcher
+    role: researcher
+    prompt_file: agents/researcher.md
+    max_turns: 25
+    background: true
+
+  - name: implementer
+    role: implementer
+    prompt_file: agents/implementer.md
+    max_turns: 30
+
+  - name: critic
+    role: critic
+    prompt_file: agents/critic.md
+    max_turns: 20
+
 workspace: ./workspace
+
 settings:
   max_concurrent_tasks: 3
   require_consensus: true
   consensus_threshold: 0.7
   timeout: 300
   min_voters: 2
+
+# ASA Development Priorities (from roadmap)
+# Validated: H6 correlation (73.9%), convergence (21% faster), equivalent PPL
+# Next: True sparse attention to unlock efficiency claims
 priorities:
-- Set up project structure
-- Define initial requirements
-- Create development roadmap
+  - priority: 1
+    task: "Implement true sparse attention O(N×k)"
+    description: "Replace masked O(N²) with actual sparse kernels (xformers or triton)"
+    status: not_started
+    blockers: []
+
+  - priority: 2
+    task: "Long-context benchmarks (4096+ tokens)"
+    description: "Where quadratic attention hurts most, ASA should shine"
+    status: not_started
+    blockers:
+      - "Requires sparse attention implementation"
+
+  - priority: 3
+    task: "Scale testing at 100M+ parameters"
+    description: "Validate H6 correlation holds at larger scales"
+    status: not_started
+    blockers:
+      - "Requires cloud GPU access"
+
+  - priority: 4
+    task: "Wall-clock measurements"
+    description: "Actual timing benchmarks, not just theoretical complexity"
+    status: not_started
+    blockers:
+      - "Requires sparse attention implementation"
+
+  - priority: 5
+    task: "Consumer hardware demo"
+    description: "Run optimized ASA on laptop/desktop GPU"
+    status: not_started
+    blockers:
+      - "Requires sparse implementation"
+      - "Requires optimization pass"
+
+# Key metrics to track
+metrics:
+  h6_correlation: 0.739
+  convergence_improvement: 0.21
+  baseline_ppl: 26.56
+  asa_ppl: 26.33
+  sparsity_ratio: 0.35
+
+# Research directions
+research_topics:
+  - "xformers BlockSparseAttention compatibility"
+  - "Triton custom kernel for bonding mask"
+  - "Flash Attention integration"
+  - "Longformer/BigBird comparison"
+  - "Scaling laws for linguistic priors"
