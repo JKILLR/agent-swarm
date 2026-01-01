@@ -24,8 +24,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from supreme.orchestrator import SupremeOrchestrator
 from shared.swarm_interface import load_swarm
+from shared.output_formatter import OutputFormatter, create_formatter
 
 console = Console()
+formatter = create_formatter(console)
 
 
 def setup_logging(level: str = "INFO") -> None:
@@ -269,15 +271,12 @@ def interactive_chat() -> None:
             continue
 
         # Route through Supreme Orchestrator
-        console.print("[dim]Thinking...[/dim]")
+        formatter.print_thinking("Supreme Orchestrator", "orchestrator")
 
         try:
             response = asyncio.run(orchestrator.route_request(user_input))
-            console.print(Panel(
-                Markdown(response),
-                title="[bold]Supreme Orchestrator[/bold]",
-                border_style="blue",
-            ))
+            formatter.print_divider()
+            formatter.format_response(response)
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")
 
@@ -305,33 +304,29 @@ def run_directive(swarm: str, directive: str, parallel: bool) -> None:
             collected_output = []
             async for message in orchestrator.run_parallel_on_swarm(swarm, directive):
                 if isinstance(message, dict):
+                    agent_name = message.get("agent", "Agent")
+                    agent_type = message.get("type", "worker")
                     content = message.get("content", message.get("result", str(message)))
+                    formatter.print_thinking(agent_name, agent_type)
                 else:
                     content = str(message)
                 collected_output.append(content)
-                console.print(f"[dim]{content[:200]}...[/dim]" if len(content) > 200 else f"[dim]{content}[/dim]")
 
             return "\n".join(collected_output)
 
         try:
             result = asyncio.run(run_parallel())
-            console.print(Panel(
-                Markdown(result) if result else "[dim]No output[/dim]",
-                title=f"[bold]{swarm} Parallel Execution Complete[/bold]",
-                border_style="green",
-            ))
+            formatter.print_divider("Results")
+            formatter.format_response(result)
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")
     else:
-        console.print(f"[dim]Sending directive to {swarm}...[/dim]")
+        formatter.print_thinking(swarm, "orchestrator")
 
         try:
             response = asyncio.run(orchestrator.send_directive(swarm, directive))
-            console.print(Panel(
-                Markdown(response),
-                title=f"[bold]{swarm} Response[/bold]",
-                border_style="green",
-            ))
+            formatter.print_divider()
+            formatter.format_response(response)
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")
 
