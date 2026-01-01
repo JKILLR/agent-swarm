@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MessageSquare, Play, Pause, Archive } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Play, Pause, Archive, FolderOpen } from 'lucide-react'
 import { getSwarm, getSwarmAgents, type Agent } from '@/lib/api'
 import AgentPanel from '@/components/AgentPanel'
+import FileBrowser from '@/components/FileBrowser'
 import { cn, getStatusColor } from '@/lib/utils'
 
 interface SwarmDetails {
@@ -26,6 +27,7 @@ export default function SwarmPage() {
   const [swarm, setSwarm] = useState<SwarmDetails | null>(null)
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
+  const [showFiles, setShowFiles] = useState(true)
 
   useEffect(() => {
     if (!name) return
@@ -155,13 +157,30 @@ export default function SwarmPage() {
       )}
 
       {/* Agents */}
-      <div>
+      <div className="mb-8">
         <h2 className="text-lg font-semibold text-white mb-4">Agents</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {agents.map((agent) => (
             <AgentPanel key={agent.name} agent={agent} />
           ))}
         </div>
+      </div>
+
+      {/* Workspace Files */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <FolderOpen className="w-5 h-5" />
+            Workspace Files
+          </h2>
+          <button
+            onClick={() => setShowFiles(!showFiles)}
+            className="text-sm text-zinc-500 hover:text-white transition-colors"
+          >
+            {showFiles ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        {showFiles && <FileBrowser swarmName={name} />}
       </div>
     </div>
   )

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { getChatWebSocket, type WebSocketEvent } from '@/lib/websocket'
-import ChatInput from '@/components/ChatInput'
+import ChatInput, { type Attachment } from '@/components/ChatInput'
 import ChatMessage from '@/components/ChatMessage'
 import AgentResponse from '@/components/AgentResponse'
 import { Bot, WifiOff } from 'lucide-react'
@@ -15,6 +15,7 @@ interface Message {
   agentType?: string
   status?: 'thinking' | 'complete'
   timestamp: Date
+  attachments?: Attachment[]
 }
 
 export default function ChatPage() {
@@ -104,8 +105,8 @@ export default function ChatPage() {
     }
   }, [])
 
-  const handleSend = useCallback((content: string) => {
-    // Add user message
+  const handleSend = useCallback((content: string, attachments: Attachment[]) => {
+    // Add user message with attachments
     setMessages((prev) => [
       ...prev,
       {
@@ -113,17 +114,39 @@ export default function ChatPage() {
         type: 'user',
         content,
         timestamp: new Date(),
+        attachments: attachments.length > 0 ? attachments : undefined,
       },
     ])
 
+    // Build message with attachment context for the AI
+    let fullMessage = content
+
+    if (attachments.length > 0) {
+      const attachmentDescriptions = attachments.map((a) => {
+        if (a.type === 'text') {
+          return `\n\n--- Attached Text: ${a.name} ---\n${a.content}\n--- End Attachment ---`
+        } else if (a.type === 'image') {
+          return `\n\n[Attached Image: ${a.name}]`
+        } else {
+          return `\n\n[Attached Document: ${a.name}]`
+        }
+      })
+      fullMessage += attachmentDescriptions.join('')
+    }
+
     // Send via WebSocket
     try {
-      wsRef.current.send(content)
+      wsRef.current.send(fullMessage)
     } catch (e) {
       console.error('Failed to send message:', e)
       setIsLoading(false)
     }
   }, [])
+
+  // Simplified send for suggestion buttons
+  const handleQuickSend = useCallback((content: string) => {
+    handleSend(content, [])
+  }, [handleSend])
 
   return (
     <div className="flex flex-col h-full">
@@ -168,13 +191,13 @@ export default function ChatPage() {
               <p className="text-xs text-zinc-600">Try asking:</p>
               <div className="space-y-1">
                 <button
-                  onClick={() => handleSend('What is the current status of the ASA project?')}
+                  onClick={() => handleQuickSend('What is the current status of the ASA project?')}
                   className="block text-sm text-zinc-400 hover:text-blue-400 transition-colors"
                 >
                   → What is the current status of the ASA project?
                 </button>
                 <button
-                  onClick={() => handleSend('Research sparse attention implementations for ASA')}
+                  onClick={() => handleQuickSend('Research sparse attention implementations for ASA')}
                   className="block text-sm text-zinc-400 hover:text-blue-400 transition-colors"
                 >
                   → Research sparse attention implementations for ASA
@@ -189,6 +212,7 @@ export default function ChatPage() {
                 key={message.id}
                 content={message.content}
                 timestamp={message.timestamp}
+                attachments={message.attachments}
               />
             ) : (
               <AgentResponse
