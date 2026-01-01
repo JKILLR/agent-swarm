@@ -185,7 +185,14 @@ Analyze requests and route to appropriate swarms. For complex tasks, use paralle
             lines.append(f"- Agents: {', '.join(agent_list)}")
 
             if status['priorities']:
-                lines.append(f"- Priorities: {', '.join(status['priorities'][:3])}")
+                # Handle both string and dict priorities
+                priority_strs = []
+                for p in status['priorities'][:3]:
+                    if isinstance(p, dict):
+                        priority_strs.append(p.get('task', str(p)))
+                    else:
+                        priority_strs.append(str(p))
+                lines.append(f"- Priorities: {', '.join(priority_strs)}")
             lines.append("")
 
         return "\n".join(lines)
