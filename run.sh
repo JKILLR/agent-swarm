@@ -9,12 +9,15 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 echo -e "${GREEN}Starting Agent Swarm Web Interface${NC}"
 echo ""
 
 # Check if we're in the right directory
-if [ ! -f "main.py" ]; then
-    echo -e "${RED}Error: Run this script from the agent-swarm root directory${NC}"
+if [ ! -f "$SCRIPT_DIR/main.py" ]; then
+    echo -e "${RED}Error: main.py not found in $SCRIPT_DIR${NC}"
     exit 1
 fi
 
@@ -29,32 +32,20 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-# Install backend dependencies if needed
-if [ ! -d "backend/.venv" ] && [ ! -d "venv" ]; then
-    echo -e "${YELLOW}Installing backend dependencies...${NC}"
-    pip install -r backend/requirements.txt
-fi
-
-# Install frontend dependencies if needed
-if [ ! -d "frontend/node_modules" ]; then
-    echo -e "${YELLOW}Installing frontend dependencies...${NC}"
-    cd frontend && npm install && cd ..
-fi
-
 # Start backend
 echo -e "${GREEN}Starting backend on http://localhost:8000${NC}"
-cd backend && python -m uvicorn main:app --reload --port 8000 &
+cd "$SCRIPT_DIR/backend"
+python3 -m uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
-cd ..
 
 # Wait a bit for backend to start
 sleep 2
 
 # Start frontend
 echo -e "${GREEN}Starting frontend on http://localhost:3000${NC}"
-cd frontend && npm run dev &
+cd "$SCRIPT_DIR/frontend"
+npm run dev &
 FRONTEND_PID=$!
-cd ..
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
