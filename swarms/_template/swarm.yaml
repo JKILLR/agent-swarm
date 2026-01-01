@@ -1,0 +1,40 @@
+# Swarm Configuration Template
+# Copy this directory to create a new swarm
+
+name: "Template Swarm"
+description: "A template swarm for creating new project swarms"
+version: "0.1.0"
+status: "paused"  # active, paused, archived
+
+# Agents in this swarm
+# Reference agent prompt files in the agents/ directory
+agents:
+  - name: "orchestrator"
+    role: "orchestrator"
+    prompt_file: "agents/orchestrator.md"
+    max_turns: 30
+  - name: "worker"
+    role: "worker"
+    prompt_file: "agents/worker.md"
+    max_turns: 25
+  - name: "critic"
+    role: "critic"
+    prompt_file: "agents/critic.md"
+    max_turns: 20
+
+# Workspace for swarm-specific files
+workspace: "./workspace"
+
+# Swarm settings
+settings:
+  max_concurrent_tasks: 3
+  require_consensus: true
+  consensus_threshold: 0.7
+  timeout: 300
+  min_voters: 2
+
+# Current priorities (update as project evolves)
+priorities:
+  - "Set up project structure"
+  - "Define initial requirements"
+  - "Create development roadmap"

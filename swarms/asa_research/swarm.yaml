@@ -1,0 +1,28 @@
+name: ASA Research
+description: Artificial Superintelligence Alignment research project
+version: 0.1.0
+status: active
+agents:
+- name: orchestrator
+  role: orchestrator
+  prompt_file: agents/orchestrator.md
+  max_turns: 30
+- name: worker
+  role: worker
+  prompt_file: agents/worker.md
+  max_turns: 25
+- name: critic
+  role: critic
+  prompt_file: agents/critic.md
+  max_turns: 20
+workspace: ./workspace
+settings:
+  max_concurrent_tasks: 3
+  require_consensus: true
+  consensus_threshold: 0.7
+  timeout: 300
+  min_voters: 2
+priorities:
+- Set up project structure
+- Define initial requirements
+- Create development roadmap

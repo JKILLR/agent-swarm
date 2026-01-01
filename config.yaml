@@ -1,0 +1,46 @@
+# Agent Swarm Configuration
+
+system:
+  name: "Agent Swarm"
+  version: "0.1.0"
+  log_level: "INFO"
+  logs_dir: "./logs"
+
+# Model configuration
+models:
+  default: "claude-sonnet-4-5-20250929"
+
+# Supreme Orchestrator settings
+orchestrator:
+  auto_discover: true
+  routing_model: "claude-sonnet-4-5-20250929"
+
+# Default agent settings
+agent_defaults:
+  max_turns: 25
+  timeout: 300  # seconds
+  tools:
+    orchestrator:
+      - "Read"
+      - "Glob"
+      - "Bash"
+    worker:
+      - "Read"
+      - "Write"
+      - "Edit"
+      - "Bash"
+      - "Glob"
+    critic:
+      - "Read"
+      - "Glob"
+
+# Consensus protocol settings
+consensus:
+  # Actions that require consensus before proceeding
+  required_for:
+    - "code_changes"
+    - "research_conclusions"
+    - "priority_changes"
+    - "architecture_decisions"
+  min_voters: 2
+  default_threshold: 0.7  # Percentage needed to approve

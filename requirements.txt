@@ -1,0 +1,20 @@
+# Agent Swarm Dependencies
+
+# Claude Agent SDK
+claude-agent-sdk>=0.1.0
+
+# Configuration
+pyyaml>=6.0
+
+# CLI Framework
+click>=8.0
+
+# Rich terminal output
+rich>=13.0
+
+# Async support (included in Python 3.7+, listed for clarity)
+# asyncio is part of standard library
+
+# Optional: Type checking
+# mypy>=1.0
+# types-PyYAML
