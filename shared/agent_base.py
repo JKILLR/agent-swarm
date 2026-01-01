@@ -13,12 +13,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 import yaml
 
-try:
-    from claude_agent_sdk import query, ClaudeAgentOptions
-except ImportError:
-    # Fallback for development/testing without SDK installed
-    query = None
-    ClaudeAgentOptions = None
+from claude_agent_sdk import query, ClaudeAgentOptions
 
 
 logger = logging.getLogger(__name__)
@@ -203,11 +198,23 @@ class BaseAgent:
 
         full_response = ""
 
-        # Always use mock response for now - SDK API compatibility TBD
-        # The claude_agent_sdk package exists but has different API than expected
-        mock_response = f"[{self.name} ({self.role})]: Acknowledged.\n\nProcessing: {prompt[:200]}{'...' if len(prompt) > 200 else ''}\n\nThis is a simulated response. To enable real agent execution, configure the Claude API integration."
-        full_response = mock_response
-        yield mock_response
+        # Build the full prompt with system context
+        full_prompt = f"{self.system_prompt}\n\n{prompt}"
+
+        # Use Claude Agent SDK query() - uses claude login auth
+        options = ClaudeAgentOptions(
+            allowed_tools=self.config.tools or ["Read", "Glob"],
+        )
+
+        async for message in query(prompt=full_prompt, options=options):
+            if hasattr(message, 'content'):
+                chunk = message.content
+            elif isinstance(message, str):
+                chunk = message
+            else:
+                chunk = str(message)
+            full_response += chunk
+            yield chunk
 
         # Log the conversation
         self._log_conversation(prompt, full_response, workspace)
