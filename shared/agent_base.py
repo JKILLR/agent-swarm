@@ -13,7 +13,14 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 import yaml
 
-from claude_agent_sdk import query, ClaudeAgentOptions
+# Try to import Claude Agent SDK, provide mock if not available
+try:
+    from claude_agent_sdk import query, ClaudeAgentOptions
+    CLAUDE_SDK_AVAILABLE = True
+except ImportError:
+    CLAUDE_SDK_AVAILABLE = False
+    query = None
+    ClaudeAgentOptions = None
 
 
 logger = logging.getLogger(__name__)
@@ -200,6 +207,14 @@ class BaseAgent:
 
         # Build the full prompt with system context
         full_prompt = f"{self.system_prompt}\n\n{prompt}"
+
+        # Check if Claude Agent SDK is available
+        if not CLAUDE_SDK_AVAILABLE:
+            # Return mock response for local development
+            mock_response = f"[Mock response from {self.name}]\n\nThe Claude Agent SDK is not available in this environment. To use the full agent functionality, run this from within Claude Code.\n\nPrompt received: {prompt[:200]}..."
+            yield mock_response
+            self._log_conversation(prompt, mock_response, workspace)
+            return
 
         # Use Claude Agent SDK query() - uses claude login auth
         options = ClaudeAgentOptions(

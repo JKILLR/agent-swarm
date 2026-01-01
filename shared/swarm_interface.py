@@ -10,11 +10,16 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 import yaml
 
-from .agent_base import AgentConfig, BaseAgent
+from .agent_base import AgentConfig, BaseAgent, CLAUDE_SDK_AVAILABLE
 from .agent_definitions import AgentDefinition, load_agent_from_file, AGENT_TYPES
 from .consensus import ConsensusResult, ConsensusProtocol
 
-from claude_agent_sdk import query, ClaudeAgentOptions
+# Try to import Claude Agent SDK
+try:
+    from claude_agent_sdk import query, ClaudeAgentOptions
+except ImportError:
+    query = None
+    ClaudeAgentOptions = None
 
 logger = logging.getLogger(__name__)
 
@@ -437,6 +442,14 @@ class Swarm(SwarmInterface):
         prompt = self._format_parallel_dispatch(tasks)
 
         logger.info(f"Running parallel execution for {len(tasks)} tasks")
+
+        # Check if Claude Agent SDK is available
+        if not CLAUDE_SDK_AVAILABLE or query is None:
+            mock_response = f"[Mock parallel execution]\n\nThe Claude Agent SDK is not available. Tasks queued:\n"
+            for i, task in enumerate(tasks, 1):
+                mock_response += f"{i}. {task.get('agent', 'worker')}: {task.get('prompt', '')[:100]}...\n"
+            yield {"type": "text", "content": mock_response}
+            return
 
         # Use Claude Agent SDK query() - uses claude login auth
         options = ClaudeAgentOptions(
