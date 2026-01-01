@@ -14,11 +14,7 @@ from .agent_base import AgentConfig, BaseAgent
 from .agent_definitions import AgentDefinition, load_agent_from_file, AGENT_TYPES
 from .consensus import ConsensusResult, ConsensusProtocol
 
-try:
-    from claude_agent_sdk import query, ClaudeAgentOptions
-except ImportError:
-    query = None
-    ClaudeAgentOptions = None
+from claude_agent_sdk import query, ClaudeAgentOptions
 
 logger = logging.getLogger(__name__)
 
@@ -440,17 +436,20 @@ class Swarm(SwarmInterface):
         """
         prompt = self._format_parallel_dispatch(tasks)
 
-        # Build agents dict for SDK
-        sdk_agents = {}
-        for name, defn in self.agent_definitions.items():
-            sdk_agents[name] = defn.to_sdk_definition()
+        logger.info(f"Running parallel execution for {len(tasks)} tasks")
 
-        # Use mock parallel execution - SDK API compatibility TBD
-        logger.info("Running mock parallel execution")
-        yield {
-            "type": "text",
-            "content": f"[Parallel Execution Plan]\n{prompt}\n\n[Simulated - configure Claude API for real execution]",
-        }
+        # Use Claude Agent SDK query() - uses claude login auth
+        options = ClaudeAgentOptions(
+            allowed_tools=["Task", "Read", "Write", "Edit", "Bash", "Glob"],
+        )
+
+        async for message in query(prompt=prompt, options=options):
+            if hasattr(message, 'content'):
+                yield {"type": "text", "content": message.content}
+            elif isinstance(message, str):
+                yield {"type": "text", "content": message}
+            else:
+                yield {"type": "text", "content": str(message)}
 
     async def receive_directive(self, directive: str) -> str:
         """Receive and process a directive from the supreme orchestrator."""
