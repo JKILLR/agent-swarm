@@ -13,6 +13,7 @@ import {
 import ChatInput, { type Attachment } from '@/components/ChatInput'
 import ChatMessage from '@/components/ChatMessage'
 import AgentResponse from '@/components/AgentResponse'
+import ActivityFeed, { type ActivityItem } from '@/components/ActivityFeed'
 import { Bot, WifiOff, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface Message {
@@ -35,6 +36,7 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([])
   const [showSidebar, setShowSidebar] = useState(true)
+  const [activities, setActivities] = useState<ActivityItem[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef(getChatWebSocket())
   const pendingMessageRef = useRef<{ content: string; agent?: string; thinking?: string } | null>(null)
@@ -141,6 +143,40 @@ export default function ChatPage() {
       switch (event.type) {
         case 'chat_start':
           setIsLoading(true)
+          setActivities([]) // Clear activities for new chat
+          break
+
+        case 'tool_start':
+          // Add new activity for tool starting
+          setActivities((prev) => [
+            ...prev,
+            {
+              id: `tool-${Date.now()}-${event.tool}`,
+              tool: event.tool || 'Unknown',
+              description: event.description || '',
+              status: 'running',
+              timestamp: new Date(),
+            },
+          ])
+          break
+
+        case 'tool_complete':
+          // Update activity status when tool completes
+          setActivities((prev) => {
+            // Find the most recent running activity for this tool
+            const idx = [...prev].reverse().findIndex(
+              (a) => a.tool === event.tool && a.status === 'running'
+            )
+            if (idx === -1) return prev
+            const actualIdx = prev.length - 1 - idx
+            const updated = [...prev]
+            updated[actualIdx] = {
+              ...updated[actualIdx],
+              status: event.success ? 'complete' : 'error',
+              summary: event.summary,
+            }
+            return updated
+          })
           break
 
         case 'agent_start':
@@ -441,7 +477,7 @@ export default function ChatPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-auto p-6 space-y-6">
+        <div className="flex-1 overflow-auto p-6 space-y-6 relative">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <Bot className="w-16 h-16 text-purple-700 mb-4" />
@@ -493,6 +529,14 @@ export default function ChatPage() {
               )
             ))
           )}
+
+          {/* Live Activity Feed - shows during loading */}
+          {isLoading && activities.length > 0 && (
+            <div className="sticky bottom-0 pt-4">
+              <ActivityFeed activities={activities} maxItems={8} />
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 

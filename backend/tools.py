@@ -310,46 +310,96 @@ class ToolExecutor:
         if self.websocket and self.manager:
             await self.manager.send_event(self.websocket, event_type, data)
 
+    def _get_tool_description(self, tool_name: str, tool_input: Dict[str, Any]) -> str:
+        """Generate a human-readable description of what a tool is doing."""
+        descriptions = {
+            "Task": lambda i: f"Spawning {i.get('agent', 'agent')} for task",
+            "Read": lambda i: f"Reading {i.get('path', 'file')}",
+            "Write": lambda i: f"Writing to {i.get('path', 'file')}",
+            "Bash": lambda i: f"Running: {i.get('command', '')[:50]}...",
+            "Glob": lambda i: f"Finding files matching {i.get('pattern', '*')}",
+            "Grep": lambda i: f"Searching for '{i.get('pattern', '')}' in files",
+            "ListSwarms": lambda i: "Listing all swarms",
+            "GetSwarmStatus": lambda i: f"Getting status of {i.get('swarm', 'swarm')}",
+            "WebSearch": lambda i: f"Searching web for: {i.get('query', '')[:40]}",
+            "WebFetch": lambda i: f"Fetching {i.get('url', 'URL')[:50]}",
+            "ReadImage": lambda i: f"Analyzing image: {i.get('path', 'image')}",
+            "ParallelTasks": lambda i: f"Running {len(i.get('tasks', []))} tasks in parallel",
+            "GitCommit": lambda i: f"Committing to {i.get('branch', 'branch')}",
+            "GitSync": lambda i: f"Syncing with {i.get('branch', 'main')}",
+            "GitStatus": lambda i: "Checking git status",
+        }
+
+        desc_fn = descriptions.get(tool_name, lambda i: f"Executing {tool_name}")
+        try:
+            return desc_fn(tool_input)
+        except Exception:
+            return f"Executing {tool_name}"
+
     async def execute(self, tool_name: str, tool_input: Dict[str, Any]) -> str:
         """Execute a tool and return the result."""
         logger.info(f"Executing tool: {tool_name} with input: {tool_input}")
 
+        # Send tool start event
+        tool_desc = self._get_tool_description(tool_name, tool_input)
+        await self.send_event("tool_start", {
+            "tool": tool_name,
+            "description": tool_desc,
+            "input": {k: str(v)[:100] for k, v in tool_input.items()}  # Truncate long values
+        })
+
         try:
+            result = None
             if tool_name == "Task":
-                return await self._execute_task(tool_input)
+                result = await self._execute_task(tool_input)
             elif tool_name == "Read":
-                return await self._execute_read(tool_input)
+                result = await self._execute_read(tool_input)
             elif tool_name == "Write":
-                return await self._execute_write(tool_input)
+                result = await self._execute_write(tool_input)
             elif tool_name == "Bash":
-                return await self._execute_bash(tool_input)
+                result = await self._execute_bash(tool_input)
             elif tool_name == "Glob":
-                return await self._execute_glob(tool_input)
+                result = await self._execute_glob(tool_input)
             elif tool_name == "Grep":
-                return await self._execute_grep(tool_input)
+                result = await self._execute_grep(tool_input)
             elif tool_name == "ListSwarms":
-                return await self._execute_list_swarms(tool_input)
+                result = await self._execute_list_swarms(tool_input)
             elif tool_name == "GetSwarmStatus":
-                return await self._execute_get_swarm_status(tool_input)
+                result = await self._execute_get_swarm_status(tool_input)
             elif tool_name == "WebSearch":
-                return await self._execute_web_search(tool_input)
+                result = await self._execute_web_search(tool_input)
             elif tool_name == "WebFetch":
-                return await self._execute_web_fetch(tool_input)
+                result = await self._execute_web_fetch(tool_input)
             elif tool_name == "ReadImage":
-                return await self._execute_read_image(tool_input)
+                result = await self._execute_read_image(tool_input)
             elif tool_name == "ParallelTasks":
-                return await self._execute_parallel_tasks(tool_input)
+                result = await self._execute_parallel_tasks(tool_input)
             elif tool_name == "GitCommit":
-                return await self._execute_git_commit(tool_input)
+                result = await self._execute_git_commit(tool_input)
             elif tool_name == "GitSync":
-                return await self._execute_git_sync(tool_input)
+                result = await self._execute_git_sync(tool_input)
             elif tool_name == "GitStatus":
-                return await self._execute_git_status(tool_input)
+                result = await self._execute_git_status(tool_input)
             else:
-                return f"Unknown tool: {tool_name}"
+                result = f"Unknown tool: {tool_name}"
+
+            # Send tool complete event
+            await self.send_event("tool_complete", {
+                "tool": tool_name,
+                "success": not result.startswith("Error"),
+                "summary": result[:150] + "..." if len(result) > 150 else result
+            })
+
+            return result
         except Exception as e:
             logger.error(f"Tool execution error: {e}")
-            return f"Error executing {tool_name}: {str(e)}"
+            error_msg = f"Error executing {tool_name}: {str(e)}"
+            await self.send_event("tool_complete", {
+                "tool": tool_name,
+                "success": False,
+                "summary": error_msg[:150]
+            })
+            return error_msg
 
     async def _execute_task(self, input: Dict[str, Any]) -> str:
         """Spawn a subagent to handle a task."""

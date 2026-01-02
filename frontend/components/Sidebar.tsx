@@ -3,14 +3,16 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MessageSquare, LayoutDashboard, Bot, Settings } from 'lucide-react'
+import { MessageSquare, LayoutDashboard, Bot, Settings, Loader2 } from 'lucide-react'
 import { getSwarms, type Swarm } from '@/lib/api'
 import { cn, getStatusColor } from '@/lib/utils'
+import { useAgentActivity } from '@/lib/AgentActivityContext'
 
 export default function Sidebar() {
   const pathname = usePathname()
   const [swarms, setSwarms] = useState<Swarm[]>([])
   const [loading, setLoading] = useState(true)
+  const { getSwarmActiveCount } = useAgentActivity()
 
   useEffect(() => {
     getSwarms()
@@ -67,6 +69,7 @@ export default function Sidebar() {
           <div className="space-y-1">
             {swarms.map((swarm) => {
               const encodedName = encodeURIComponent(swarm.name)
+              const activeCount = getSwarmActiveCount(swarm.name)
               return (
                 <Link
                   key={swarm.name}
@@ -75,12 +78,21 @@ export default function Sidebar() {
                     'flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
                     pathname === `/swarm/${encodedName}`
                       ? 'bg-zinc-800 text-white'
-                      : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
+                      : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white',
+                    activeCount > 0 && 'border border-amber-500/30'
                   )}
                 >
-                  <span className="truncate">{swarm.name}</span>
-                  <span className={cn('text-xs', getStatusColor(swarm.status))}>
-                    {swarm.agent_count}
+                  <span className="flex items-center gap-2 truncate">
+                    {activeCount > 0 && (
+                      <Loader2 className="w-3 h-3 text-amber-400 animate-spin flex-shrink-0" />
+                    )}
+                    {swarm.name}
+                  </span>
+                  <span className={cn(
+                    'text-xs',
+                    activeCount > 0 ? 'text-amber-400' : getStatusColor(swarm.status)
+                  )}>
+                    {activeCount > 0 ? `${activeCount} active` : swarm.agent_count}
                   </span>
                 </Link>
               )
