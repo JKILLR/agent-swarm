@@ -31,16 +31,7 @@ load_dotenv(BACKEND_DIR / ".env")
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(BACKEND_DIR))
 
-# Try to import Anthropic SDK
-try:
-    import anthropic
-
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    ANTHROPIC_AVAILABLE = False
-
 # Use absolute imports (work both as module and direct execution)
-from tools import ToolExecutor, get_tool_definitions
 from memory import get_memory_manager
 from supreme.orchestrator import SupremeOrchestrator
 from jobs import get_job_queue, get_job_manager, JobStatus
@@ -894,132 +885,6 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def run_agentic_chat(
-    system_prompt: str,
-    user_message: str,
-    websocket: WebSocket,
-    manager: ConnectionManager,
-    orchestrator: SupremeOrchestrator,
-) -> dict:
-    """
-    Run an agentic chat loop with tool execution.
-    The COO can delegate to swarm agents using the Task tool.
-    """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set")
-
-    if not ANTHROPIC_AVAILABLE:
-        raise RuntimeError("Anthropic SDK not installed")
-
-    client = anthropic.Anthropic(api_key=api_key)
-    tool_executor = ToolExecutor(orchestrator, websocket, manager)
-    tools = get_tool_definitions()
-
-    full_response = ""
-    full_thinking = ""
-
-    messages = [{"role": "user", "content": user_message}]
-
-    # Agentic loop - continue until no more tool calls
-    max_iterations = 50  # Higher limit for complex multi-agent tasks
-    for iteration in range(max_iterations):
-        logger.info(f"Agentic loop iteration {iteration + 1}")
-
-        # Make API call with tools
-        response = client.messages.create(
-            model="claude-opus-4-5-20251101",
-            max_tokens=8192,
-            system=system_prompt,
-            tools=tools,
-            messages=messages,
-        )
-
-        # Process response content
-        text_content = ""
-        tool_uses = []
-
-        for block in response.content:
-            if hasattr(block, "text"):
-                text_content += block.text
-                # Stream text to frontend
-                await manager.send_event(
-                    websocket,
-                    "agent_delta",
-                    {
-                        "agent": "Supreme Orchestrator",
-                        "agent_type": "orchestrator",
-                        "delta": block.text,
-                    },
-                )
-            elif block.type == "tool_use":
-                tool_uses.append(block)
-                # Notify frontend about tool use
-                await manager.send_event(
-                    websocket,
-                    "agent_delta",
-                    {
-                        "agent": "Supreme Orchestrator",
-                        "agent_type": "orchestrator",
-                        "delta": f"\n\n🔧 *Using {block.name}...*\n",
-                    },
-                )
-
-        full_response += text_content
-
-        # If no tool calls, we're done
-        if response.stop_reason == "end_turn" or not tool_uses:
-            break
-
-        # Execute tools and collect results - IN PARALLEL for 3-5x speedup
-        if tool_uses:
-            # Add assistant message with tool uses
-            messages.append({"role": "assistant", "content": response.content})
-
-            logger.info(f"Executing {len(tool_uses)} tools in parallel")
-
-            # Execute all tools concurrently using asyncio.gather()
-            results = await asyncio.gather(*[
-                tool_executor.execute(tool_use.name, tool_use.input)
-                for tool_use in tool_uses
-            ], return_exceptions=True)
-
-            tool_results = []
-            for tool_use, result in zip(tool_uses, results):
-                # Handle exceptions from gather
-                if isinstance(result, Exception):
-                    result = f"Error: {str(result)}"
-                    logger.error(f"Tool {tool_use.name} failed: {result}")
-                else:
-                    logger.info(f"Tool {tool_use.name} completed")
-
-                # Stream tool result summary to frontend
-                result_str = str(result)
-                result_preview = result_str[:200] + "..." if len(result_str) > 200 else result_str
-                await manager.send_event(
-                    websocket,
-                    "agent_delta",
-                    {
-                        "agent": "Supreme Orchestrator",
-                        "agent_type": "orchestrator",
-                        "delta": f"\n📋 *{tool_use.name} result:* {result_preview}\n\n",
-                    },
-                )
-
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tool_use.id,
-                        "content": result_str,
-                    }
-                )
-
-            # Add tool results
-            messages.append({"role": "user", "content": tool_results})
-
-    return {"response": full_response, "thinking": full_thinking}
-
-
 async def stream_claude_response(
     prompt: str,
     swarm_name: str | None = None,
@@ -1206,20 +1071,8 @@ def _get_tool_description(tool_name: str, tool_input: dict) -> str:
 
 
 async def _process_cli_event(event: dict, websocket: WebSocket, manager, context: dict, session_mgr=None, chat_id: str = None):
-    """Process a single CLI event and update response/thinking.
-
-    Also captures session ID for continuity when session_mgr and chat_id are provided.
-    """
+    """Process a single CLI event and forward to WebSocket."""
     event_type = event.get("type", "")
-
-    # DEBUG: Log ALL events to a file for diagnosis
-    import json as json_debug
-    debug_log = Path(__file__).parent / "debug_events.log"
-    with open(debug_log, "a") as f:
-        f.write(f"[{event_type}] {json_debug.dumps(event)[:500]}\n")
-
-    # Log all event types to console
-    logger.info(f"CLI EVENT: type={event_type}, keys={list(event.keys())}")
 
     try:
         # Capture session ID from Claude output for session continuity
@@ -1227,10 +1080,7 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
             session_id = event.get("session_id") or event.get("sessionId")
             if session_id:
                 context["session_id"] = session_id
-                # Register the session for future --continue usage
-                import asyncio
                 asyncio.create_task(session_mgr.register_session(chat_id, session_id))
-                logger.info(f"Captured session ID {session_id[:8]}... for chat {chat_id}")
 
         if event_type == "assistant":
             # Assistant message in agentic loop - may have text, thinking, or tool_use blocks
@@ -1244,8 +1094,6 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 elif block.get("type") == "text":
                     text = block.get("text", "")
                     if text:
-                        logger.info(f">>> TEXT block in assistant message, length: {len(text)}")
-                        # Always send text content - this is the COO's response
                         await manager.send_event(
                             websocket,
                             "agent_delta",
@@ -1257,11 +1105,9 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                         )
                         context["full_response"] = context.get("full_response", "") + text
                 elif block.get("type") == "tool_use":
-                    # FALLBACK: Detect tool_use from final assistant message
-                    # This catches tools that weren't streamed via content_block_start
+                    # Fallback: detect tool_use from final assistant message
                     tool_name = block.get("name", "unknown")
                     tool_input = block.get("input", {})
-                    logger.info(f">>> FALLBACK tool_use detected in assistant message: {tool_name}")
 
                     # Track which agent is active (for attribution)
                     current_agent = context.get("current_subagent", "COO")
@@ -1311,7 +1157,6 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 tool_name = content_block.get("name", "unknown")
                 tool_input = content_block.get("input", {})
                 context["current_tool"] = tool_name
-                logger.info(f">>> SENDING tool_start event (stream): {tool_name}")
 
                 # Track which agent is active (for attribution)
                 current_agent = context.get("current_subagent", "COO")
@@ -1419,9 +1264,8 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 context["agent_spawn_sent"] = False
 
         elif event_type == "result":
-            # Final result from CLI - this should contain the complete response
+            # Final result from CLI
             text = event.get("result", "")
-            logger.info(f">>> RESULT event received, text length: {len(text) if text else 0}")
             if text:
                 # Always send the final result - this is the complete response
                 # Previous streaming may have only captured partial content
@@ -1690,17 +1534,7 @@ Files are at: swarms/<swarm_name>/workspace/
                 result = None
                 process = None
 
-                # Debug: Log what we're sending to Claude
-                logger.info("=" * 50)
-                logger.info("SENDING TO CLAUDE CLI:")
-                logger.info("=" * 50)
-                logger.info(f"System prompt length: {len(system_prompt)} chars")
-                logger.info(f"User prompt length: {len(user_prompt)} chars")
-                logger.info(f"User message: {user_message[:200]}...")
-                logger.info("=" * 50)
-
-                # Use Claude CLI - has built-in Task tool for delegation
-                logger.info("Starting COO with Claude CLI...")
+                # Use Claude CLI
                 try:
                     process = await stream_claude_response(
                         prompt=user_prompt,
