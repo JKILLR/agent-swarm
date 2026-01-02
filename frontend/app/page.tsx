@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Bot, Users, Activity, Plus, LayoutGrid, GitBranch } from 'lucide-react'
 import { getSwarms, getStatus, type Swarm, type HealthStatus } from '@/lib/api'
 import SwarmCard from '@/components/SwarmCard'
 import OrgChart from '@/components/OrgChart'
+import CreateSwarmModal from '@/components/CreateSwarmModal'
 
 type ViewMode = 'grid' | 'org'
 
@@ -13,8 +14,9 @@ export default function DashboardPage() {
   const [status, setStatus] = useState<HealthStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('org')
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     Promise.all([getSwarms(), getStatus()])
       .then(([swarmsData, statusData]) => {
         setSwarms(swarmsData)
@@ -23,6 +25,10 @@ export default function DashboardPage() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   if (loading) {
     return (
@@ -114,7 +120,10 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
           <Plus className="w-4 h-4" />
           New Swarm
         </button>
@@ -132,7 +141,10 @@ export default function DashboardPage() {
               <p className="text-sm text-zinc-500 mb-4">
                 Create your first swarm to get started
               </p>
-              <button className="flex items-center gap-2 px-4 py-2 mx-auto text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-4 py-2 mx-auto text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 <Plus className="w-4 h-4" />
                 Create Swarm
               </button>
@@ -146,6 +158,13 @@ export default function DashboardPage() {
           )}
         </>
       )}
+
+      {/* Create Swarm Modal */}
+      <CreateSwarmModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreated={loadData}
+      />
     </div>
   )
 }

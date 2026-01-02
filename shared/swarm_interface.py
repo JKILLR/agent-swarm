@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
 import yaml
 
-from .agent_base import AgentConfig, BaseAgent, CLAUDE_SDK_AVAILABLE
-from .agent_definitions import AgentDefinition, load_agent_from_file, AGENT_TYPES
-from .agent_executor import stream_agent, execute_agent
-from .consensus import ConsensusResult, ConsensusProtocol
+from .agent_base import CLAUDE_SDK_AVAILABLE, AgentConfig, BaseAgent
+from .agent_definitions import AGENT_TYPES, AgentDefinition, load_agent_from_file
+from .agent_executor import stream_agent
+from .consensus import ConsensusProtocol, ConsensusResult
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,13 @@ class SwarmConfig:
     description: str
     version: str = "0.1.0"
     status: str = "active"  # active, paused, archived
-    agents: List[Dict[str, Any]] = field(default_factory=list)
+    agents: list[dict[str, Any]] = field(default_factory=list)
     workspace_path: str = "./workspace"
-    settings: Dict[str, Any] = field(default_factory=dict)
-    priorities: List[str] = field(default_factory=list)
+    settings: dict[str, Any] = field(default_factory=dict)
+    priorities: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_yaml(cls, yaml_path: Path) -> "SwarmConfig":
+    def from_yaml(cls, yaml_path: Path) -> SwarmConfig:
         """Load SwarmConfig from a YAML file.
 
         Args:
@@ -55,7 +56,7 @@ class SwarmConfig:
             priorities=data.get("priorities", []),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -78,7 +79,7 @@ class SwarmInterface(ABC):
     """Abstract interface for swarm implementations."""
 
     @abstractmethod
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get current swarm status.
 
         Returns:
@@ -87,7 +88,7 @@ class SwarmInterface(ABC):
         pass
 
     @abstractmethod
-    def get_priorities(self) -> List[str]:
+    def get_priorities(self) -> list[str]:
         """Get current priorities.
 
         Returns:
@@ -108,7 +109,7 @@ class SwarmInterface(ABC):
         pass
 
     @abstractmethod
-    def report_progress(self) -> Dict[str, Any]:
+    def report_progress(self) -> dict[str, Any]:
         """Report current progress on tasks.
 
         Returns:
@@ -129,7 +130,7 @@ class SwarmInterface(ABC):
         pass
 
     @abstractmethod
-    async def run_parallel(self, tasks: List[Dict[str, Any]]) -> AsyncIterator[Any]:
+    async def run_parallel(self, tasks: list[dict[str, Any]]) -> AsyncIterator[Any]:
         """Run multiple agents in parallel.
 
         Args:
@@ -148,7 +149,7 @@ class Swarm(SwarmInterface):
         self,
         config: SwarmConfig,
         swarm_path: Path,
-        logs_dir: Optional[Path] = None,
+        logs_dir: Path | None = None,
     ) -> None:
         """Initialize the swarm.
 
@@ -160,13 +161,11 @@ class Swarm(SwarmInterface):
         self.config = config
         self.swarm_path = swarm_path
         self.logs_dir = logs_dir or Path("./logs")
-        self.agents: Dict[str, BaseAgent] = {}
-        self.agent_definitions: Dict[str, AgentDefinition] = {}
-        self.consensus_protocol = ConsensusProtocol(
-            logs_dir=self.logs_dir / "consensus"
-        )
-        self._current_tasks: List[Dict[str, Any]] = []
-        self._progress: Dict[str, Any] = {}
+        self.agents: dict[str, BaseAgent] = {}
+        self.agent_definitions: dict[str, AgentDefinition] = {}
+        self.consensus_protocol = ConsensusProtocol(logs_dir=self.logs_dir / "consensus")
+        self._current_tasks: list[dict[str, Any]] = []
+        self._progress: dict[str, Any] = {}
 
         # Load agents
         self._load_agents()
@@ -222,7 +221,6 @@ class Swarm(SwarmInterface):
                 # Try to load using AgentDefinition
                 if prompt_file.exists():
                     try:
-                        agent_type = agent_def.get("type") or agent_def.get("role", "worker")
                         agent_definition = load_agent_from_file(prompt_file)
 
                         # Override with explicit config values
@@ -358,22 +356,22 @@ class Swarm(SwarmInterface):
             return workspace
         return self.swarm_path / workspace
 
-    def get_agent(self, name: str) -> Optional[BaseAgent]:
+    def get_agent(self, name: str) -> BaseAgent | None:
         """Get agent by name."""
         return self.agents.get(name)
 
-    def get_agent_definition(self, name: str) -> Optional[AgentDefinition]:
+    def get_agent_definition(self, name: str) -> AgentDefinition | None:
         """Get agent definition by name."""
         return self.agent_definitions.get(name)
 
-    def get_orchestrator(self) -> Optional[BaseAgent]:
+    def get_orchestrator(self) -> BaseAgent | None:
         """Get the orchestrator agent if one exists."""
         for agent in self.agents.values():
             if agent.role == "orchestrator":
                 return agent
         return None
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get current swarm status."""
         agents_info = []
         for name, agent in self.agents.items():
@@ -397,15 +395,15 @@ class Swarm(SwarmInterface):
             "current_tasks": len(self._current_tasks),
         }
 
-    def get_priorities(self) -> List[str]:
+    def get_priorities(self) -> list[str]:
         """Get current priorities."""
         return self.config.priorities.copy()
 
-    def set_priorities(self, priorities: List[str]) -> None:
+    def set_priorities(self, priorities: list[str]) -> None:
         """Set priorities."""
         self.config.priorities = priorities
 
-    def _format_parallel_dispatch(self, tasks: List[Dict[str, Any]]) -> str:
+    def _format_parallel_dispatch(self, tasks: list[dict[str, Any]]) -> str:
         """Format tasks for parallel dispatch prompt.
 
         Args:
@@ -423,7 +421,7 @@ class Swarm(SwarmInterface):
         lines.append("\nWait for all to complete and synthesize their findings.")
         return "\n".join(lines)
 
-    async def run_parallel(self, tasks: List[Dict[str, Any]]) -> AsyncIterator[Any]:
+    async def run_parallel(self, tasks: list[dict[str, Any]]) -> AsyncIterator[Any]:
         """Run multiple agents in parallel with wake messaging.
 
         Args:
@@ -508,17 +506,14 @@ Please acknowledge this directive and outline how you will proceed."""
         response = await orchestrator.run_sync(prompt, str(self.workspace))
         return response
 
-    def report_progress(self) -> Dict[str, Any]:
+    def report_progress(self) -> dict[str, Any]:
         """Report current progress on tasks."""
         return {
             "swarm": self.config.name,
             "status": self.config.status,
             "tasks": self._current_tasks,
             "progress": self._progress,
-            "agent_activities": {
-                name: len(agent.conversation_history)
-                for name, agent in self.agents.items()
-            },
+            "agent_activities": {name: len(agent.conversation_history) for name, agent in self.agents.items()},
         }
 
     async def request_consensus(self, proposal: str) -> ConsensusResult:
@@ -541,22 +536,19 @@ Please acknowledge this directive and outline how you will proceed."""
             voters=voters,
         )
 
-    def add_task(self, task: Dict[str, Any]) -> None:
+    def add_task(self, task: dict[str, Any]) -> None:
         """Add a task to current tasks."""
         self._current_tasks.append(task)
 
     def complete_task(self, task_id: str) -> None:
         """Mark a task as complete."""
-        self._current_tasks = [
-            t for t in self._current_tasks
-            if t.get("id") != task_id
-        ]
+        self._current_tasks = [t for t in self._current_tasks if t.get("id") != task_id]
 
     def __repr__(self) -> str:
         return f"Swarm(name={self.name!r}, agents={len(self.agents)}, status={self.config.status!r})"
 
 
-def load_swarm(swarm_path: Path, logs_dir: Optional[Path] = None) -> Swarm:
+def load_swarm(swarm_path: Path, logs_dir: Path | None = None) -> Swarm:
     """Load a swarm from a directory.
 
     Args:

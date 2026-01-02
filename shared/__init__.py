@@ -2,16 +2,16 @@
 
 from .agent_base import AgentConfig, BaseAgent
 from .agent_definitions import (
-    AgentDefinition,
     AGENT_TYPES,
-    load_agent,
-    load_agent_from_file,
+    AgentDefinition,
     get_agent_type,
     list_agent_types,
+    load_agent,
+    load_agent_from_file,
     parse_frontmatter,
 )
-from .swarm_interface import SwarmConfig, SwarmInterface, Swarm, load_swarm
-from .consensus import Vote, ConsensusRound, ConsensusProtocol, ConsensusResult
+from .consensus import ConsensusProtocol, ConsensusResult, ConsensusRound, Vote
+from .swarm_interface import Swarm, SwarmConfig, SwarmInterface, load_swarm
 
 __all__ = [
     # Agent base

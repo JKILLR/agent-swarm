@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
+import mimetypes
 import os
-import subprocess
 import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-import base64
-import mimetypes
-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 # Add parent directory to path for imports
@@ -27,6 +24,7 @@ PROJECT_ROOT = BACKEND_DIR.parent
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
+
 load_dotenv(BACKEND_DIR / ".env")
 
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -34,14 +32,15 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # Try to import Anthropic SDK
 try:
     import anthropic
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
-from supreme.orchestrator import SupremeOrchestrator
-from shared.swarm_interface import load_swarm
-from tools import get_tool_definitions, ToolExecutor
+from tools import ToolExecutor, get_tool_definitions
+
 from memory import get_memory_manager
+from supreme.orchestrator import SupremeOrchestrator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -64,7 +63,7 @@ app.add_middleware(
 )
 
 # Global orchestrator instance
-orchestrator: Optional[SupremeOrchestrator] = None
+orchestrator: SupremeOrchestrator | None = None
 
 
 def get_orchestrator() -> SupremeOrchestrator:
@@ -88,7 +87,7 @@ class SwarmCreate(BaseModel):
 
 class ChatMessage(BaseModel):
     message: str
-    swarm: Optional[str] = None
+    swarm: str | None = None
 
 
 class SwarmResponse(BaseModel):
@@ -96,7 +95,7 @@ class SwarmResponse(BaseModel):
     description: str
     status: str
     agent_count: int
-    priorities: List[str]
+    priorities: list[str]
 
 
 class AgentInfo(BaseModel):
@@ -119,17 +118,17 @@ class ChatMessageModel(BaseModel):
     role: str  # "user" or "assistant"
     content: str
     timestamp: str
-    agent: Optional[str] = None
-    thinking: Optional[str] = None
+    agent: str | None = None
+    thinking: str | None = None
 
 
 class ChatSession(BaseModel):
     id: str
     title: str
-    swarm: Optional[str] = None
+    swarm: str | None = None
     created_at: str
     updated_at: str
-    messages: List[ChatMessageModel] = []
+    messages: list[ChatMessageModel] = []
 
 
 class ChatHistoryManager:
@@ -142,26 +141,28 @@ class ChatHistoryManager:
     def _session_path(self, session_id: str) -> Path:
         return self.chat_dir / f"{session_id}.json"
 
-    def list_sessions(self) -> List[Dict[str, Any]]:
+    def list_sessions(self) -> list[dict[str, Any]]:
         """List all chat sessions (without full messages)."""
         sessions = []
         for file in sorted(self.chat_dir.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True):
             try:
                 data = json.loads(file.read_text())
                 # Return summary without full messages
-                sessions.append({
-                    "id": data["id"],
-                    "title": data.get("title", "Untitled"),
-                    "swarm": data.get("swarm"),
-                    "created_at": data.get("created_at"),
-                    "updated_at": data.get("updated_at"),
-                    "message_count": len(data.get("messages", [])),
-                })
+                sessions.append(
+                    {
+                        "id": data["id"],
+                        "title": data.get("title", "Untitled"),
+                        "swarm": data.get("swarm"),
+                        "created_at": data.get("created_at"),
+                        "updated_at": data.get("updated_at"),
+                        "message_count": len(data.get("messages", [])),
+                    }
+                )
             except (json.JSONDecodeError, KeyError) as e:
                 logger.warning(f"Failed to read chat session {file}: {e}")
         return sessions
 
-    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_session(self, session_id: str) -> dict[str, Any] | None:
         """Get a chat session with all messages."""
         path = self._session_path(session_id)
         if not path.exists():
@@ -171,7 +172,7 @@ class ChatHistoryManager:
         except json.JSONDecodeError:
             return None
 
-    def create_session(self, swarm: Optional[str] = None, title: Optional[str] = None) -> Dict[str, Any]:
+    def create_session(self, swarm: str | None = None, title: str | None = None) -> dict[str, Any]:
         """Create a new chat session."""
         session_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
@@ -186,8 +187,9 @@ class ChatHistoryManager:
         self._save_session(session)
         return session
 
-    def add_message(self, session_id: str, role: str, content: str,
-                    agent: Optional[str] = None, thinking: Optional[str] = None) -> Dict[str, Any]:
+    def add_message(
+        self, session_id: str, role: str, content: str, agent: str | None = None, thinking: str | None = None
+    ) -> dict[str, Any]:
         """Add a message to a session."""
         session = self.get_session(session_id)
         if not session:
@@ -211,7 +213,7 @@ class ChatHistoryManager:
         self._save_session(session)
         return message
 
-    def update_session(self, session_id: str, **kwargs) -> Optional[Dict[str, Any]]:
+    def update_session(self, session_id: str, **kwargs) -> dict[str, Any] | None:
         """Update session metadata (title, swarm, etc.)."""
         session = self.get_session(session_id)
         if not session:
@@ -232,14 +234,14 @@ class ChatHistoryManager:
             return True
         return False
 
-    def _save_session(self, session: Dict[str, Any]):
+    def _save_session(self, session: dict[str, Any]):
         """Save session to disk."""
         path = self._session_path(session["id"])
         path.write_text(json.dumps(session, indent=2))
 
 
 # Global chat history manager
-chat_history: Optional[ChatHistoryManager] = None
+chat_history: ChatHistoryManager | None = None
 
 
 def get_chat_history() -> ChatHistoryManager:
@@ -263,12 +265,12 @@ async def get_status():
 
 
 @app.get("/api/swarms")
-async def list_swarms() -> List[Dict[str, Any]]:
+async def list_swarms() -> list[dict[str, Any]]:
     """List all swarms with status."""
     orch = get_orchestrator()
     swarms = []
 
-    for name, swarm in orch.swarms.items():
+    for _name, swarm in orch.swarms.items():
         status = swarm.get_status()
         priorities = status.get("priorities", [])
         # Handle dict priorities
@@ -279,20 +281,22 @@ async def list_swarms() -> List[Dict[str, Any]]:
             else:
                 priority_strs.append(str(p))
 
-        swarms.append({
-            "name": status["name"],
-            "description": status["description"],
-            "status": status["status"],
-            "agent_count": status["agent_count"],
-            "priorities": priority_strs,
-            "version": status.get("version", "0.1.0"),
-        })
+        swarms.append(
+            {
+                "name": status["name"],
+                "description": status["description"],
+                "status": status["status"],
+                "agent_count": status["agent_count"],
+                "priorities": priority_strs,
+                "version": status.get("version", "0.1.0"),
+            }
+        )
 
     return swarms
 
 
 @app.get("/api/swarms/{name}")
-async def get_swarm(name: str) -> Dict[str, Any]:
+async def get_swarm(name: str) -> dict[str, Any]:
     """Get detailed swarm information."""
     orch = get_orchestrator()
     swarm = orch.get_swarm(name)
@@ -305,7 +309,7 @@ async def get_swarm(name: str) -> Dict[str, Any]:
 
 
 @app.post("/api/swarms")
-async def create_swarm(data: SwarmCreate) -> Dict[str, Any]:
+async def create_swarm(data: SwarmCreate) -> dict[str, Any]:
     """Create a new swarm from template."""
     orch = get_orchestrator()
 
@@ -323,7 +327,7 @@ async def create_swarm(data: SwarmCreate) -> Dict[str, Any]:
 
 
 @app.get("/api/swarms/{name}/agents")
-async def list_agents(name: str) -> List[Dict[str, Any]]:
+async def list_agents(name: str) -> list[dict[str, Any]]:
     """List agents in a swarm."""
     orch = get_orchestrator()
     swarm = orch.get_swarm(name)
@@ -333,19 +337,21 @@ async def list_agents(name: str) -> List[Dict[str, Any]]:
 
     agents = []
     for agent_name, defn in swarm.agent_definitions.items():
-        agents.append({
-            "name": agent_name,
-            "type": defn.agent_type,
-            "model": defn.model,
-            "background": defn.background,
-            "description": defn.description,
-        })
+        agents.append(
+            {
+                "name": agent_name,
+                "type": defn.agent_type,
+                "model": defn.model,
+                "background": defn.background,
+                "description": defn.description,
+            }
+        )
 
     return agents
 
 
 @app.post("/api/chat")
-async def chat(data: ChatMessage) -> Dict[str, Any]:
+async def chat(data: ChatMessage) -> dict[str, Any]:
     """Send a chat message (non-streaming)."""
     orch = get_orchestrator()
 
@@ -361,7 +367,7 @@ async def chat(data: ChatMessage) -> Dict[str, Any]:
 
 
 # File Management Endpoints
-def get_file_info(file_path: Path, workspace: Path) -> Dict[str, Any]:
+def get_file_info(file_path: Path, workspace: Path) -> dict[str, Any]:
     """Get file information including type and size."""
     relative_path = file_path.relative_to(workspace)
     stat = file_path.stat()
@@ -380,7 +386,24 @@ def get_file_info(file_path: Path, workspace: Path) -> Dict[str, Any]:
     else:
         # Check by extension
         ext = file_path.suffix.lower()
-        if ext in [".py", ".js", ".ts", ".tsx", ".jsx", ".md", ".txt", ".yaml", ".yml", ".json", ".toml", ".cfg", ".ini", ".sh", ".css", ".html"]:
+        if ext in [
+            ".py",
+            ".js",
+            ".ts",
+            ".tsx",
+            ".jsx",
+            ".md",
+            ".txt",
+            ".yaml",
+            ".yml",
+            ".json",
+            ".toml",
+            ".cfg",
+            ".ini",
+            ".sh",
+            ".css",
+            ".html",
+        ]:
             category = "text"
         elif ext in [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"]:
             category = "image"
@@ -399,7 +422,7 @@ def get_file_info(file_path: Path, workspace: Path) -> Dict[str, Any]:
 
 
 @app.get("/api/swarms/{name}/files")
-async def list_files(name: str, path: str = "") -> Dict[str, Any]:
+async def list_files(name: str, path: str = "") -> dict[str, Any]:
     """List files in a swarm's workspace."""
     orch = get_orchestrator()
     swarm = orch.get_swarm(name)
@@ -457,7 +480,7 @@ async def list_files(name: str, path: str = "") -> Dict[str, Any]:
 
 
 @app.get("/api/swarms/{name}/files/content")
-async def get_file_content(name: str, path: str) -> Dict[str, Any]:
+async def get_file_content(name: str, path: str) -> dict[str, Any]:
     """Get content of a file in the workspace."""
     orch = get_orchestrator()
     swarm = orch.get_swarm(name)
@@ -507,7 +530,7 @@ async def upload_file(
     filename: str = Form(None),
     content: str = Form(None),
     is_text: bool = Form(True),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Upload or create a file in the workspace."""
     orch = get_orchestrator()
     swarm = orch.get_swarm(name)
@@ -556,7 +579,7 @@ async def upload_file(
 
 
 @app.post("/api/swarms/{name}/files/directory")
-async def create_directory(name: str, path: str = Form(...)) -> Dict[str, Any]:
+async def create_directory(name: str, path: str = Form(...)) -> dict[str, Any]:
     """Create a directory in the workspace."""
     orch = get_orchestrator()
     swarm = orch.get_swarm(name)
@@ -582,7 +605,7 @@ async def create_directory(name: str, path: str = Form(...)) -> Dict[str, Any]:
 
 
 @app.delete("/api/swarms/{name}/files")
-async def delete_file(name: str, path: str) -> Dict[str, Any]:
+async def delete_file(name: str, path: str) -> dict[str, Any]:
     """Delete a file or empty directory from workspace."""
     orch = get_orchestrator()
     swarm = orch.get_swarm(name)
@@ -623,7 +646,7 @@ async def delete_file(name: str, path: str) -> Dict[str, Any]:
 
 # Chat History Endpoints
 @app.get("/api/chat/sessions")
-async def list_chat_sessions() -> List[Dict[str, Any]]:
+async def list_chat_sessions() -> list[dict[str, Any]]:
     """List all chat sessions."""
     history = get_chat_history()
     return history.list_sessions()
@@ -631,16 +654,16 @@ async def list_chat_sessions() -> List[Dict[str, Any]]:
 
 @app.post("/api/chat/sessions")
 async def create_chat_session(
-    swarm: Optional[str] = None,
-    title: Optional[str] = None,
-) -> Dict[str, Any]:
+    swarm: str | None = None,
+    title: str | None = None,
+) -> dict[str, Any]:
     """Create a new chat session."""
     history = get_chat_history()
     return history.create_session(swarm=swarm, title=title)
 
 
 @app.get("/api/chat/sessions/{session_id}")
-async def get_chat_session(session_id: str) -> Dict[str, Any]:
+async def get_chat_session(session_id: str) -> dict[str, Any]:
     """Get a chat session with all messages."""
     history = get_chat_history()
     session = history.get_session(session_id)
@@ -652,9 +675,9 @@ async def get_chat_session(session_id: str) -> Dict[str, Any]:
 @app.put("/api/chat/sessions/{session_id}")
 async def update_chat_session(
     session_id: str,
-    title: Optional[str] = None,
-    swarm: Optional[str] = None,
-) -> Dict[str, Any]:
+    title: str | None = None,
+    swarm: str | None = None,
+) -> dict[str, Any]:
     """Update chat session metadata."""
     history = get_chat_history()
     kwargs = {}
@@ -670,7 +693,7 @@ async def update_chat_session(
 
 
 @app.delete("/api/chat/sessions/{session_id}")
-async def delete_chat_session(session_id: str) -> Dict[str, Any]:
+async def delete_chat_session(session_id: str) -> dict[str, Any]:
     """Delete a chat session."""
     history = get_chat_history()
     if history.delete_session(session_id):
@@ -683,9 +706,9 @@ async def add_chat_message(
     session_id: str,
     role: str,
     content: str,
-    agent: Optional[str] = None,
-    thinking: Optional[str] = None,
-) -> Dict[str, Any]:
+    agent: str | None = None,
+    thinking: str | None = None,
+) -> dict[str, Any]:
     """Add a message to a chat session."""
     history = get_chat_history()
     try:
@@ -699,7 +722,7 @@ class ConnectionManager:
     """Manage WebSocket connections."""
 
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -710,25 +733,29 @@ class ConnectionManager:
         self.active_connections.remove(websocket)
         logger.info(f"WebSocket disconnected. Total: {len(self.active_connections)}")
 
-    async def send_event(self, websocket: WebSocket, event_type: str, data: Dict[str, Any]):
+    async def send_event(self, websocket: WebSocket, event_type: str, data: dict[str, Any]):
         """Send a structured event to the client."""
-        await websocket.send_json({
-            "type": event_type,
-            **data,
-        })
+        await websocket.send_json(
+            {
+                "type": event_type,
+                **data,
+            }
+        )
 
 
 manager = ConnectionManager()
 
 
-def parse_agent_output(content: str) -> List[Dict[str, Any]]:
+def parse_agent_output(content: str) -> list[dict[str, Any]]:
     """Parse raw agent output into structured events."""
     import re
 
     events = []
 
     # Try to detect agent sections
-    sections = re.split(r"\n(?=#{1,3}\s+|\*\*(?:Researcher|Implementer|Critic|Summary|Key Finding|Recommendation))", content)
+    sections = re.split(
+        r"\n(?=#{1,3}\s+|\*\*(?:Researcher|Implementer|Critic|Summary|Key Finding|Recommendation))", content
+    )
 
     current_agent = "Supreme Orchestrator"
     current_type = "orchestrator"
@@ -752,11 +779,13 @@ def parse_agent_output(content: str) -> List[Dict[str, Any]]:
             current_agent = "Summary"
             current_type = "summary"
 
-        events.append({
-            "agent": current_agent,
-            "agent_type": current_type,
-            "content": section,
-        })
+        events.append(
+            {
+                "agent": current_agent,
+                "agent_type": current_type,
+                "content": section,
+            }
+        )
 
     return events if events else [{"agent": "Supreme Orchestrator", "agent_type": "orchestrator", "content": content}]
 
@@ -765,7 +794,7 @@ async def run_agentic_chat(
     system_prompt: str,
     user_message: str,
     websocket: WebSocket,
-    manager: "ConnectionManager",
+    manager: ConnectionManager,
     orchestrator: SupremeOrchestrator,
 ) -> dict:
     """
@@ -810,19 +839,27 @@ async def run_agentic_chat(
             if hasattr(block, "text"):
                 text_content += block.text
                 # Stream text to frontend
-                await manager.send_event(websocket, "agent_delta", {
-                    "agent": "Supreme Orchestrator",
-                    "agent_type": "orchestrator",
-                    "delta": block.text,
-                })
+                await manager.send_event(
+                    websocket,
+                    "agent_delta",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "agent_type": "orchestrator",
+                        "delta": block.text,
+                    },
+                )
             elif block.type == "tool_use":
                 tool_uses.append(block)
                 # Notify frontend about tool use
-                await manager.send_event(websocket, "agent_delta", {
-                    "agent": "Supreme Orchestrator",
-                    "agent_type": "orchestrator",
-                    "delta": f"\n\n🔧 *Using {block.name}...*\n",
-                })
+                await manager.send_event(
+                    websocket,
+                    "agent_delta",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "agent_type": "orchestrator",
+                        "delta": f"\n\n🔧 *Using {block.name}...*\n",
+                    },
+                )
 
         full_response += text_content
 
@@ -844,17 +881,23 @@ async def run_agentic_chat(
 
                 # Stream tool result summary to frontend
                 result_preview = result[:200] + "..." if len(result) > 200 else result
-                await manager.send_event(websocket, "agent_delta", {
-                    "agent": "Supreme Orchestrator",
-                    "agent_type": "orchestrator",
-                    "delta": f"\n📋 *{tool_use.name} result:* {result_preview}\n\n",
-                })
+                await manager.send_event(
+                    websocket,
+                    "agent_delta",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "agent_type": "orchestrator",
+                        "delta": f"\n📋 *{tool_use.name} result:* {result_preview}\n\n",
+                    },
+                )
 
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": tool_use.id,
-                    "content": result,
-                })
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_use.id,
+                        "content": result,
+                    }
+                )
 
             # Add tool results
             messages.append({"role": "user", "content": tool_results})
@@ -865,7 +908,7 @@ async def run_agentic_chat(
 async def stream_anthropic_response(
     prompt: str,
     websocket: WebSocket,
-    manager: "ConnectionManager",
+    manager: ConnectionManager,
 ) -> dict:
     """
     Stream response using the Anthropic SDK (fallback without tools).
@@ -890,47 +933,63 @@ async def stream_anthropic_response(
         messages=[{"role": "user", "content": prompt}],
     ) as stream:
         for event in stream:
-            if hasattr(event, 'type'):
+            if hasattr(event, "type"):
                 if event.type == "content_block_start":
                     block = event.content_block
-                    if hasattr(block, 'type') and block.type == "thinking":
-                        await manager.send_event(websocket, "thinking_start", {
-                            "agent": "Claude",
-                        })
+                    if hasattr(block, "type") and block.type == "thinking":
+                        await manager.send_event(
+                            websocket,
+                            "thinking_start",
+                            {
+                                "agent": "Claude",
+                            },
+                        )
 
                 elif event.type == "content_block_delta":
                     delta = event.delta
-                    if hasattr(delta, 'type'):
+                    if hasattr(delta, "type"):
                         if delta.type == "thinking_delta":
                             text = delta.thinking
                             full_thinking += text
-                            await manager.send_event(websocket, "thinking_delta", {
-                                "agent": "Claude",
-                                "delta": text,
-                            })
+                            await manager.send_event(
+                                websocket,
+                                "thinking_delta",
+                                {
+                                    "agent": "Claude",
+                                    "delta": text,
+                                },
+                            )
                         elif delta.type == "text_delta":
                             text = delta.text
                             full_response += text
-                            await manager.send_event(websocket, "agent_delta", {
-                                "agent": "Claude",
-                                "agent_type": "assistant",
-                                "delta": text,
-                            })
+                            await manager.send_event(
+                                websocket,
+                                "agent_delta",
+                                {
+                                    "agent": "Claude",
+                                    "agent_type": "assistant",
+                                    "delta": text,
+                                },
+                            )
 
                 elif event.type == "content_block_stop":
                     if full_thinking:
-                        await manager.send_event(websocket, "thinking_complete", {
-                            "agent": "Claude",
-                            "thinking": full_thinking,
-                        })
+                        await manager.send_event(
+                            websocket,
+                            "thinking_complete",
+                            {
+                                "agent": "Claude",
+                                "thinking": full_thinking,
+                            },
+                        )
 
     return {"response": full_response, "thinking": full_thinking}
 
 
 async def stream_claude_response(
     prompt: str,
-    swarm_name: Optional[str] = None,
-    workspace: Optional[Path] = None,
+    swarm_name: str | None = None,
+    workspace: Path | None = None,
 ) -> asyncio.subprocess.Process:
     """
     Start a claude CLI process and return it for streaming.
@@ -942,9 +1001,11 @@ async def stream_claude_response(
     cmd = [
         "claude",
         "-p",  # Print mode (non-interactive)
-        "--output-format", "stream-json",
+        "--output-format",
+        "stream-json",
         "--verbose",  # Required for stream-json output
-        "--permission-mode", "acceptEdits",  # Allow file writes without interactive approval
+        "--permission-mode",
+        "acceptEdits",  # Allow file writes without interactive approval
         prompt,  # Pass prompt as argument
     ]
 
@@ -978,7 +1039,7 @@ async def stream_claude_response(
 async def parse_claude_stream(
     process: asyncio.subprocess.Process,
     websocket: WebSocket,
-    manager: "ConnectionManager",
+    manager: ConnectionManager,
 ) -> dict:
     """
     Parse streaming JSON output from claude CLI and send events to WebSocket.
@@ -1069,9 +1130,13 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
             context["current_block_type"] = content_block.get("type", "text")
 
             if context["current_block_type"] == "thinking":
-                await manager.send_event(websocket, "thinking_start", {
-                    "agent": "Supreme Orchestrator",
-                })
+                await manager.send_event(
+                    websocket,
+                    "thinking_start",
+                    {
+                        "agent": "Supreme Orchestrator",
+                    },
+                )
 
         elif event_type == "content_block_delta":
             delta = event.get("delta", {})
@@ -1080,36 +1145,52 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
             if delta_type == "thinking_delta":
                 text = delta.get("thinking", "")
                 context["full_thinking"] = context.get("full_thinking", "") + text
-                await manager.send_event(websocket, "thinking_delta", {
-                    "agent": "Supreme Orchestrator",
-                    "delta": text,
-                })
+                await manager.send_event(
+                    websocket,
+                    "thinking_delta",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "delta": text,
+                    },
+                )
             elif delta_type == "text_delta":
                 text = delta.get("text", "")
                 context["full_response"] = context.get("full_response", "") + text
-                await manager.send_event(websocket, "agent_delta", {
-                    "agent": "Supreme Orchestrator",
-                    "agent_type": "orchestrator",
-                    "delta": text,
-                })
+                await manager.send_event(
+                    websocket,
+                    "agent_delta",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "agent_type": "orchestrator",
+                        "delta": text,
+                    },
+                )
 
         elif event_type == "content_block_stop":
             if context.get("current_block_type") == "thinking":
-                await manager.send_event(websocket, "thinking_complete", {
-                    "agent": "Supreme Orchestrator",
-                    "thinking": context.get("full_thinking", ""),
-                })
+                await manager.send_event(
+                    websocket,
+                    "thinking_complete",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "thinking": context.get("full_thinking", ""),
+                    },
+                )
 
         elif event_type == "result":
             # Final result from CLI - only use if we didn't stream content
             text = event.get("result", "")
             if text and not context.get("full_response"):
                 context["full_response"] = text
-                await manager.send_event(websocket, "agent_delta", {
-                    "agent": "Supreme Orchestrator",
-                    "agent_type": "orchestrator",
-                    "delta": text,
-                })
+                await manager.send_event(
+                    websocket,
+                    "agent_delta",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "agent_type": "orchestrator",
+                        "delta": text,
+                    },
+                )
     except Exception as e:
         logger.error(f"Error processing CLI event: {e}")
 
@@ -1126,52 +1207,73 @@ async def websocket_chat(websocket: WebSocket):
             # Receive message from client
             data = await websocket.receive_json()
             message = data.get("message", "")
-            swarm_name = data.get("swarm")
+            _swarm_name = data.get("swarm")  # Reserved for future swarm-specific routing
             session_id = data.get("session_id")
 
             if not message:
                 continue
 
             # Send acknowledgment
-            await manager.send_event(websocket, "chat_start", {
-                "message": message,
-            })
+            await manager.send_event(
+                websocket,
+                "chat_start",
+                {
+                    "message": message,
+                },
+            )
 
             # Send thinking indicator
-            await manager.send_event(websocket, "agent_start", {
-                "agent": "Supreme Orchestrator",
-                "agent_type": "orchestrator",
-            })
+            await manager.send_event(
+                websocket,
+                "agent_start",
+                {
+                    "agent": "Supreme Orchestrator",
+                    "agent_type": "orchestrator",
+                },
+            )
 
             try:
-                # Build conversation history from session
+                # Load memory context for COO
+                memory = get_memory_manager()
+                memory_context = memory.load_coo_context()
+
+                # Build conversation history from session (with summarization for long conversations)
                 conversation_history = ""
                 if session_id:
                     session = history.get_session(session_id)
                     if session and session.get("messages"):
-                        history_lines = []
-                        for msg in session["messages"]:
-                            role = "User" if msg["role"] == "user" else "Assistant"
-                            content = msg["content"]
-                            # Truncate very long messages in history
-                            if len(content) > 2000:
-                                content = content[:2000] + "... [truncated]"
-                            history_lines.append(f"{role}: {content}")
+                        messages = session["messages"]
 
-                        if history_lines:
-                            conversation_history = "\n\n## Previous Conversation\n" + "\n\n".join(history_lines) + "\n\n---\n"
+                        # Check if conversation needs summarization
+                        if memory.needs_summarization(messages, max_tokens=40000):
+                            logger.info(f"Session {session_id} needs summarization ({len(messages)} messages)")
 
-                # Get workspace and swarm info if specified
-                workspace = None
-                swarm = None
-                if swarm_name:
-                    swarm = orch.get_swarm(swarm_name)
-                    if swarm:
-                        workspace = swarm.workspace
+                            # Use summary + recent messages
+                            summary_context = memory.get_context_with_summary(
+                                session_id=session_id,
+                                recent_messages=messages,
+                                max_recent=5,  # Keep last 5 messages in full
+                            )
 
-                # Load memory context for COO
-                memory = get_memory_manager()
-                memory_context = memory.load_coo_context()
+                            if summary_context:
+                                conversation_history = (
+                                    "\n\n## Conversation Context (Summarized)\n" + summary_context + "\n---\n"
+                                )
+                        else:
+                            # Full history for shorter conversations
+                            history_lines = []
+                            for msg in messages:
+                                role = "User" if msg["role"] == "user" else "Assistant"
+                                content = msg["content"]
+                                # Truncate very long messages in history
+                                if len(content) > 2000:
+                                    content = content[:2000] + "... [truncated]"
+                                history_lines.append(f"{role}: {content}")
+
+                            if history_lines:
+                                conversation_history = (
+                                    "\n\n## Previous Conversation\n" + "\n\n".join(history_lines) + "\n\n---\n"
+                                )
 
                 # Build system prompt for the COO
                 all_swarms = []
@@ -1284,17 +1386,25 @@ When the CEO asks you to do something that requires specialized work:
                 if not final_content:
                     final_content = "(No response generated)"
 
-                await manager.send_event(websocket, "agent_complete", {
-                    "agent": "Supreme Orchestrator",
-                    "agent_type": "orchestrator",
-                    "content": final_content,
-                    "thinking": result.get("thinking", ""),
-                })
+                await manager.send_event(
+                    websocket,
+                    "agent_complete",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "agent_type": "orchestrator",
+                        "content": final_content,
+                        "thinking": result.get("thinking", ""),
+                    },
+                )
 
                 # Send completion
-                await manager.send_event(websocket, "chat_complete", {
-                    "success": True,
-                })
+                await manager.send_event(
+                    websocket,
+                    "chat_complete",
+                    {
+                        "success": True,
+                    },
+                )
 
                 # Save session summary to memory (lightweight, don't block)
                 try:
@@ -1302,7 +1412,7 @@ When the CEO asks you to do something that requires specialized work:
                     memory.save_session_summary(
                         session_id=session_id or datetime.now().strftime("%Y%m%d_%H%M%S"),
                         summary=session_summary,
-                        swarm_name=None  # COO-level, not swarm-specific
+                        swarm_name=None,  # COO-level, not swarm-specific
                     )
                 except Exception as mem_err:
                     logger.warning(f"Failed to save session summary: {mem_err}")
@@ -1324,14 +1434,22 @@ When the CEO asks you to do something that requires specialized work:
                         "3. Restart the backend server"
                     )
 
-                await manager.send_event(websocket, "agent_complete", {
-                    "agent": "Supreme Orchestrator",
-                    "agent_type": "orchestrator",
-                    "content": error_msg,
-                })
-                await manager.send_event(websocket, "chat_complete", {
-                    "success": False,
-                })
+                await manager.send_event(
+                    websocket,
+                    "agent_complete",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "agent_type": "orchestrator",
+                        "content": error_msg,
+                    },
+                )
+                await manager.send_event(
+                    websocket,
+                    "chat_complete",
+                    {
+                        "success": False,
+                    },
+                )
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -1342,4 +1460,5 @@ When the CEO asks you to do something that requires specialized work:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

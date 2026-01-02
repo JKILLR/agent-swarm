@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .agent_base import BaseAgent
@@ -26,7 +26,7 @@ class Vote(Enum):
     REJECT = "reject"
 
     @classmethod
-    def from_string(cls, value: str) -> "Vote":
+    def from_string(cls, value: str) -> Vote:
         """Parse vote from string, case-insensitive."""
         value_lower = value.lower().strip()
 
@@ -51,13 +51,13 @@ class ConsensusResult:
 
     approved: bool
     outcome: str  # approved, approved_with_changes, rejected, needs_more_info
-    votes: Dict[str, Vote]
-    discussion: List[Dict[str, str]]
+    votes: dict[str, Vote]
+    discussion: list[dict[str, str]]
     proposal: str
-    changes_requested: List[str] = field(default_factory=list)
-    info_requests: List[str] = field(default_factory=list)
+    changes_requested: list[str] = field(default_factory=list)
+    info_requests: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "approved": self.approved,
@@ -77,13 +77,13 @@ class ConsensusRound:
     topic: str
     proposal: str
     proposer: str
-    votes: Dict[str, Vote] = field(default_factory=dict)
-    discussion: List[Dict[str, str]] = field(default_factory=list)
-    outcome: Optional[str] = None
+    votes: dict[str, Vote] = field(default_factory=dict)
+    discussion: list[dict[str, str]] = field(default_factory=list)
+    outcome: str | None = None
     started_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "topic": self.topic,
@@ -126,7 +126,7 @@ If you vote REQUEST_MORE_INFO, specify what information you need.
 If you vote REJECT, explain your objections clearly.
 """
 
-    def __init__(self, logs_dir: Optional[Path] = None) -> None:
+    def __init__(self, logs_dir: Path | None = None) -> None:
         """Initialize the consensus protocol.
 
         Args:
@@ -134,9 +134,9 @@ If you vote REJECT, explain your objections clearly.
         """
         self.logs_dir = logs_dir or Path("./logs/consensus")
         self.logs_dir.mkdir(parents=True, exist_ok=True)
-        self.history: List[ConsensusRound] = []
+        self.history: list[ConsensusRound] = []
 
-    def _parse_vote(self, response: str) -> tuple[Vote, Optional[str]]:
+    def _parse_vote(self, response: str) -> tuple[Vote, str | None]:
         """Parse vote from agent response.
 
         Args:
@@ -185,7 +185,7 @@ If you vote REJECT, explain your objections clearly.
 
     def _determine_outcome(
         self,
-        votes: Dict[str, Vote],
+        votes: dict[str, Vote],
     ) -> tuple[bool, str]:
         """Determine the outcome of voting.
 
@@ -242,7 +242,7 @@ If you vote REJECT, explain your objections clearly.
     async def gather_vote(
         self,
         round_obj: ConsensusRound,
-        agent: "BaseAgent",
+        agent: BaseAgent,
     ) -> tuple[Vote, str]:
         """Gather vote from a single agent.
 
@@ -264,13 +264,15 @@ If you vote REJECT, explain your objections clearly.
 
         # Record the vote and discussion
         round_obj.votes[agent.name] = vote
-        round_obj.discussion.append({
-            "agent": agent.name,
-            "role": agent.role,
-            "response": response,
-            "vote": vote.value,
-            "details": details,
-        })
+        round_obj.discussion.append(
+            {
+                "agent": agent.name,
+                "role": agent.role,
+                "response": response,
+                "vote": vote.value,
+                "details": details,
+            }
+        )
 
         logger.debug(f"Agent {agent.name} voted: {vote.value}")
         return vote, response
@@ -279,7 +281,7 @@ If you vote REJECT, explain your objections clearly.
         self,
         topic: str,
         proposal: str,
-        voters: List["BaseAgent"],
+        voters: list[BaseAgent],
         proposer: str = "system",
     ) -> ConsensusResult:
         """Run a complete consensus round.
@@ -314,12 +316,14 @@ If you vote REJECT, explain your objections clearly.
                 logger.error(f"Error gathering vote from {agent.name}: {e}")
                 # Default to request more info on error
                 round_obj.votes[agent.name] = Vote.REQUEST_MORE_INFO
-                round_obj.discussion.append({
-                    "agent": agent.name,
-                    "role": agent.role,
-                    "response": f"Error: {e}",
-                    "vote": Vote.REQUEST_MORE_INFO.value,
-                })
+                round_obj.discussion.append(
+                    {
+                        "agent": agent.name,
+                        "role": agent.role,
+                        "response": f"Error: {e}",
+                        "vote": Vote.REQUEST_MORE_INFO.value,
+                    }
+                )
 
         # Determine outcome
         approved, outcome = self._determine_outcome(round_obj.votes)
@@ -352,10 +356,10 @@ If you vote REJECT, explain your objections clearly.
 
         logger.debug(f"Saved consensus round to {filepath}")
 
-    def get_history(self) -> List[ConsensusRound]:
+    def get_history(self) -> list[ConsensusRound]:
         """Get all consensus rounds."""
         return self.history.copy()
 
-    def get_recent(self, count: int = 10) -> List[ConsensusRound]:
+    def get_recent(self, count: int = 10) -> list[ConsensusRound]:
         """Get recent consensus rounds."""
         return self.history[-count:]
