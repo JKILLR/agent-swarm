@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -528,6 +529,138 @@ def parse_agent_output(content: str) -> List[Dict[str, Any]]:
     return events if events else [{"agent": "Supreme Orchestrator", "agent_type": "orchestrator", "content": content}]
 
 
+async def stream_claude_response(
+    prompt: str,
+    swarm_name: Optional[str] = None,
+    workspace: Optional[Path] = None,
+) -> asyncio.subprocess.Process:
+    """
+    Start a claude CLI process and return it for streaming.
+
+    Uses 'claude -p --output-format stream-json' which outputs JSON lines
+    that we can parse and stream to the frontend.
+    """
+    # Build the command
+    cmd = ["claude", "-p", "--output-format", "stream-json"]
+
+    # Set working directory to workspace if specified
+    cwd = str(workspace) if workspace else None
+
+    # Start the process
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=cwd,
+    )
+
+    # Write the prompt to stdin
+    if process.stdin:
+        process.stdin.write(prompt.encode())
+        await process.stdin.drain()
+        process.stdin.close()
+
+    return process
+
+
+async def parse_claude_stream(
+    process: asyncio.subprocess.Process,
+    websocket: WebSocket,
+    manager: "ConnectionManager",
+) -> str:
+    """
+    Parse streaming JSON output from claude CLI and send events to WebSocket.
+    Returns the full response text.
+    """
+    full_response = ""
+    current_text = ""
+
+    if not process.stdout:
+        return ""
+
+    while True:
+        line = await process.stdout.readline()
+        if not line:
+            break
+
+        line_str = line.decode().strip()
+        if not line_str:
+            continue
+
+        try:
+            event = json.loads(line_str)
+            event_type = event.get("type", "")
+
+            # Handle different event types from claude CLI
+            if event_type == "assistant":
+                # Initial message with content blocks
+                message = event.get("message", {})
+                content_blocks = message.get("content", [])
+                for block in content_blocks:
+                    if block.get("type") == "text":
+                        text = block.get("text", "")
+                        current_text += text
+                        full_response += text
+
+            elif event_type == "content_block_start":
+                # New content block starting
+                pass
+
+            elif event_type == "content_block_delta":
+                # Streaming text delta
+                delta = event.get("delta", {})
+                if delta.get("type") == "text_delta":
+                    text = delta.get("text", "")
+                    current_text += text
+                    full_response += text
+
+                    # Stream the delta to the frontend
+                    await manager.send_event(websocket, "agent_delta", {
+                        "agent": "Claude",
+                        "agent_type": "assistant",
+                        "delta": text,
+                    })
+
+            elif event_type == "content_block_stop":
+                # Content block completed
+                pass
+
+            elif event_type == "message_stop":
+                # Message completed
+                pass
+
+            elif event_type == "result":
+                # Final result
+                result_text = event.get("result", "")
+                if result_text and not full_response:
+                    full_response = result_text
+
+        except json.JSONDecodeError:
+            # Not JSON, might be plain text output
+            current_text += line_str + "\n"
+            full_response += line_str + "\n"
+
+            await manager.send_event(websocket, "agent_delta", {
+                "agent": "Claude",
+                "agent_type": "assistant",
+                "delta": line_str + "\n",
+            })
+
+    # Wait for process to complete
+    await process.wait()
+
+    # Check for errors
+    if process.returncode != 0 and process.stderr:
+        stderr = await process.stderr.read()
+        if stderr:
+            error_msg = stderr.decode().strip()
+            logger.error(f"Claude CLI error: {error_msg}")
+            raise RuntimeError(f"Claude CLI error: {error_msg}")
+
+    return full_response
+
+
 @app.websocket("/ws/chat")
 async def websocket_chat(websocket: WebSocket):
     """WebSocket endpoint for streaming chat."""
@@ -539,6 +672,7 @@ async def websocket_chat(websocket: WebSocket):
             # Receive message from client
             data = await websocket.receive_json()
             message = data.get("message", "")
+            swarm_name = data.get("swarm")
 
             if not message:
                 continue
@@ -550,21 +684,43 @@ async def websocket_chat(websocket: WebSocket):
 
             # Send thinking indicator
             await manager.send_event(websocket, "agent_start", {
-                "agent": "Supreme Orchestrator",
-                "agent_type": "orchestrator",
+                "agent": "Claude",
+                "agent_type": "assistant",
             })
 
             try:
-                # Get response from orchestrator
-                response = await orch.route_request(message)
+                # Get workspace from swarm if specified
+                workspace = None
+                if swarm_name:
+                    swarm = orch.get_swarm(swarm_name)
+                    if swarm:
+                        workspace = swarm.workspace
 
-                # Parse response into agent sections
-                events = parse_agent_output(response)
+                # Build context-aware prompt
+                if swarm_name and workspace:
+                    full_prompt = f"""You are working in the context of the "{swarm_name}" swarm.
+Workspace: {workspace}
 
-                # Send each agent's output
-                for event in events:
-                    await manager.send_event(websocket, "agent_complete", event)
-                    await asyncio.sleep(0.1)  # Small delay for UI animation
+User request: {message}"""
+                else:
+                    full_prompt = message
+
+                # Start claude CLI process
+                process = await stream_claude_response(
+                    prompt=full_prompt,
+                    swarm_name=swarm_name,
+                    workspace=workspace,
+                )
+
+                # Stream and parse the response
+                full_response = await parse_claude_stream(process, websocket, manager)
+
+                # Send the complete response
+                await manager.send_event(websocket, "agent_complete", {
+                    "agent": "Claude",
+                    "agent_type": "assistant",
+                    "content": full_response,
+                })
 
                 # Send completion
                 await manager.send_event(websocket, "chat_complete", {
