@@ -3,32 +3,49 @@
 ## Vision
 The Supreme Orchestrator is the COO of my life. Direct agents under it are executive assistants and VPs. Each swarm is a department. Software swarms (ASA, MYND) are first priority. Future swarms will include construction management (my real job), personal finances (mortgages, taxes, budgeting), and more.
 
-## Immediate Fix
-There's a bug in the query() calls - they need keyword arguments, not positional.
+## Current Priority Order
 
-Find all instances of:
-```python
-query(prompt, options)
-```
+1. **Swarm Dev** - PRIMARY FOCUS until system is self-developing
+2. **ASA Research** - Secondary, activate when Swarm Dev is operational
+3. **MYND App** - Paused, activate after ASA progress
+4. **Operations** - Active, manages all swarms
 
-Replace with:
-```python
-query(prompt=prompt, options=options)
-```
+## Immediate Goal: Self-Developing System
 
-Check: supreme/orchestrator.py, shared/swarm_interface.py, and any other files using query().
+Before focusing on ASA or other projects, the agent-swarm system must be able to:
+- Execute code changes autonomously
+- Push/pull from GitHub
+- Run its own tests
+- Modify its own codebase
 
-## Current State
-- Basic structure built
-- 2 swarms discovered (ASA, MYND)
-- 7 agents total
-- CLI working (list, chat commands)
-- Bug: query() positional args error blocking chat
+**The system should be as capable as Claude Code in the terminal.**
 
-## Phase 1: Core Functionality (This Week)
+## Phase 0: Execution Layer (CURRENT PRIORITY)
+
+### 0.1 Claude Agent SDK Integration
+Wire up actual agent execution so agents can:
+- Read/write files in their workspace
+- Execute bash commands
+- Use all tools listed in their prompts
+- Stream responses back to the UI
+
+### 0.2 Git Integration for Agents
+Enable agents to push/pull from GitHub:
+- Configure git credentials for agent subprocesses
+- Add git tools to Swarm Dev agents
+- Test: Agent can commit and push a change
+
+### 0.3 Self-Modification Capability
+Swarm Dev must be able to modify agent-swarm itself:
+- Implementer can edit files in the codebase
+- Reviewer can run tests
+- Critic can check for security issues
+- Orchestrator can coordinate multi-file changes
+
+## Phase 1: Core Functionality
 
 ### 1.1 Fix and Validate
-- Fix query() keyword args bug
+- Fix query() keyword args bug (if still present)
 - Test: python main.py chat
 - Verify parallel agent spawning works
 - Verify wake messaging works
@@ -43,7 +60,27 @@ Create supreme/agents/ with these direct agents:
 
 Update supreme/agents/supreme.md to delegate to these before routing to swarms.
 
-### 1.3 ASA Swarm (Primary Focus)
+### 1.3 Swarm Dev (PRIMARY FOCUS)
+Swarm Dev is the team that builds the agent-swarm system itself.
+
+swarms/swarm_dev/swarm.yaml priorities:
+- Claude Agent SDK execution layer
+- Git integration for autonomous commits
+- Self-modification capability
+- Web UI enhancements
+
+swarms/swarm_dev/agents/implementer.md should:
+- Have full file system access to agent-swarm/
+- Be able to run git commands
+- Execute python tests
+- Modify any file in the codebase
+
+swarms/swarm_dev/agents/reviewer.md should:
+- Run linters and type checkers
+- Execute test suites
+- Verify changes don't break existing functionality
+
+### 1.4 ASA Swarm (SECONDARY - after Swarm Dev works)
 Update swarms/asa_research/ with ASA-specific context:
 
 swarms/asa_research/swarm.yaml priorities:
@@ -52,30 +89,21 @@ swarms/asa_research/swarm.yaml priorities:
 - Scale testing at 100M+ parameters
 - Wall-clock measurements
 
-swarms/asa_research/agents/researcher.md should know:
+Context:
 - H6 validated: 73.9% attention overlap with linguistic structure
 - 21% faster convergence than baseline
 - Current code: asa_v2_2.py, train_asa.py, h6_correlation.py
 - Bottleneck: Still O(n²) compute with masking, need true sparse kernels
-
-swarms/asa_research/agents/implementer.md should know:
 - Target: xformers or triton for sparse attention kernels
-- Must preserve bonding mask functionality
-- Test on WikiText-2 first, then scale
 
-swarms/asa_research/agents/critic.md should challenge:
-- Does sparse implementation actually save FLOPs?
-- Are we measuring wall-clock or just theoretical complexity?
-- What's the memory overhead of the bonding mask?
-
-### 1.4 MYND Swarm (Secondary)
+### 1.5 MYND Swarm (PAUSED)
 Keep paused for now. Will activate after ASA sparse attention works.
 
 swarms/mynd_app/swarm.yaml:
 - status: paused
 - description: Personal AI companion app - cognitive operating system
 
-## Phase 2: Operational Excellence (Next Week)
+## Phase 2: Operational Excellence
 
 ### 2.1 Consensus Protocol
 Implement actual consensus before major decisions:
@@ -123,6 +151,7 @@ agent-swarm/
 │   ├── agent_definitions.py
 │   ├── swarm_interface.py
 │   ├── consensus.py
+│   ├── agent_executor.py      # NEW: Claude SDK execution
 │   └── agent_base.py
 ├── supreme/
 │   ├── orchestrator.py
@@ -133,25 +162,26 @@ agent-swarm/
 │       └── context_keeper.md    # Cross-swarm knowledge
 ├── swarms/
 │   ├── _template/
-│   ├── asa_research/            # ACTIVE - primary focus
+│   ├── swarm_dev/              # ACTIVE - PRIMARY FOCUS
 │   │   ├── swarm.yaml
 │   │   ├── agents/
 │   │   │   ├── orchestrator.md
-│   │   │   ├── researcher.md    # Knows ASA papers, prior art
-│   │   │   ├── implementer.md   # Knows ASA codebase
-│   │   │   ├── critic.md        # Challenges all proposals
-│   │   │   └── monitor.md       # Watches tests
+│   │   │   ├── architect.md
+│   │   │   ├── implementer.md   # Can modify codebase
+│   │   │   ├── reviewer.md      # Can run tests
+│   │   │   ├── critic.md
+│   │   │   └── refactorer.md
+│   │   └── workspace -> ../..   # Points to project root
+│   ├── asa_research/            # SECONDARY - after Swarm Dev works
+│   │   ├── swarm.yaml
+│   │   ├── agents/
 │   │   └── workspace/
-│   │       └── (ASA project files, notes, experiments)
-│   ├── mynd_app/                # PAUSED - activate later
+│   ├── mynd_app/                # PAUSED
 │   │   ├── swarm.yaml
 │   │   └── agents/
 │   └── operations/              # Cross-swarm management
 │       ├── swarm.yaml
 │       └── agents/
-│           ├── vp_operations.md
-│           ├── project_coordinator.md
-│           └── qa_agent.md
 └── logs/
     ├── conversations/
     ├── consensus/
@@ -159,16 +189,36 @@ agent-swarm/
 ```
 
 ## Next Actions (In Order)
-1. Fix query() keyword args bug
-2. Test: python main.py chat with simple query
-3. Test: parallel agent spawning on ASA research task
-4. Add ASA-specific context to swarms/asa_research/agents/*.md
-5. Create supreme direct agents (chief_of_staff, project_manager, context_keeper)
-6. Run first real ASA task: "Research sparse attention kernel implementations"
+
+1. **Wire up Claude Agent SDK execution layer**
+   - Create shared/agent_executor.py
+   - Enable agents to actually run tools
+   - Stream tool results back to UI
+
+2. **Add git credentials for agents**
+   - Configure CLAUDE_CODE_OAUTH_TOKEN for agent subprocesses
+   - Test agent can commit and push
+
+3. **Test Swarm Dev self-modification**
+   - Ask Swarm Dev to make a small change to itself
+   - Verify it can edit, test, and commit
+
+4. Fix query() keyword args bug (if still blocking)
+5. Test parallel agent spawning
+6. Once Swarm Dev works, switch focus to ASA
 
 ## Success Criteria
-- python main.py chat works without errors
-- Parallel agents spawn and wake properly
-- ASA swarm can research and propose implementation approaches
-- Consensus rounds are logged
-- Supreme acts like a COO, not just a router
+
+### Phase 0 Complete When:
+- [ ] Swarm Dev agents can read/write files
+- [ ] Swarm Dev agents can run git commands
+- [ ] Swarm Dev agents can execute tests
+- [ ] A Swarm Dev agent successfully modifies and commits code
+
+### Phase 1 Complete When:
+- [ ] python main.py chat works without errors
+- [ ] Parallel agents spawn and wake properly
+- [ ] Swarm Dev is self-maintaining
+- [ ] ASA swarm can research and propose implementations
+- [ ] Consensus rounds are logged
+- [ ] Supreme acts like a COO, not just a router

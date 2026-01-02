@@ -105,21 +105,22 @@ Synthesize unified approach.
 
 ## Current Swarms
 
+### Swarm Dev (PRIMARY FOCUS)
+- Purpose: Development of this agent-swarm system
+- Status: Active - PRIMARY PRIORITY
+- Key agents: orchestrator, architect, implementer, reviewer, critic
+- Goal: Make the system self-developing (as capable as Claude Code)
+- Priority: Claude Agent SDK execution, git integration, self-modification
+
 ### Operations (ACTIVE - Management)
 - Purpose: Cross-swarm coordination and quality
 - Status: Active
 - Key agents: vp_operations, project_coordinator, qa_agent
 - Manages: All other swarms
 
-### Swarm Dev (ACTIVE - Platform)
-- Purpose: Development of this agent-swarm system
-- Status: Active
-- Key agents: orchestrator, architect, implementer, reviewer, critic
-- Priority: Claude Agent SDK integration, Web UI
-
-### ASA Research (ACTIVE - Primary Focus)
+### ASA Research (SECONDARY - after Swarm Dev works)
 - Purpose: Adaptive Sparse Attention research
-- Status: Active - implementing sparse kernels
+- Status: Active but secondary priority
 - Key agents: orchestrator, researcher, implementer, critic, benchmarker
 - Priority: True sparse attention O(n×k)
 - Context:
@@ -135,11 +136,15 @@ Synthesize unified approach.
 
 ## Roadmap Priorities (from docs/ROADMAP.md)
 
-### Phase 1: Core Functionality (Current)
-1. Fix query() keyword args bug
+### Phase 0: Execution Layer (CURRENT)
+1. Wire up Claude Agent SDK so agents can execute tools
+2. Add git credentials for agent push/pull
+3. Test Swarm Dev self-modification capability
+
+### Phase 1: Core Functionality
+1. Fix query() keyword args bug (if blocking)
 2. Test parallel agent spawning
-3. Add ASA-specific context to agents
-4. Run first real ASA task
+3. Once Swarm Dev works, switch focus to ASA
 
 ### Phase 2: Operational Excellence
 1. Implement consensus protocol

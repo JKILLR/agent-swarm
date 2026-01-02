@@ -12,14 +12,8 @@ import yaml
 
 from .agent_base import AgentConfig, BaseAgent, CLAUDE_SDK_AVAILABLE
 from .agent_definitions import AgentDefinition, load_agent_from_file, AGENT_TYPES
+from .agent_executor import stream_agent, execute_agent
 from .consensus import ConsensusResult, ConsensusProtocol
-
-# Try to import Claude Agent SDK
-try:
-    from claude_agent_sdk import query, ClaudeAgentOptions
-except ImportError:
-    query = None
-    ClaudeAgentOptions = None
 
 logger = logging.getLogger(__name__)
 
@@ -443,37 +437,31 @@ class Swarm(SwarmInterface):
 
         logger.info(f"Running parallel execution for {len(tasks)} tasks")
 
-        # Check if Claude Agent SDK is available
-        if not CLAUDE_SDK_AVAILABLE or query is None:
-            mock_response = f"[Mock parallel execution]\n\nThe Claude Agent SDK is not available. Tasks queued:\n"
+        # Check if execution is available
+        if not CLAUDE_SDK_AVAILABLE:
+            mock_response = (
+                "[Mock parallel execution]\n\n"
+                "Agent execution not available. Set ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN.\n\n"
+                "Tasks queued:\n"
+            )
             for i, task in enumerate(tasks, 1):
                 mock_response += f"{i}. {task.get('agent', 'worker')}: {task.get('prompt', '')[:100]}...\n"
             yield {"type": "text", "content": mock_response}
             return
 
-        # Use Claude Agent SDK query() - uses claude login auth
-        options = ClaudeAgentOptions(
-            allowed_tools=["Task", "Read", "Write", "Edit", "Bash", "Glob"],
-        )
+        # Use the real agent executor
+        tools = ["Task", "Read", "Write", "Edit", "Bash", "Glob"]
 
-        async for message in query(prompt=prompt, options=options):
-            # Handle different message formats from SDK
-            if hasattr(message, 'content'):
-                content = message.content
-                # Content may be a list of content blocks
-                if isinstance(content, list):
-                    text = "".join(
-                        block.get('text', '') if isinstance(block, dict) else str(block)
-                        for block in content
-                    )
-                else:
-                    text = str(content)
-                if text:
-                    yield {"type": "text", "content": text}
-            elif isinstance(message, str):
-                yield {"type": "text", "content": message}
-            else:
-                yield {"type": "text", "content": str(message)}
+        async for event in stream_agent(
+            prompt=prompt,
+            tools=tools,
+            workspace=self.workspace,
+        ):
+            event_type = event.get("type", "")
+            if event_type == "content":
+                yield {"type": "text", "content": event.get("content", "")}
+            elif event_type == "error":
+                yield {"type": "error", "content": event.get("content", "")}
 
     async def receive_directive(self, directive: str) -> str:
         """Receive and process a directive from the supreme orchestrator."""

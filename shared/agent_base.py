@@ -13,14 +13,15 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 import yaml
 
-# Try to import Claude Agent SDK, provide mock if not available
-try:
-    from claude_agent_sdk import query, ClaudeAgentOptions
-    CLAUDE_SDK_AVAILABLE = True
-except ImportError:
-    CLAUDE_SDK_AVAILABLE = False
-    query = None
-    ClaudeAgentOptions = None
+# Import the real agent executor
+from .agent_executor import execute_agent, stream_agent, ExecutionResult
+
+# Check if execution is available (API key or CLI)
+import os
+CLAUDE_SDK_AVAILABLE = bool(
+    os.environ.get("ANTHROPIC_API_KEY") or
+    os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+)
 
 
 logger = logging.getLogger(__name__)
@@ -204,43 +205,43 @@ class BaseAgent:
         logger.info(f"Agent {self.name} running with prompt: {prompt[:100]}...")
 
         full_response = ""
+        workspace_path = Path(workspace) if workspace else None
 
-        # Build the full prompt with system context
-        full_prompt = f"{self.system_prompt}\n\n{prompt}"
-
-        # Check if Claude Agent SDK is available
+        # Check if execution is available
         if not CLAUDE_SDK_AVAILABLE:
             # Return mock response for local development
-            mock_response = f"[Mock response from {self.name}]\n\nThe Claude Agent SDK is not available in this environment. To use the full agent functionality, run this from within Claude Code.\n\nPrompt received: {prompt[:200]}..."
+            mock_response = (
+                f"[Mock response from {self.name}]\n\n"
+                "Agent execution is not available. Set either:\n"
+                "- ANTHROPIC_API_KEY for API access\n"
+                "- CLAUDE_CODE_OAUTH_TOKEN for CLI access\n\n"
+                f"Prompt received: {prompt[:200]}..."
+            )
             yield mock_response
             self._log_conversation(prompt, mock_response, workspace)
             return
 
-        # Use Claude Agent SDK query() - uses claude login auth
-        options = ClaudeAgentOptions(
-            allowed_tools=self.config.tools or ["Read", "Glob"],
-        )
+        # Use the real agent executor
+        async for event in stream_agent(
+            prompt=prompt,
+            system_prompt=self.system_prompt,
+            tools=self.config.tools,
+            workspace=workspace_path,
+        ):
+            event_type = event.get("type", "")
 
-        async for message in query(prompt=full_prompt, options=options):
-            # Handle different message formats from SDK
-            if hasattr(message, 'content'):
-                content = message.content
-                # Content may be a list of content blocks
-                if isinstance(content, list):
-                    chunk = "".join(
-                        block.get('text', '') if isinstance(block, dict) else str(block)
-                        for block in content
-                    )
-                else:
-                    chunk = str(content)
-            elif isinstance(message, str):
-                chunk = message
-            else:
-                chunk = str(message)
-
-            if chunk:
-                full_response += chunk
-                yield chunk
+            if event_type == "content":
+                chunk = event.get("content", "")
+                if chunk:
+                    full_response += chunk
+                    yield chunk
+            elif event_type == "thinking":
+                # Could yield thinking if needed
+                pass
+            elif event_type == "error":
+                error_msg = event.get("content", "Unknown error")
+                yield f"\n[Error: {error_msg}]\n"
+                full_response += f"\n[Error: {error_msg}]\n"
 
         # Log the conversation
         self._log_conversation(prompt, full_response, workspace)

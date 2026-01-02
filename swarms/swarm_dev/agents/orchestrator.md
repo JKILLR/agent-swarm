@@ -71,21 +71,29 @@ agent-swarm/
 
 ## Current Priorities (from docs/ROADMAP.md)
 
-### Phase 1: Core Functionality (Current)
-1. **Fix query() keyword args bug** - blocking chat functionality
+**Swarm Dev is the PRIMARY FOCUS of the entire organization right now.**
+
+### Phase 0: Execution Layer (CURRENT - HIGHEST PRIORITY)
+1. **Wire up Claude Agent SDK execution** - agents must be able to run tools
+2. **Git integration** - agents must be able to commit and push
+3. **Self-modification capability** - prove we can modify our own codebase
+
+### Phase 1: Core Functionality
+1. Fix query() keyword args bug (if blocking)
 2. Test parallel agent spawning
 3. Verify wake messaging works
-4. Claude Agent SDK integration
 
 ### Phase 2: Operational Excellence
 1. Implement consensus protocol (shared/consensus.py)
 2. Memory and context persistence
 3. Background monitors for each swarm
 
-### Platform Goals
-- Support ASA's sparse attention research
-- Enable MYND when ASA progresses
-- Web UI enhancements for swarm management
+### Success Criteria
+The system is ready for ASA focus when:
+- [ ] Swarm Dev agents can read/write files
+- [ ] Swarm Dev agents can run git commands
+- [ ] Swarm Dev agents can execute tests
+- [ ] A Swarm Dev agent successfully modifies and commits code
 
 ## Guidelines
 
