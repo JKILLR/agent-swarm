@@ -14,12 +14,6 @@ from shared.agent_base import AgentConfig, BaseAgent
 from shared.agent_definitions import AgentDefinition, load_agent_from_file
 from shared.swarm_interface import Swarm, SwarmConfig, load_swarm
 
-try:
-    from claude_agent_sdk import ClaudeAgentOptions, query
-except ImportError:
-    query = None
-    ClaudeAgentOptions = None
-
 logger = logging.getLogger(__name__)
 
 
@@ -266,20 +260,14 @@ Analyze requests and route to appropriate swarms. For complex tasks, use paralle
         }
 
     async def chat(self, user_input: str) -> AsyncIterator[Any]:
-        """Chat with the Supreme Orchestrator using parallel agent dispatch.
+        """Chat with the Supreme Orchestrator.
 
         Args:
             user_input: User's input
 
         Yields:
-            Messages from the orchestrator and subagents
+            Messages from the orchestrator
         """
-        # Build SDK agents dict
-        sdk_agents = {}
-        for name, defn in self.all_agents.items():
-            sdk_agents[name] = defn.to_sdk_definition()
-
-        # Use routing agent - SDK API compatibility TBD
         response = await self.route_request(user_input)
         yield {"type": "text", "content": response}
 

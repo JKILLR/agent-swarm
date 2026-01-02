@@ -858,50 +858,6 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-def parse_agent_output(content: str) -> list[dict[str, Any]]:
-    """Parse raw agent output into structured events."""
-    import re
-
-    events = []
-
-    # Try to detect agent sections
-    sections = re.split(
-        r"\n(?=#{1,3}\s+|\*\*(?:Researcher|Implementer|Critic|Summary|Key Finding|Recommendation))", content
-    )
-
-    current_agent = "Supreme Orchestrator"
-    current_type = "orchestrator"
-
-    for section in sections:
-        section = section.strip()
-        if not section:
-            continue
-
-        # Detect agent type from section header
-        if re.match(r"(?:#{1,3}\s+)?\*?Researcher", section, re.I):
-            current_agent = "Researcher"
-            current_type = "researcher"
-        elif re.match(r"(?:#{1,3}\s+)?\*?Implementer", section, re.I):
-            current_agent = "Implementer"
-            current_type = "implementer"
-        elif re.match(r"(?:#{1,3}\s+)?\*?Critic", section, re.I):
-            current_agent = "Critic"
-            current_type = "critic"
-        elif re.match(r"(?:#{1,3}\s+)?\*?(?:Summary|Final|Recommendation)", section, re.I):
-            current_agent = "Summary"
-            current_type = "summary"
-
-        events.append(
-            {
-                "agent": current_agent,
-                "agent_type": current_type,
-                "content": section,
-            }
-        )
-
-    return events if events else [{"agent": "Supreme Orchestrator", "agent_type": "orchestrator", "content": content}]
-
-
 async def run_agentic_chat(
     system_prompt: str,
     user_message: str,
@@ -1013,87 +969,6 @@ async def run_agentic_chat(
 
             # Add tool results
             messages.append({"role": "user", "content": tool_results})
-
-    return {"response": full_response, "thinking": full_thinking}
-
-
-async def stream_anthropic_response(
-    prompt: str,
-    websocket: WebSocket,
-    manager: ConnectionManager,
-) -> dict:
-    """
-    Stream response using the Anthropic SDK (fallback without tools).
-    Requires ANTHROPIC_API_KEY environment variable.
-    """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set")
-
-    if not ANTHROPIC_AVAILABLE:
-        raise RuntimeError("Anthropic SDK not installed")
-
-    client = anthropic.Anthropic(api_key=api_key)
-
-    full_response = ""
-    full_thinking = ""
-
-    # Use streaming
-    with client.messages.stream(
-        model="claude-opus-4-5-20251101",
-        max_tokens=8192,
-        messages=[{"role": "user", "content": prompt}],
-    ) as stream:
-        for event in stream:
-            if hasattr(event, "type"):
-                if event.type == "content_block_start":
-                    block = event.content_block
-                    if hasattr(block, "type") and block.type == "thinking":
-                        await manager.send_event(
-                            websocket,
-                            "thinking_start",
-                            {
-                                "agent": "Claude",
-                            },
-                        )
-
-                elif event.type == "content_block_delta":
-                    delta = event.delta
-                    if hasattr(delta, "type"):
-                        if delta.type == "thinking_delta":
-                            text = delta.thinking
-                            full_thinking += text
-                            await manager.send_event(
-                                websocket,
-                                "thinking_delta",
-                                {
-                                    "agent": "Claude",
-                                    "delta": text,
-                                },
-                            )
-                        elif delta.type == "text_delta":
-                            text = delta.text
-                            full_response += text
-                            await manager.send_event(
-                                websocket,
-                                "agent_delta",
-                                {
-                                    "agent": "Claude",
-                                    "agent_type": "assistant",
-                                    "delta": text,
-                                },
-                            )
-
-                elif event.type == "content_block_stop":
-                    if full_thinking:
-                        await manager.send_event(
-                            websocket,
-                            "thinking_complete",
-                            {
-                                "agent": "Claude",
-                                "thinking": full_thinking,
-                            },
-                        )
 
     return {"response": full_response, "thinking": full_thinking}
 

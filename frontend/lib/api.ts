@@ -60,16 +60,6 @@ export async function getStatus(): Promise<HealthStatus> {
   return res.json()
 }
 
-export async function sendChat(message: string) {
-  const res = await fetch(`${API_BASE}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
-  })
-  if (!res.ok) throw new Error('Failed to send message')
-  return res.json()
-}
-
 // Chat History Types
 export interface ChatMessage {
   id: string
@@ -123,18 +113,6 @@ export async function createChatSession(swarm?: string, title?: string): Promise
   return res.json()
 }
 
-export async function updateChatSession(sessionId: string, updates: { title?: string; swarm?: string }): Promise<ChatSession> {
-  const params = new URLSearchParams()
-  if (updates.title) params.append('title', updates.title)
-  if (updates.swarm) params.append('swarm', updates.swarm)
-
-  const res = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}?${params}`, {
-    method: 'PUT',
-  })
-  if (!res.ok) throw new Error('Failed to update session')
-  return res.json()
-}
-
 export async function deleteChatSession(sessionId: string): Promise<void> {
   const res = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}`, {
     method: 'DELETE',
@@ -180,26 +158,6 @@ export interface Job {
   error?: string
 }
 
-export async function createBackgroundJob(
-  prompt: string,
-  type: string = 'chat',
-  swarm?: string,
-  sessionId?: string
-): Promise<{ success: boolean; job: Job }> {
-  const res = await fetch(`${API_BASE}/api/jobs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type,
-      prompt,
-      swarm,
-      session_id: sessionId,
-    }),
-  })
-  if (!res.ok) throw new Error('Failed to create job')
-  return res.json()
-}
-
 export async function getJobs(sessionId?: string, limit: number = 20): Promise<Job[]> {
   const params = new URLSearchParams()
   if (sessionId) params.append('session_id', sessionId)
@@ -207,12 +165,6 @@ export async function getJobs(sessionId?: string, limit: number = 20): Promise<J
 
   const res = await fetch(`${API_BASE}/api/jobs?${params}`)
   if (!res.ok) throw new Error('Failed to fetch jobs')
-  return res.json()
-}
-
-export async function getJob(jobId: string): Promise<Job> {
-  const res = await fetch(`${API_BASE}/api/jobs/${jobId}`)
-  if (!res.ok) throw new Error('Failed to fetch job')
   return res.json()
 }
 
