@@ -91,12 +91,16 @@ export class ChatWebSocket {
     }
   }
 
-  send(message: string, swarm?: string) {
+  send(message: string, options?: { swarm?: string; session_id?: string }) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket not connected')
     }
 
-    this.ws.send(JSON.stringify({ message, swarm }))
+    this.ws.send(JSON.stringify({
+      message,
+      swarm: options?.swarm,
+      session_id: options?.session_id,
+    }))
   }
 
   on(event: string, handler: EventHandler) {

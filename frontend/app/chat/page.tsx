@@ -345,14 +345,14 @@ export default function ChatPage() {
       fullMessage += attachmentDescriptions.join('')
     }
 
-    // Send via WebSocket
+    // Send via WebSocket with session context
     try {
-      wsRef.current.send(fullMessage)
+      wsRef.current.send(fullMessage, { session_id: sessionId || undefined })
     } catch (e) {
       console.error('Failed to send message:', e)
       setIsLoading(false)
     }
-  }, [saveMessage])
+  }, [saveMessage, sessionId])
 
   // Simplified send for suggestion buttons
   const handleQuickSend = useCallback((content: string) => {
