@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, Brain } from 'lucide-react'
 import { cn, getAgentColor, getAgentIcon } from '@/lib/utils'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface AgentResponseProps {
   agent: string
@@ -12,6 +14,35 @@ interface AgentResponseProps {
   isCollapsible?: boolean
   thinking?: string
   isThinking?: boolean
+}
+
+// Highlight CEO decision blocks
+function highlightDecisions(content: string): React.ReactNode[] {
+  const parts = content.split(/(⚡\s*\*\*CEO DECISION[^*]*\*\*[^⚡]*?)(?=⚡|\n\n|$)/gi)
+
+  return parts.map((part, index) => {
+    if (part.includes('⚡') && part.toLowerCase().includes('ceo decision')) {
+      return (
+        <div
+          key={index}
+          className="my-4 p-4 rounded-lg border-2 border-amber-500 bg-amber-500/10 text-amber-200"
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-invert prose-sm max-w-none prose-amber">
+            {part}
+          </ReactMarkdown>
+        </div>
+      )
+    }
+    return (
+      <ReactMarkdown
+        key={index}
+        remarkPlugins={[remarkGfm]}
+        className="prose prose-invert prose-sm max-w-none prose-zinc"
+      >
+        {part}
+      </ReactMarkdown>
+    )
+  })
 }
 
 export default function AgentResponse({
@@ -123,11 +154,11 @@ export default function AgentResponse({
       ) : content ? (
         <div
           className={cn(
-            'px-4 py-3 text-sm text-zinc-300 whitespace-pre-wrap transition-all duration-300',
+            'px-4 py-3 text-sm text-zinc-300 transition-all duration-300',
             !isExpanded && 'max-h-24 overflow-hidden relative'
           )}
         >
-          {content}
+          {highlightDecisions(content)}
           {!isExpanded && (
             <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-zinc-900/90 to-transparent" />
           )}

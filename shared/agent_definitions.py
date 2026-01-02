@@ -62,7 +62,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "orchestrator": AgentDefinition(
         name="orchestrator",
         description="Coordinates work. Spawns subagents in parallel via Task tool.",
-        tools=["Read", "Glob", "Bash", "Task"],
+        tools=["Read", "Glob", "Bash", "Task", "ParallelTasks", "ListSwarms", "GetSwarmStatus", "GitStatus", "GitSync"],
         model="opus",
         agent_type="orchestrator",
         background=False,
@@ -71,7 +71,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "researcher": AgentDefinition(
         name="researcher",
         description="Research specialist. Run in BACKGROUND. Wakes main thread when done.",
-        tools=["Read", "Bash", "Grep", "Glob", "WebSearch"],
+        tools=["Read", "Bash", "Grep", "Glob", "WebSearch", "WebFetch", "ReadImage"],
         model="opus",
         agent_type="researcher",
         background=True,
@@ -80,7 +80,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "implementer": AgentDefinition(
         name="implementer",
         description="Implementation specialist. Run in BACKGROUND for coding tasks.",
-        tools=["Read", "Write", "Edit", "Bash", "Grep", "Glob"],
+        tools=["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebSearch", "WebFetch", "GitCommit", "GitStatus"],
         model="opus",
         agent_type="implementer",
         background=True,
@@ -89,7 +89,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "worker": AgentDefinition(
         name="worker",
         description="General worker agent for implementation tasks.",
-        tools=["Read", "Write", "Edit", "Bash", "Grep", "Glob"],
+        tools=["Read", "Write", "Edit", "Bash", "Grep", "Glob", "WebSearch", "WebFetch", "GitCommit", "GitStatus"],
         model="opus",
         agent_type="worker",
         background=False,
@@ -98,7 +98,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "critic": AgentDefinition(
         name="critic",
         description="Adversarial reviewer. Run PROACTIVELY after proposals. READ-ONLY.",
-        tools=["Read", "Grep", "Glob"],
+        tools=["Read", "Grep", "Glob", "WebSearch", "WebFetch"],
         model="opus",
         agent_type="critic",
         background=True,
@@ -107,7 +107,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "monitor": AgentDefinition(
         name="monitor",
         description="Background monitor. Watches for errors. WAKES main thread on problems only.",
-        tools=["Bash", "Read", "Grep"],
+        tools=["Bash", "Read", "Grep", "WebFetch"],
         model="opus",
         agent_type="monitor",
         background=True,
@@ -116,7 +116,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "coordinator": AgentDefinition(
         name="coordinator",
         description="Task coordination and cross-swarm handoffs.",
-        tools=["Read", "Glob", "Grep", "Write", "Edit"],
+        tools=["Read", "Glob", "Grep", "Write", "Edit", "Task", "ParallelTasks", "ListSwarms", "GitStatus", "GitSync"],
         model="opus",
         agent_type="coordinator",
         background=False,
@@ -125,7 +125,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "quality": AgentDefinition(
         name="quality",
         description="Quality assurance, standards enforcement, and audits.",
-        tools=["Read", "Glob", "Grep", "Write", "Edit", "Bash"],
+        tools=["Read", "Glob", "Grep", "Write", "Edit", "Bash", "WebSearch", "WebFetch"],
         model="opus",
         agent_type="quality",
         background=False,
@@ -134,7 +134,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "architect": AgentDefinition(
         name="architect",
         description="System design and architecture planning.",
-        tools=["Read", "Glob", "Grep", "Write", "Edit"],
+        tools=["Read", "Glob", "Grep", "Write", "Edit", "WebSearch", "WebFetch", "GitCommit", "GitStatus"],
         model="opus",
         agent_type="architect",
         background=True,
@@ -143,7 +143,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
     "reviewer": AgentDefinition(
         name="reviewer",
         description="Code review for correctness and best practices.",
-        tools=["Read", "Glob", "Grep"],
+        tools=["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
         model="opus",
         agent_type="reviewer",
         background=True,
