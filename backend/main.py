@@ -1005,6 +1005,7 @@ async def websocket_chat(websocket: WebSocket):
     """WebSocket endpoint for streaming chat."""
     await manager.connect(websocket)
     orch = get_orchestrator()
+    history = get_chat_history()
 
     try:
         while True:
@@ -1012,6 +1013,7 @@ async def websocket_chat(websocket: WebSocket):
             data = await websocket.receive_json()
             message = data.get("message", "")
             swarm_name = data.get("swarm")
+            session_id = data.get("session_id")
 
             if not message:
                 continue
@@ -1028,6 +1030,23 @@ async def websocket_chat(websocket: WebSocket):
             })
 
             try:
+                # Build conversation history from session
+                conversation_history = ""
+                if session_id:
+                    session = history.get_session(session_id)
+                    if session and session.get("messages"):
+                        history_lines = []
+                        for msg in session["messages"]:
+                            role = "User" if msg["role"] == "user" else "Assistant"
+                            content = msg["content"]
+                            # Truncate very long messages in history
+                            if len(content) > 2000:
+                                content = content[:2000] + "... [truncated]"
+                            history_lines.append(f"{role}: {content}")
+
+                        if history_lines:
+                            conversation_history = "\n\n## Previous Conversation\n" + "\n\n".join(history_lines) + "\n\n---\n"
+
                 # Get workspace and swarm info if specified
                 workspace = None
                 swarm = None
@@ -1081,10 +1100,10 @@ async def websocket_chat(websocket: WebSocket):
 
 **Current Priorities:**
 {priorities_str}
-
+{conversation_history}
 ---
 
-User request: {message}"""
+**Current User Message:** {message}"""
                 else:
                     # No swarm context - provide organization overview
                     all_swarms = []
@@ -1099,10 +1118,10 @@ User request: {message}"""
 
 **All Swarms:**
 {all_swarms_str}
-
+{conversation_history}
 ---
 
-User request: {message}"""
+**Current User Message:** {message}"""
 
                 # Try Anthropic SDK first if API key is available (more reliable)
                 api_key = os.environ.get("ANTHROPIC_API_KEY")
