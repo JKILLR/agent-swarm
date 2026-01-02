@@ -1,0 +1,55 @@
+# Trading Bots Swarm Configuration
+# Researches and develops trading bot strategies
+
+name: "Trading Bots"
+description: "Research trading bot systems, analyze strategies, and develop profitable implementations"
+version: "0.1.0"
+status: "active"
+
+# Agents in this swarm
+agents:
+  - name: "orchestrator"
+    type: "orchestrator"
+    prompt_file: "agents/orchestrator.md"
+    max_turns: 30
+    background: false
+  - name: "researcher"
+    type: "researcher"
+    prompt_file: "agents/researcher.md"
+    max_turns: 25
+    background: true
+  - name: "implementer"
+    type: "implementer"
+    prompt_file: "agents/worker.md"
+    max_turns: 25
+    background: true
+  - name: "critic"
+    type: "critic"
+    prompt_file: "agents/critic.md"
+    max_turns: 20
+    background: true
+  - name: "monitor"
+    type: "monitor"
+    prompt_file: "agents/monitor.md"
+    max_turns: 10
+    background: true
+
+# Workspace for swarm-specific files
+workspace: "./workspace"
+
+# Swarm settings
+settings:
+  max_concurrent_tasks: 5
+  require_consensus: true
+  consensus_threshold: 0.7
+  timeout: 300
+  min_voters: 2
+  parallel_execution: true
+  wake_messaging: true
+
+# Current priorities
+priorities:
+  - "Review existing trading bot implementations"
+  - "Research profitable trading strategies"
+  - "Analyze edge cases and exploitable patterns"
+  - "Design robust bot architecture"
