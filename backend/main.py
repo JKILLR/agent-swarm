@@ -1103,6 +1103,29 @@ async def parse_claude_stream(
     return {"response": context["full_response"], "thinking": context["full_thinking"]}
 
 
+def _get_tool_description(tool_name: str, tool_input: dict) -> str:
+    """Generate human-readable description for a tool call."""
+    descriptions = {
+        "Read": lambda i: f"Reading {i.get('file_path', 'file')[:50]}",
+        "Write": lambda i: f"Writing to {i.get('file_path', 'file')[:50]}",
+        "Edit": lambda i: f"Editing {i.get('file_path', 'file')[:50]}",
+        "Bash": lambda i: f"Running: {i.get('command', '')[:40]}{'...' if len(i.get('command', '')) > 40 else ''}",
+        "Glob": lambda i: f"Searching for {i.get('pattern', 'files')}",
+        "Grep": lambda i: f"Searching for '{i.get('pattern', '')[:30]}'",
+        "Task": lambda i: f"Delegating to {i.get('agent', 'agent')}: {i.get('prompt', '')[:40]}...",
+        "WebSearch": lambda i: f"Searching web: {i.get('query', '')[:40]}",
+        "WebFetch": lambda i: f"Fetching {i.get('url', 'URL')[:40]}",
+    }
+
+    if tool_name in descriptions:
+        try:
+            return descriptions[tool_name](tool_input)
+        except Exception:
+            pass
+
+    return f"Using {tool_name}"
+
+
 async def _process_cli_event(event: dict, websocket: WebSocket, manager, context: dict):
     """Process a single CLI event and update response/thinking."""
     event_type = event.get("type", "")
@@ -1127,14 +1150,27 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
 
         elif event_type == "content_block_start":
             content_block = event.get("content_block", {})
-            context["current_block_type"] = content_block.get("type", "text")
+            block_type = content_block.get("type", "text")
+            context["current_block_type"] = block_type
 
-            if context["current_block_type"] == "thinking":
+            if block_type == "thinking":
                 await manager.send_event(
                     websocket,
                     "thinking_start",
+                    {"agent": "Supreme Orchestrator"},
+                )
+            elif block_type == "tool_use":
+                tool_name = content_block.get("name", "unknown")
+                tool_input = content_block.get("input", {})
+                context["current_tool"] = tool_name
+                # Send tool_start event for real-time visibility
+                await manager.send_event(
+                    websocket,
+                    "tool_start",
                     {
-                        "agent": "Supreme Orchestrator",
+                        "tool": tool_name,
+                        "description": _get_tool_description(tool_name, tool_input),
+                        "input": tool_input,
                     },
                 )
 
@@ -1167,7 +1203,8 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 )
 
         elif event_type == "content_block_stop":
-            if context.get("current_block_type") == "thinking":
+            block_type = context.get("current_block_type")
+            if block_type == "thinking":
                 await manager.send_event(
                     websocket,
                     "thinking_complete",
@@ -1176,6 +1213,19 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                         "thinking": context.get("full_thinking", ""),
                     },
                 )
+            elif block_type == "tool_use":
+                # Tool completed
+                tool_name = context.get("current_tool", "unknown")
+                await manager.send_event(
+                    websocket,
+                    "tool_complete",
+                    {
+                        "tool": tool_name,
+                        "success": True,
+                        "summary": f"Completed: {tool_name}",
+                    },
+                )
+                context["current_tool"] = None
 
         elif event_type == "result":
             # Final result from CLI - only use if we didn't stream content
@@ -1191,6 +1241,22 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                         "delta": text,
                     },
                 )
+
+        elif event_type == "tool_result":
+            # Explicit tool result event (may have error info)
+            tool_name = context.get("current_tool", "unknown")
+            success = event.get("is_error", False) is False
+            await manager.send_event(
+                websocket,
+                "tool_complete",
+                {
+                    "tool": tool_name,
+                    "success": success,
+                    "summary": f"{'Completed' if success else 'Failed'}: {tool_name}",
+                },
+            )
+            context["current_tool"] = None
+
     except Exception as e:
         logger.error(f"Error processing CLI event: {e}")
 
