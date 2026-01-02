@@ -1234,12 +1234,12 @@ Remember: You are an EXECUTOR, not just an advisor. Use your tools to get things
                     # Stream and parse the response
                     result = await asyncio.wait_for(
                         parse_claude_stream(process, websocket, manager),
-                        timeout=300.0,  # 5 minute timeout for complex tasks
+                        timeout=900.0,  # 15 minute timeout for complex multi-agent tasks
                     )
                 except asyncio.TimeoutError:
                     if process:
                         process.kill()
-                    raise RuntimeError("Claude CLI timed out after 5 minutes")
+                    raise RuntimeError("Claude CLI timed out after 15 minutes")
                 except Exception as e:
                     logger.warning(f"Claude CLI failed: {e}")
                     # Fall back to API if available
