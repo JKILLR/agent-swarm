@@ -811,21 +811,81 @@ async def websocket_chat(websocket: WebSocket):
             })
 
             try:
-                # Get workspace from swarm if specified
+                # Get workspace and swarm info if specified
                 workspace = None
+                swarm = None
                 if swarm_name:
                     swarm = orch.get_swarm(swarm_name)
                     if swarm:
                         workspace = swarm.workspace
 
-                # Build context-aware prompt
-                if swarm_name and workspace:
-                    full_prompt = f"""You are working in the context of the "{swarm_name}" swarm.
-Workspace: {workspace}
+                # Build context-aware prompt with full swarm structure
+                if swarm and workspace:
+                    # Get swarm status and agent info
+                    status = swarm.get_status()
+
+                    # Build agent list
+                    agents_info = []
+                    for agent_name, defn in swarm.agent_definitions.items():
+                        agents_info.append(f"  - {agent_name} ({defn.agent_type}): {defn.description}")
+                    agents_str = "\n".join(agents_info) if agents_info else "  No agents defined"
+
+                    # Build priorities list
+                    priorities = status.get("priorities", [])
+                    priorities_info = []
+                    for p in priorities:
+                        if isinstance(p, dict):
+                            priorities_info.append(f"  - {p.get('task', str(p))}")
+                        else:
+                            priorities_info.append(f"  - {p}")
+                    priorities_str = "\n".join(priorities_info) if priorities_info else "  No priorities set"
+
+                    # Get all swarms in the organization
+                    all_swarms = []
+                    for name, s in orch.swarms.items():
+                        s_status = s.get_status()
+                        all_swarms.append(f"  - {name}: {s_status.get('description', 'No description')} ({s_status.get('agent_count', 0)} agents)")
+                    all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms"
+
+                    full_prompt = f"""You are the Supreme Orchestrator AI assistant for the "{swarm_name}" agent swarm organization.
+
+## Organization Structure
+
+**All Swarms:**
+{all_swarms_str}
+
+**Current Swarm: {swarm_name}**
+- Description: {status.get('description', 'No description')}
+- Status: {status.get('status', 'unknown')}
+- Workspace: {workspace}
+
+**Agents in {swarm_name}:**
+{agents_str}
+
+**Current Priorities:**
+{priorities_str}
+
+---
 
 User request: {message}"""
                 else:
-                    full_prompt = message
+                    # No swarm context - provide organization overview
+                    all_swarms = []
+                    for name, s in orch.swarms.items():
+                        s_status = s.get_status()
+                        all_swarms.append(f"  - {name}: {s_status.get('description', 'No description')} ({s_status.get('agent_count', 0)} agents)")
+                    all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined yet"
+
+                    full_prompt = f"""You are the Supreme Orchestrator AI assistant for an agent swarm organization.
+
+## Organization Structure
+
+**All Swarms:**
+{all_swarms_str}
+
+---
+
+User request: {message}"""
 
                 # Try Anthropic SDK first if API key is available (more reliable)
                 api_key = os.environ.get("ANTHROPIC_API_KEY")
