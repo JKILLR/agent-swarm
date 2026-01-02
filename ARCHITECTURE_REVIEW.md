@@ -554,6 +554,394 @@ The December 2025 Claude Agent SDK patterns show that leading implementations ac
 
 ---
 
+## Part 8: Additional Implementation Patterns (Supplementary Review)
+
+### 8.1 Session Continuity (Eliminate Process Spawning)
+
+**Problem**: Each message creates a new Claude process, losing context.
+
+**Solution**: Use `--continue` flag for session persistence:
+
+```python
+# backend/session_manager.py (new)
+class SessionManager:
+    """Maintain persistent Claude sessions per chat."""
+
+    def __init__(self):
+        self.active_sessions: Dict[str, str] = {}  # chat_id -> session_id
+
+    async def get_or_create_session(self, chat_id: str) -> str:
+        if chat_id not in self.active_sessions:
+            session_id = await self._start_session()
+            self.active_sessions[chat_id] = session_id
+        return self.active_sessions[chat_id]
+
+    async def continue_session(self, chat_id: str, prompt: str):
+        session_id = await self.get_or_create_session(chat_id)
+        # --continue flag maintains context across calls
+        cmd = [
+            "claude", "-p",
+            "--output-format", "stream-json",
+            "--continue", session_id,
+            prompt
+        ]
+        return await asyncio.create_subprocess_exec(*cmd, ...)
+```
+
+### 8.2 Hooks System for Coordination
+
+**Add automated feedback loops** via `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {"type": "command", "command": "python scripts/pre_task_hook.py"}
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {"type": "command", "command": "scripts/validate-write.sh"}
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {"type": "command", "command": "python scripts/agent_complete_hook.py"}
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {"type": "command", "command": "python scripts/session_complete_hook.py"}
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Pre-Task Hook Example** (`scripts/pre_task_hook.py`):
+
+```python
+#!/usr/bin/env python3
+"""Check for conflicts before spawning agents."""
+import json
+import sys
+import sqlite3
+from datetime import datetime
+
+def main():
+    hook_input = json.loads(sys.stdin.read())
+    tool_input = hook_input.get("tool_input", {})
+    agent_name = tool_input.get("agent", "")
+
+    # Log to coordination database
+    conn = sqlite3.connect(".claude/coordination.db")
+    conn.execute("""
+        INSERT INTO task_log (agent, prompt, started_at, status)
+        VALUES (?, ?, ?, 'starting')
+    """, (agent_name, tool_input.get("prompt", "")[:500], datetime.now().isoformat()))
+    conn.commit()
+
+    # Check for conflicts
+    running = conn.execute("""
+        SELECT agent FROM task_log WHERE status = 'running' AND agent = ?
+    """, (agent_name,)).fetchall()
+
+    if running:
+        print(json.dumps({
+            "message": f"Warning: {agent_name} already has a running task",
+            "continue": True
+        }))
+
+    conn.close()
+    sys.exit(0)  # 0 = allow, 2 = block
+
+if __name__ == "__main__":
+    main()
+```
+
+### 8.3 Workflow YAML Definitions
+
+**Define deterministic pipelines** with parallel stages:
+
+```yaml
+# workflows/feature_development.yaml
+name: feature-development
+description: Full feature implementation workflow
+
+stages:
+  - name: research
+    description: Understand requirements and codebase
+    agents: [researcher]
+    parallel: false
+    outputs: [research_summary, relevant_files]
+
+  - name: design
+    description: Create implementation plan
+    agents: [architect]
+    parallel: false
+    depends_on: research
+    inputs: [research_summary]
+    outputs: [implementation_plan]
+
+  - name: implement
+    description: Write the code
+    agents: [implementer-frontend, implementer-backend]
+    parallel: true  # Both run simultaneously
+    depends_on: design
+
+  - name: verify
+    description: Review and test
+    agents: [critic, tester]
+    parallel: true
+    depends_on: implement
+
+  - name: finalize
+    description: Merge and document
+    agents: [implementer]
+    parallel: false
+    depends_on: verify
+    condition: "all_passed(verify)"
+```
+
+**Workflow Executor**:
+
+```python
+# backend/workflow_executor.py
+class WorkflowExecutor:
+    def __init__(self, runtime: AgentRuntime):
+        self.runtime = runtime
+        self.stage_results: Dict[str, dict] = {}
+
+    async def execute_workflow(self, workflow_path: str, initial_prompt: str):
+        workflow = yaml.safe_load(open(workflow_path))
+        stages = [WorkflowStage(**s) for s in workflow['stages']]
+
+        for stage in stages:
+            if stage.depends_on and stage.depends_on not in self.stage_results:
+                raise ValueError(f"Missing dependency: {stage.depends_on}")
+
+            context = self._build_context(stage, initial_prompt)
+
+            if stage.parallel:
+                results = await asyncio.gather(*[
+                    self._spawn_agent(agent, context) for agent in stage.agents
+                ])
+            else:
+                results = [await self._spawn_agent(a, context) for a in stage.agents]
+
+            self.stage_results[stage.name] = results
+
+        return self.stage_results
+```
+
+### 8.4 Compact COO Prompt Pattern
+
+**Replace monolithic context loading** with compact routing:
+
+```python
+def build_compact_coo_prompt(memory: SwarmMemory, swarms: dict) -> str:
+    """
+    COO maintains ONLY routing logic + compact global state.
+    Never holds detailed implementation context.
+    """
+    teams = [f"- **{name}**: {', '.join(s.agents.keys())}" for name, s in swarms.items()]
+    state = memory.get_compact_state()
+
+    return f"""You are the Supreme Orchestrator (COO).
+
+## Your Role
+- Route tasks to the right swarm/agent
+- Maintain high-level awareness ONLY
+- DELEGATE all implementation details to subagents
+- Use Task tool to spawn agents with isolated context
+
+## Available Teams
+{chr(10).join(teams)}
+
+## Current State
+{state}
+
+## Rules
+1. NEVER hold detailed implementation context
+2. Use Task("swarm/agent", "specific instruction") to delegate
+3. Subagents return summaries - trust their work
+4. For parallel work, spawn multiple Tasks in one message
+5. Check memory for previous decisions before delegating
+
+## Communication
+- Brief status updates to CEO
+- ⚡ **DECISION REQUIRED** for approvals
+- Synthesize subagent results, don't repeat them verbatim
+"""
+```
+
+### 8.5 Enhanced Shared Memory Layer
+
+**Upgrade memory.py** with decisions tracking and coordination:
+
+```python
+# backend/memory.py (enhanced schema)
+class SwarmMemory:
+    def _init_schema(self):
+        self.conn.executescript("""
+            CREATE TABLE IF NOT EXISTS decisions (
+                id INTEGER PRIMARY KEY,
+                namespace TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                agent TEXT,
+                timestamp TEXT,
+                UNIQUE(namespace, key)
+            );
+
+            CREATE TABLE IF NOT EXISTS task_log (
+                id INTEGER PRIMARY KEY,
+                agent TEXT,
+                prompt TEXT,
+                result TEXT,
+                started_at TEXT,
+                completed_at TEXT,
+                status TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_decisions_ns ON decisions(namespace);
+            CREATE INDEX IF NOT EXISTS idx_tasks_agent ON task_log(agent, status);
+        """)
+
+    def store_decision(self, namespace: str, key: str, value: Any, agent: str = None):
+        """Store a decision that other agents can reference."""
+        self.conn.execute("""
+            INSERT OR REPLACE INTO decisions (namespace, key, value, agent, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+        """, (namespace, key, json.dumps(value), agent, datetime.now().isoformat()))
+        self.conn.commit()
+
+    def get_compact_state(self) -> str:
+        """Get compact state for orchestrator - NOT detailed implementation."""
+        recent = self.conn.execute("""
+            SELECT namespace, key, agent FROM decisions
+            ORDER BY timestamp DESC LIMIT 10
+        """).fetchall()
+
+        active = self.conn.execute("""
+            SELECT agent, prompt, started_at FROM task_log WHERE status = 'running'
+        """).fetchall()
+
+        lines = ["## Current State (Compact)"]
+        if active:
+            lines.append("\n### Active Tasks")
+            for agent, prompt, started in active:
+                lines.append(f"- {agent}: {prompt[:50]}...")
+        if recent:
+            lines.append("\n### Recent Decisions")
+            for ns, key, agent in recent:
+                lines.append(f"- [{ns}] {key} by {agent}")
+
+        return "\n".join(lines)
+```
+
+### 8.6 On-Demand Tool Discovery
+
+**Reduce initial context by 50-80%** with deferred tool loading:
+
+```python
+# backend/tools.py - Tool discovery pattern
+TOOLS_CONFIG = [
+    {
+        "name": "core_tools",
+        "tools": ["Task", "Read", "Write", "Bash"],
+        "defer_loading": False  # Always available
+    },
+    {
+        "name": "search_tools",
+        "tools": ["WebSearch", "SemanticSearch", "Grep"],
+        "defer_loading": True  # Load on demand
+    },
+    {
+        "name": "git_tools",
+        "tools": ["GitCommit", "GitSync", "GitStatus"],
+        "defer_loading": True
+    }
+]
+
+class ToolDiscovery:
+    """Claude discovers tools via ToolSearchTool when needed."""
+
+    def get_initial_tools(self) -> list:
+        """Return only core tools initially."""
+        return [t for cfg in TOOLS_CONFIG if not cfg["defer_loading"] for t in cfg["tools"]]
+
+    async def discover_tools(self, category: str) -> list:
+        """Load additional tools on demand."""
+        for cfg in TOOLS_CONFIG:
+            if cfg["name"] == category:
+                return cfg["tools"]
+        return []
+```
+
+### 8.7 Target Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     HUMAN (CEO)                             │
+│                   Web UI / Chat                             │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ Directives
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│              SUPREME ORCHESTRATOR (COO)                     │
+│  • Routes via Task tool (NOT process spawning)              │
+│  • Maintains COMPACT global state only                      │
+│  • Uses hooks for coordination                              │
+│  • Persistent session via --continue                        │
+└────────────┬────────────────────┬───────────────────────────┘
+             │                    │
+    ┌────────▼────────┐  ┌───────▼────────┐
+    │   SWARM: ASA    │  │  SWARM: DEV    │
+    │  Research Team  │  │   Build Team   │
+    └────────┬────────┘  └───────┬────────┘
+             │                   │
+    ┌────────┴────────┐ ┌───────┴────────┐
+    │  • researcher   │ │ • architect    │
+    │  • implementer  │ │ • coder        │
+    │  • critic       │ │ • tester       │
+    └─────────────────┘ └────────────────┘
+             │                   │
+             └─────────┬─────────┘
+                       ▼
+        ┌─────────────────────────────┐
+        │    SHARED MEMORY LAYER      │
+        │  • SQLite persistent state  │
+        │  • Decisions tracking       │
+        │  • Coordination points      │
+        │  • Task log                 │
+        └─────────────────────────────┘
+```
+
+### 8.8 Key Transformations Summary
+
+| Current State | Target State |
+|--------------|--------------|
+| Process spawning per agent | Persistent sessions with `--continue` |
+| COO holds all context | COO routes, subagents hold details |
+| Sequential execution | Parallel stages via asyncio.gather |
+| No coordination protocol | Hooks + shared memory |
+| Manual tool definitions | On-demand tool discovery |
+| API key auth (fallback) | OAuth via Claude Max subscription |
+| Full context returns | Summarized results only |
+| No verification loops | PreToolUse/PostToolUse hooks |
+
+---
+
 ## Sources
 
 - [Building agents with the Claude Agent SDK (Anthropic)](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk)
