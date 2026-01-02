@@ -41,6 +41,7 @@ except ImportError:
 from supreme.orchestrator import SupremeOrchestrator
 from shared.swarm_interface import load_swarm
 from tools import get_tool_definitions, ToolExecutor
+from memory import get_memory_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1168,6 +1169,10 @@ async def websocket_chat(websocket: WebSocket):
                     if swarm:
                         workspace = swarm.workspace
 
+                # Load memory context for COO
+                memory = get_memory_manager()
+                memory_context = memory.load_coo_context()
+
                 # Build system prompt for the COO
                 all_swarms = []
                 for name, s in orch.swarms.items():
@@ -1179,14 +1184,17 @@ async def websocket_chat(websocket: WebSocket):
 
                 system_prompt = f"""You are the Supreme Orchestrator (COO) of an AI agent swarm organization.
 
+**CRITICAL: NEVER DUPLICATE CONTENT. Each piece of information should appear EXACTLY ONCE in your response.**
+
 ## Your Role
-You are the Chief Operating Officer. The CEO (human) gives you directives, and you coordinate the swarms to execute them.
+You are the Chief Operating Officer. The CEO (human) gives you directives, and you coordinate the swarms to execute them. You have deep knowledge of the organization's vision, priorities, and current state.
 
 ## Your Tools
 You have access to powerful tools:
 - **Task**: Spawn subagents to do work. Format: Task(agent="swarm_name/agent_name", prompt="what to do")
-- **Read/Write/Bash/Glob/Grep**: Direct file and command operations
+- **Read/Write/Edit/Bash/Glob/Grep**: Direct file and command operations
 - **ListSwarms/GetSwarmStatus**: Get information about the organization
+- **GitCommit/GitSync/GitStatus**: Git operations for code changes
 
 ## IMPORTANT: Delegation
 When the CEO asks you to do something that requires specialized work:
@@ -1201,15 +1209,19 @@ When the CEO asks you to do something that requires specialized work:
 **Swarms Available:**
 {all_swarms_str}
 
-## Example Delegation
-If asked "test the self-development capabilities", you should:
-1. Use Task(agent="swarm_dev/orchestrator", prompt="Assess and test the system's self-development capabilities...")
-2. Review the results
-3. Report back to the CEO
+---
+
+{memory_context}
+
+---
 
 {conversation_history}
 
-Remember: You are an EXECUTOR, not just an advisor. Use your tools to get things done!"""
+## Communication Style
+- Be concise and actionable
+- Use ⚡ **CEO DECISION REQUIRED** for decisions needing approval
+- Never repeat yourself within a response
+- Execute with tools, don't just advise"""
 
                 user_message = message
 
@@ -1283,6 +1295,17 @@ Remember: You are an EXECUTOR, not just an advisor. Use your tools to get things
                 await manager.send_event(websocket, "chat_complete", {
                     "success": True,
                 })
+
+                # Save session summary to memory (lightweight, don't block)
+                try:
+                    session_summary = f"**User**: {message[:200]}{'...' if len(message) > 200 else ''}\n\n**COO Response**: {final_content[:500]}{'...' if len(final_content) > 500 else ''}"
+                    memory.save_session_summary(
+                        session_id=session_id or datetime.now().strftime("%Y%m%d_%H%M%S"),
+                        summary=session_summary,
+                        swarm_name=None  # COO-level, not swarm-specific
+                    )
+                except Exception as mem_err:
+                    logger.warning(f"Failed to save session summary: {mem_err}")
 
             except Exception as e:
                 logger.error(f"Chat error: {e}", exc_info=True)
