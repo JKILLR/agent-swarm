@@ -651,13 +651,16 @@ Use tools to actually accomplish work - don't just describe what you would do.
         prompt: str,
         workspace: Path,
     ) -> str:
-        """Run a subagent using Claude CLI (Max subscription) or API fallback with retry."""
+        """Run a subagent using Claude CLI (Max subscription handles auth automatically)."""
 
         async def attempt_subagent():
-            # Try Claude CLI first (uses Max subscription)
+            # Use Claude CLI - authentication handled automatically via Max subscription
             try:
                 result = await self._run_subagent_cli(prompt, workspace)
                 if result:
+                    # Truncate long results
+                    if len(result) > 2000:
+                        result = self._truncate_result(result, 2000)
                     return result
             except asyncio.TimeoutError:
                 # Timeout is retryable
@@ -667,14 +670,7 @@ Use tools to actually accomplish work - don't just describe what you would do.
                 # Check if it's a retryable error
                 if any(p in error_msg for p in ["rate limit", "overloaded", "503", "429"]):
                     raise RetryableError(f"CLI subagent transient failure: {e}")
-                logger.warning(f"CLI subagent failed: {e}")
-
-            # Fall back to API if available
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
-            if api_key:
-                return await self._run_subagent_api(prompt, workspace)
-
-            raise NonRetryableError("Subagent execution failed - CLI not available and no API key set")
+                raise NonRetryableError(f"CLI subagent failed: {e}")
 
         try:
             return await with_retry(
@@ -1204,8 +1200,33 @@ Use tools to actually accomplish work - don't just describe what you would do.
             logger.error(f"Image read error: {e}")
             return f"Error reading image: {str(e)}"
 
+    def _truncate_result(self, result: str, max_length: int = 2000) -> str:
+        """Truncate result while preserving structure. Simple truncation, NOT LLM summarization."""
+        if len(result) <= max_length:
+            return result
+
+        # Find the last complete section/paragraph
+        lines = result.split('\n')
+        truncated = []
+        char_count = 0
+
+        for line in lines:
+            if char_count + len(line) + 1 > max_length - 100:  # Leave room for notice
+                break
+            truncated.append(line)
+            char_count += len(line) + 1
+
+        truncated.append("")
+        truncated.append(f"... [Truncated {len(result) - char_count} chars]")
+        truncated.append("Use `Read` tool to see full output if needed.")
+
+        return '\n'.join(truncated)
+
     async def _execute_parallel_tasks(self, input: dict[str, Any]) -> str:
-        """Execute multiple tasks in parallel."""
+        """Execute multiple tasks with TRUE parallel subprocess spawning."""
+        import time
+        start_time = time.time()
+
         tasks = input.get("tasks", [])
 
         if not tasks:
@@ -1214,35 +1235,46 @@ Use tools to actually accomplish work - don't just describe what you would do.
         if len(tasks) > 10:
             return "Error: Maximum 10 parallel tasks allowed"
 
-        results = []
-        async_tasks = []
-
-        # Create all tasks
+        # Validate tasks first
+        valid_tasks = []
         for i, task in enumerate(tasks):
             agent = task.get("agent", "")
             prompt = task.get("prompt", "")
+            if agent and prompt:
+                valid_tasks.append((i, agent, prompt))
+            else:
+                logger.warning(f"Task {i + 1}: missing agent or prompt, skipping")
 
-            if not agent or not prompt:
-                results.append(f"Task {i + 1}: Error - missing agent or prompt")
-                continue
+        if not valid_tasks:
+            return "Error: No valid tasks to execute"
 
-            # Create async task for each
-            async_task = asyncio.create_task(
-                self._execute_task({"agent": agent, "prompt": prompt}), name=f"task_{i}_{agent}"
-            )
-            async_tasks.append((i, agent, async_task))
+        logger.info(f"Starting {len(valid_tasks)} parallel tasks...")
 
-        # Wait for all tasks to complete
-        for i, agent, task in async_tasks:
-            try:
-                result = await asyncio.wait_for(task, timeout=300.0)
-                results.append(f"**Task {i + 1} ({agent}):**\n{result}\n")
-            except asyncio.TimeoutError:
-                results.append(f"**Task {i + 1} ({agent}):** Timed out\n")
-            except Exception as e:
-                results.append(f"**Task {i + 1} ({agent}):** Error - {str(e)}\n")
+        # Create all coroutines (don't await yet - this is the key!)
+        coroutines = [
+            self._execute_task({"agent": agent, "prompt": prompt})
+            for _, agent, prompt in valid_tasks
+        ]
 
-        return f"**Parallel Execution Results ({len(tasks)} tasks):**\n\n" + "\n---\n".join(results)
+        # NOW they run truly in parallel
+        results = await asyncio.gather(*coroutines, return_exceptions=True)
+
+        elapsed = time.time() - start_time
+        logger.info(f"Parallel execution completed in {elapsed:.2f}s")
+
+        # Format results with truncation
+        output_lines = [f"## Parallel Execution Results ({len(valid_tasks)} tasks in {elapsed:.2f}s)\n"]
+        for (i, agent, _), result in zip(valid_tasks, results):
+            if isinstance(result, Exception):
+                output_lines.append(f"### Task {i + 1} ({agent})\n**Error:** {str(result)}\n")
+            else:
+                # Truncate long results
+                result_str = str(result)
+                if len(result_str) > 2000:
+                    result_str = self._truncate_result(result_str, 2000)
+                output_lines.append(f"### Task {i + 1} ({agent})\n{result_str}\n")
+
+        return "\n".join(output_lines)
 
     async def _execute_git_commit(self, input: dict[str, Any]) -> str:
         """Commit changes and push to a feature branch."""

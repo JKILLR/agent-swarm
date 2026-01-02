@@ -44,6 +44,7 @@ from tools import ToolExecutor, get_tool_definitions
 from memory import get_memory_manager
 from supreme.orchestrator import SupremeOrchestrator
 from jobs import get_job_queue, get_job_manager, JobStatus
+from session_manager import get_session_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -72,7 +73,42 @@ orchestrator: SupremeOrchestrator | None = None
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup."""
+    import sqlite3
     logger.info("Starting Agent Swarm backend...")
+
+    # Initialize coordination database for hooks
+    db_path = PROJECT_ROOT / ".claude" / "coordination.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS task_log (
+                id INTEGER PRIMARY KEY,
+                agent TEXT,
+                prompt TEXT,
+                started_at TEXT,
+                completed_at TEXT,
+                status TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS decisions (
+                id INTEGER PRIMARY KEY,
+                namespace TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                agent TEXT,
+                timestamp TEXT,
+                UNIQUE(namespace, key)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_task_agent ON task_log(agent, status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_decisions_ns ON decisions(namespace)")
+        conn.commit()
+        conn.close()
+        logger.info(f"Coordination database initialized at {db_path}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize coordination DB: {e}")
 
     # Initialize job manager with broadcast callback
     job_manager = get_job_manager()
@@ -935,20 +971,31 @@ async def run_agentic_chat(
         if response.stop_reason == "end_turn" or not tool_uses:
             break
 
-        # Execute tools and collect results
+        # Execute tools and collect results - IN PARALLEL for 3-5x speedup
         if tool_uses:
             # Add assistant message with tool uses
             messages.append({"role": "assistant", "content": response.content})
 
-            tool_results = []
-            for tool_use in tool_uses:
-                logger.info(f"Executing tool: {tool_use.name}")
+            logger.info(f"Executing {len(tool_uses)} tools in parallel")
 
-                # Execute the tool
-                result = await tool_executor.execute(tool_use.name, tool_use.input)
+            # Execute all tools concurrently using asyncio.gather()
+            results = await asyncio.gather(*[
+                tool_executor.execute(tool_use.name, tool_use.input)
+                for tool_use in tool_uses
+            ], return_exceptions=True)
+
+            tool_results = []
+            for tool_use, result in zip(tool_uses, results):
+                # Handle exceptions from gather
+                if isinstance(result, Exception):
+                    result = f"Error: {str(result)}"
+                    logger.error(f"Tool {tool_use.name} failed: {result}")
+                else:
+                    logger.info(f"Tool {tool_use.name} completed")
 
                 # Stream tool result summary to frontend
-                result_preview = result[:200] + "..." if len(result) > 200 else result
+                result_str = str(result)
+                result_preview = result_str[:200] + "..." if len(result_str) > 200 else result_str
                 await manager.send_event(
                     websocket,
                     "agent_delta",
@@ -963,7 +1010,7 @@ async def run_agentic_chat(
                     {
                         "type": "tool_result",
                         "tool_use_id": tool_use.id,
-                        "content": result,
+                        "content": result_str,
                     }
                 )
 
@@ -977,12 +1024,16 @@ async def stream_claude_response(
     prompt: str,
     swarm_name: str | None = None,
     workspace: Path | None = None,
+    chat_id: str | None = None,
 ) -> asyncio.subprocess.Process:
     """
     Start a claude CLI process and return it for streaming.
 
     Uses 'claude -p --output-format stream-json' which outputs JSON lines
     that we can parse and stream to the frontend.
+
+    Session continuity: If chat_id is provided and a session exists,
+    uses --continue flag for 2-3s faster response.
     """
     # Build the command with prompt as argument (more reliable than stdin)
     cmd = [
@@ -993,20 +1044,24 @@ async def stream_claude_response(
         "--verbose",  # Required for stream-json output
         "--permission-mode",
         "acceptEdits",  # Allow file writes without interactive approval
-        prompt,  # Pass prompt as argument
     ]
+
+    # Add session continuity flags if we have an existing session
+    if chat_id:
+        session_mgr = get_session_manager()
+        continue_flags = session_mgr.get_continue_flags(chat_id)
+        if continue_flags:
+            cmd.extend(continue_flags)
+            logger.info(f"Using session continuity for chat {chat_id}")
+
+    # Add prompt as final argument
+    cmd.append(prompt)
 
     # Set working directory to workspace if specified
     cwd = str(workspace) if workspace else None
 
-    # Build environment with OAuth token for subprocess authentication
+    # Build environment - CLI handles authentication via Max subscription
     env = os.environ.copy()
-    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
-    if oauth_token:
-        env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
-        logger.info("Claude CLI using OAuth token from environment")
-    else:
-        logger.warning("CLAUDE_CODE_OAUTH_TOKEN not set - CLI may fail to authenticate")
 
     logger.info(f"Starting Claude CLI in {cwd or 'current dir'}")
 
@@ -1017,7 +1072,7 @@ async def stream_claude_response(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=cwd,
-        env=env,  # Pass environment with token
+        env=env,
     )
 
     return process
@@ -1027,17 +1082,22 @@ async def parse_claude_stream(
     process: asyncio.subprocess.Process,
     websocket: WebSocket,
     manager: ConnectionManager,
+    chat_id: str | None = None,
 ) -> dict:
     """
     Parse streaming JSON output from claude CLI and send events to WebSocket.
-    Returns dict with full response text and thinking.
+    Captures session ID for continuity and returns dict with full response text and thinking.
     """
     # Use a dict to accumulate response (mutable, passed by reference)
     context = {
         "full_response": "",
         "full_thinking": "",
         "current_block_type": None,
+        "session_id": None,  # Will be captured from Claude output
     }
+
+    # Session manager for capturing/registering sessions
+    session_mgr = get_session_manager() if chat_id else None
 
     if not process.stdout:
         return {"response": "", "thinking": ""}
@@ -1079,8 +1139,8 @@ async def parse_claude_stream(
 
                     try:
                         event = json.loads(line_str)
-                        # Process event and send to websocket
-                        await _process_cli_event(event, websocket, manager, context)
+                        # Process event and send to websocket (with session capture)
+                        await _process_cli_event(event, websocket, manager, context, session_mgr, chat_id)
                     except json.JSONDecodeError:
                         continue
             except asyncio.TimeoutError:
@@ -1099,7 +1159,7 @@ async def parse_claude_stream(
                 if line_str:
                     try:
                         event = json.loads(line_str)
-                        await _process_cli_event(event, websocket, manager, context)
+                        await _process_cli_event(event, websocket, manager, context, session_mgr, chat_id)
                     except json.JSONDecodeError:
                         pass
     finally:
@@ -1138,11 +1198,24 @@ def _get_tool_description(tool_name: str, tool_input: dict) -> str:
     return f"Using {tool_name}"
 
 
-async def _process_cli_event(event: dict, websocket: WebSocket, manager, context: dict):
-    """Process a single CLI event and update response/thinking."""
+async def _process_cli_event(event: dict, websocket: WebSocket, manager, context: dict, session_mgr=None, chat_id: str = None):
+    """Process a single CLI event and update response/thinking.
+
+    Also captures session ID for continuity when session_mgr and chat_id are provided.
+    """
     event_type = event.get("type", "")
 
     try:
+        # Capture session ID from Claude output for session continuity
+        if event_type in ("init", "system", "session_start") and session_mgr and chat_id:
+            session_id = event.get("session_id") or event.get("sessionId")
+            if session_id:
+                context["session_id"] = session_id
+                # Register the session for future --continue usage
+                import asyncio
+                asyncio.create_task(session_mgr.register_session(chat_id, session_id))
+                logger.info(f"Captured session ID {session_id[:8]}... for chat {chat_id}")
+
         if event_type == "assistant":
             # Final assistant message - content was already streamed via deltas
             # Just accumulate for the final response, don't re-send deltas
@@ -1529,21 +1602,22 @@ When the CEO asks you to do something that requires specialized work:
 
 **User request:** {user_message}"""
 
-                # Try Claude CLI first (uses Max subscription)
+                # Use Claude CLI (Max subscription handles authentication automatically)
                 result = None
-                api_key = os.environ.get("ANTHROPIC_API_KEY")
+                process = None
 
-                logger.info("Starting Claude CLI for COO chat...")
+                logger.info("Starting Claude CLI for COO chat (Max subscription auth)...")
                 try:
                     process = await stream_claude_response(
                         prompt=full_prompt,
                         swarm_name=None,
                         workspace=PROJECT_ROOT,
+                        chat_id=session_id,  # Enable session continuity
                     )
 
-                    # Stream and parse the response
+                    # Stream and parse the response (with session capture)
                     result = await asyncio.wait_for(
-                        parse_claude_stream(process, websocket, manager),
+                        parse_claude_stream(process, websocket, manager, chat_id=session_id),
                         timeout=900.0,  # 15 minute timeout for complex multi-agent tasks
                     )
                 except asyncio.TimeoutError:
@@ -1551,23 +1625,13 @@ When the CEO asks you to do something that requires specialized work:
                         process.kill()
                     raise RuntimeError("Claude CLI timed out after 15 minutes")
                 except Exception as e:
-                    logger.warning(f"Claude CLI failed: {e}")
-                    # Fall back to API if available
-                    if api_key and ANTHROPIC_AVAILABLE:
-                        logger.info("Falling back to Anthropic API...")
-                        try:
-                            result = await run_agentic_chat(
-                                system_prompt=system_prompt,
-                                user_message=user_message,
-                                websocket=websocket,
-                                manager=manager,
-                                orchestrator=orch,
-                            )
-                        except Exception as api_err:
-                            logger.error(f"API fallback also failed: {api_err}")
-                            raise RuntimeError(f"Both CLI and API failed. CLI error: {e}")
-                    else:
-                        raise
+                    logger.error(f"Claude CLI failed: {e}")
+                    raise RuntimeError(
+                        f"**Claude CLI Error:** {e}\n\n"
+                        "Make sure Claude CLI is authenticated:\n"
+                        "1. Run `claude` in terminal to authenticate\n"
+                        "2. Ensure you have an active Max subscription"
+                    )
 
                 # Check if we got a result
                 if result is None:

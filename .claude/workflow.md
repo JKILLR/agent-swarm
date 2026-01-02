@@ -195,3 +195,200 @@ Ensure sys.path includes both PROJECT_ROOT and BACKEND_DIR before imports.
 
 ### WebSocket not receiving events
 Check that `_process_cli_event()` in `backend/main.py` handles the event type and calls `manager.send_event()`.
+
+---
+
+## Parallel Execution Patterns (Architecture Enhancement)
+
+### Parallel Tool Execution
+Tool calls should execute concurrently using `asyncio.gather()`:
+
+```python
+# In run_agentic_chat() - execute tools in parallel
+if tool_uses:
+    results = await asyncio.gather(*[
+        tool_executor.execute(tu.name, tu.input, workspace)
+        for tu in tool_uses
+    ], return_exceptions=True)
+```
+
+**Why**: Sequential execution of 3 agents takes 3x longer than parallel.
+
+### ParallelTasks Tool
+For multi-agent work, use the ParallelTasks tool:
+
+```json
+{
+  "tool": "ParallelTasks",
+  "input": {
+    "tasks": [
+      {"agent": "swarm_dev/researcher", "prompt": "Research existing patterns"},
+      {"agent": "swarm_dev/architect", "prompt": "Design the solution"},
+      {"agent": "swarm_dev/critic", "prompt": "Identify potential issues"}
+    ]
+  }
+}
+```
+
+### Pipeline Chaining
+For deterministic workflows, chain agents sequentially:
+1. `researcher` → gather information
+2. `architect` → design solution
+3. `implementer` → write code
+4. `tester` → verify implementation
+5. `critic` → final review
+
+---
+
+## Subagent Definitions
+
+### Model Requirement: Opus 4.5 ONLY
+
+**CRITICAL:** All agents MUST use `claude-opus-4-5-20251101` (Opus 4.5).
+
+No other models are permitted. This ensures:
+- Consistent reasoning quality across all agents
+- Maximum capability for complex tasks
+- Unified behavior and context handling
+
+### Location
+Subagent definitions are in `.claude/agents/`:
+- `researcher.md` - Deep research and exploration
+- `architect.md` - System design and planning
+- `implementer.md` - Code implementation
+- `critic.md` - Code review and QA
+- `tester.md` - Test creation and execution
+
+### Format
+Each subagent has YAML frontmatter + markdown body:
+
+```markdown
+---
+name: researcher
+description: Deep research agent
+tools: Read, Grep, Glob, Bash, WebSearch
+model: opus  # ALWAYS opus - no exceptions
+---
+
+You are a Research Specialist...
+```
+
+### Context Isolation
+- Each subagent has its own context window
+- Return SUMMARIES, not full context
+- Use shared memory for cross-agent decisions
+
+---
+
+## Hooks for Coordination
+
+### Configuration
+Hooks are defined in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [...],
+    "SubagentStop": [...]
+  }
+}
+```
+
+### Hook Scripts
+Located in `scripts/hooks/`:
+- `pre_task.py` - Log task, check for conflicts before Task tool
+- `pre_write.py` - Validate file paths before Write/Edit
+- `agent_complete.py` - Update task status when agent finishes
+
+### Coordination Database
+Hooks use `.claude/coordination.db` (SQLite) to track:
+- Active tasks per agent
+- Task start/completion times
+- Cross-agent decisions
+
+---
+
+## COO Prompt Guidelines
+
+### Keep It Compact
+The COO should NOT hold detailed implementation context:
+
+```python
+# BAD: Loading all swarm details into COO context
+system_prompt = f"""...{all_agent_prompts}...{full_memory}..."""
+
+# GOOD: Compact routing information only
+system_prompt = f"""...{swarm_list}...{compact_state}..."""
+```
+
+### Delegation Rules
+1. NEVER hold detailed implementation context
+2. Use Task tool to spawn agents with isolated context
+3. Trust subagent summaries
+4. For parallel work, spawn multiple Tasks in one message
+5. Check shared memory for previous decisions
+
+---
+
+## Session Continuity
+
+### The --continue Flag
+Use `--continue` to maintain context across messages:
+
+```bash
+claude -p --continue <session_id> "Follow-up prompt"
+```
+
+### Session Manager
+The backend should maintain session IDs per chat:
+- First message: Start new session
+- Subsequent messages: Continue existing session
+- Session end: Clean up resources
+
+---
+
+## Result Truncation
+
+### Long Results
+Subagent results over 2000 chars should be truncated (NOT LLM-summarized, as that adds latency):
+
+```python
+def _truncate_result(result: str, max_length: int = 2000) -> str:
+    """Truncate result while preserving structure."""
+    if len(result) <= max_length:
+        return result
+
+    lines = result.split('\n')
+    truncated = []
+    char_count = 0
+
+    for line in lines:
+        if char_count + len(line) + 1 > max_length - 100:
+            break
+        truncated.append(line)
+        char_count += len(line) + 1
+
+    truncated.append("")
+    truncated.append(f"... [Truncated {len(result) - char_count} chars]")
+    truncated.append("Use `Read` tool to see full output if needed.")
+
+    return '\n'.join(truncated)
+```
+
+### Why Not LLM Summarization?
+- Adds 0.5-1s latency per summarization call
+- Simple truncation is instant
+- Agents can use Read tool to get full output if needed
+
+---
+
+## New File Locations
+
+| Purpose | Location |
+|---------|----------|
+| Subagent definitions | `.claude/agents/` |
+| Hook scripts | `scripts/hooks/` |
+| Hooks config | `.claude/settings.json` |
+| Coordination DB | `.claude/coordination.db` |
+| Implementation plan | `IMPLEMENTATION_PLAN.md` |
+| Architecture review | `ARCHITECTURE_REVIEW.md` |
