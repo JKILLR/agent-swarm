@@ -21,6 +21,33 @@ if [ ! -f "$SCRIPT_DIR/main.py" ]; then
     exit 1
 fi
 
+# Find Python 3.10+ (required for type union syntax)
+PYTHON=""
+for py in python3.12 python3.11 python3.10; do
+    if command -v $py &> /dev/null; then
+        PYTHON=$py
+        break
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    # Check if default python3 is 3.10+
+    if command -v python3 &> /dev/null; then
+        PY_VERSION=$(python3 -c 'import sys; print(sys.version_info.minor)')
+        if [ "$PY_VERSION" -ge 10 ]; then
+            PYTHON=python3
+        fi
+    fi
+fi
+
+if [ -z "$PYTHON" ]; then
+    echo -e "${RED}Error: Python 3.10+ is required but not found${NC}"
+    echo -e "${YELLOW}Please install Python 3.10 or later${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}Using Python: $PYTHON${NC}"
+
 # Function to cleanup background processes
 cleanup() {
     echo ""
@@ -35,7 +62,7 @@ trap cleanup SIGINT SIGTERM
 # Start backend
 echo -e "${GREEN}Starting backend on http://localhost:8000${NC}"
 cd "$SCRIPT_DIR/backend"
-python3 -m uvicorn main:app --reload --port 8000 &
+$PYTHON -m uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
 
 # Wait a bit for backend to start
