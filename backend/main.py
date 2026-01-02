@@ -40,6 +40,7 @@ except ImportError:
 
 from supreme.orchestrator import SupremeOrchestrator
 from shared.swarm_interface import load_swarm
+from tools import get_tool_definitions, ToolExecutor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -759,13 +760,114 @@ def parse_agent_output(content: str) -> List[Dict[str, Any]]:
     return events if events else [{"agent": "Supreme Orchestrator", "agent_type": "orchestrator", "content": content}]
 
 
+async def run_agentic_chat(
+    system_prompt: str,
+    user_message: str,
+    websocket: WebSocket,
+    manager: "ConnectionManager",
+    orchestrator: SupremeOrchestrator,
+) -> dict:
+    """
+    Run an agentic chat loop with tool execution.
+    The COO can delegate to swarm agents using the Task tool.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+
+    if not ANTHROPIC_AVAILABLE:
+        raise RuntimeError("Anthropic SDK not installed")
+
+    client = anthropic.Anthropic(api_key=api_key)
+    tool_executor = ToolExecutor(orchestrator, websocket, manager)
+    tools = get_tool_definitions()
+
+    full_response = ""
+    full_thinking = ""
+
+    messages = [{"role": "user", "content": user_message}]
+
+    # Agentic loop - continue until no more tool calls
+    max_iterations = 15
+    for iteration in range(max_iterations):
+        logger.info(f"Agentic loop iteration {iteration + 1}")
+
+        # Make API call with tools
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=8192,
+            system=system_prompt,
+            tools=tools,
+            messages=messages,
+        )
+
+        # Process response content
+        text_content = ""
+        tool_uses = []
+
+        for block in response.content:
+            if hasattr(block, "text"):
+                text_content += block.text
+                # Stream text to frontend
+                await manager.send_event(websocket, "agent_delta", {
+                    "agent": "Supreme Orchestrator",
+                    "agent_type": "orchestrator",
+                    "delta": block.text,
+                })
+            elif block.type == "tool_use":
+                tool_uses.append(block)
+                # Notify frontend about tool use
+                await manager.send_event(websocket, "agent_delta", {
+                    "agent": "Supreme Orchestrator",
+                    "agent_type": "orchestrator",
+                    "delta": f"\n\n🔧 *Using {block.name}...*\n",
+                })
+
+        full_response += text_content
+
+        # If no tool calls, we're done
+        if response.stop_reason == "end_turn" or not tool_uses:
+            break
+
+        # Execute tools and collect results
+        if tool_uses:
+            # Add assistant message with tool uses
+            messages.append({"role": "assistant", "content": response.content})
+
+            tool_results = []
+            for tool_use in tool_uses:
+                logger.info(f"Executing tool: {tool_use.name}")
+
+                # Execute the tool
+                result = await tool_executor.execute(tool_use.name, tool_use.input)
+
+                # Stream tool result summary to frontend
+                result_preview = result[:200] + "..." if len(result) > 200 else result
+                await manager.send_event(websocket, "agent_delta", {
+                    "agent": "Supreme Orchestrator",
+                    "agent_type": "orchestrator",
+                    "delta": f"\n📋 *{tool_use.name} result:* {result_preview}\n\n",
+                })
+
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": tool_use.id,
+                    "content": result,
+                })
+
+            # Add tool results
+            messages.append({"role": "user", "content": tool_results})
+
+    return {"response": full_response, "thinking": full_thinking}
+
+
 async def stream_anthropic_response(
     prompt: str,
     websocket: WebSocket,
     manager: "ConnectionManager",
 ) -> dict:
     """
-    Stream response using the Anthropic SDK (fallback when CLI doesn't work).
+    Stream response using the Anthropic SDK (fallback without tools).
     Requires ANTHROPIC_API_KEY environment variable.
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -1025,8 +1127,8 @@ async def websocket_chat(websocket: WebSocket):
 
             # Send thinking indicator
             await manager.send_event(websocket, "agent_start", {
-                "agent": "Claude",
-                "agent_type": "assistant",
+                "agent": "Supreme Orchestrator",
+                "agent_type": "orchestrator",
             })
 
             try:
@@ -1055,119 +1157,88 @@ async def websocket_chat(websocket: WebSocket):
                     if swarm:
                         workspace = swarm.workspace
 
-                # Build context-aware prompt with full swarm structure
-                if swarm and workspace:
-                    # Get swarm status and agent info
-                    status = swarm.get_status()
+                # Build system prompt for the COO
+                all_swarms = []
+                for name, s in orch.swarms.items():
+                    s_status = s.get_status()
+                    agents_list = list(s.agents.keys())
+                    all_swarms.append(f"  - **{name}**: {s_status.get('description', 'No description')}")
+                    all_swarms.append(f"    Agents: {', '.join(agents_list)}")
+                all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined yet"
 
-                    # Build agent list
-                    agents_info = []
-                    for agent_name, defn in swarm.agent_definitions.items():
-                        agents_info.append(f"  - {agent_name} ({defn.agent_type}): {defn.description}")
-                    agents_str = "\n".join(agents_info) if agents_info else "  No agents defined"
+                system_prompt = f"""You are the Supreme Orchestrator (COO) of an AI agent swarm organization.
 
-                    # Build priorities list
-                    priorities = status.get("priorities", [])
-                    priorities_info = []
-                    for p in priorities:
-                        if isinstance(p, dict):
-                            priorities_info.append(f"  - {p.get('task', str(p))}")
-                        else:
-                            priorities_info.append(f"  - {p}")
-                    priorities_str = "\n".join(priorities_info) if priorities_info else "  No priorities set"
+## Your Role
+You are the Chief Operating Officer. The CEO (human) gives you directives, and you coordinate the swarms to execute them.
 
-                    # Get all swarms in the organization
-                    all_swarms = []
-                    for name, s in orch.swarms.items():
-                        s_status = s.get_status()
-                        all_swarms.append(f"  - {name}: {s_status.get('description', 'No description')} ({s_status.get('agent_count', 0)} agents)")
-                    all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms"
+## Your Tools
+You have access to powerful tools:
+- **Task**: Spawn subagents to do work. Format: Task(agent="swarm_name/agent_name", prompt="what to do")
+- **Read/Write/Bash/Glob/Grep**: Direct file and command operations
+- **ListSwarms/GetSwarmStatus**: Get information about the organization
 
-                    full_prompt = f"""You are the Supreme Orchestrator AI assistant for the "{swarm_name}" agent swarm organization.
+## IMPORTANT: Delegation
+When the CEO asks you to do something that requires specialized work:
+1. **USE THE TASK TOOL** to delegate to the appropriate swarm/agent
+2. Don't just describe what you would do - actually do it by calling tools
+3. For development work → delegate to swarm_dev (implementer, architect, etc.)
+4. For research → delegate to the appropriate swarm's researcher
+5. For operational tasks → delegate to operations swarm
 
 ## Organization Structure
 
-**All Swarms:**
+**Swarms Available:**
 {all_swarms_str}
 
-**Current Swarm: {swarm_name}**
-- Description: {status.get('description', 'No description')}
-- Status: {status.get('status', 'unknown')}
-- Workspace: {workspace}
+## Example Delegation
+If asked "test the self-development capabilities", you should:
+1. Use Task(agent="swarm_dev/orchestrator", prompt="Assess and test the system's self-development capabilities...")
+2. Review the results
+3. Report back to the CEO
 
-**Agents in {swarm_name}:**
-{agents_str}
-
-**Current Priorities:**
-{priorities_str}
 {conversation_history}
----
 
-**Current User Message:** {message}"""
-                else:
-                    # No swarm context - provide organization overview
-                    all_swarms = []
-                    for name, s in orch.swarms.items():
-                        s_status = s.get_status()
-                        all_swarms.append(f"  - {name}: {s_status.get('description', 'No description')} ({s_status.get('agent_count', 0)} agents)")
-                    all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined yet"
+Remember: You are an EXECUTOR, not just an advisor. Use your tools to get things done!"""
 
-                    full_prompt = f"""You are the Supreme Orchestrator AI assistant for an agent swarm organization.
+                user_message = message
 
-## Organization Structure
-
-**All Swarms:**
-{all_swarms_str}
-{conversation_history}
----
-
-**Current User Message:** {message}"""
-
-                # Try Anthropic SDK first if API key is available (more reliable)
+                # Try Anthropic SDK with agentic loop
                 api_key = os.environ.get("ANTHROPIC_API_KEY")
                 result = None
 
                 if api_key and ANTHROPIC_AVAILABLE:
-                    logger.info("Using Anthropic SDK with API key")
+                    logger.info("Using agentic chat with tools")
                     try:
-                        result = await stream_anthropic_response(full_prompt, websocket, manager)
+                        result = await run_agentic_chat(
+                            system_prompt=system_prompt,
+                            user_message=user_message,
+                            websocket=websocket,
+                            manager=manager,
+                            orchestrator=orch,
+                        )
                     except Exception as e:
-                        logger.error(f"Anthropic SDK error: {e}")
-                        # Fall through to try CLI
+                        logger.error(f"Agentic chat error: {e}", exc_info=True)
+                        raise RuntimeError(f"Agentic chat failed: {e}")
 
-                # Try Claude CLI if SDK didn't work
+                # Check if we got a result
                 if result is None:
-                    logger.info(f"Starting Claude CLI for prompt: {full_prompt[:100]}...")
-                    process = await stream_claude_response(
-                        prompt=full_prompt,
-                        swarm_name=swarm_name,
-                        workspace=workspace,
+                    raise RuntimeError(
+                        "**ANTHROPIC_API_KEY not set.**\n\n"
+                        "The agentic chat requires an API key.\n\n"
+                        "**To fix:**\n"
+                        "1. Get your API key from https://console.anthropic.com\n"
+                        "2. Create `backend/.env` with: `ANTHROPIC_API_KEY=your_key`\n"
+                        "3. Restart the backend server"
                     )
-
-                    # Stream and parse the response with timeout (30 seconds for initial response)
-                    try:
-                        result = await asyncio.wait_for(
-                            parse_claude_stream(process, websocket, manager),
-                            timeout=30.0,  # 30 second timeout for initial test
-                        )
-                    except asyncio.TimeoutError:
-                        process.kill()
-                        raise RuntimeError(
-                            "Claude CLI timed out. This usually means authentication is not set up for subprocess mode.\n\n"
-                            "**To fix this:**\n"
-                            "1. Run `claude setup-token` in your terminal to create a long-lived auth token\n"
-                            "2. Restart the backend server\n\n"
-                            "Or set ANTHROPIC_API_KEY environment variable to use the API directly."
-                        )
 
                 # Send the complete response
                 final_content = result["response"]
                 if not final_content:
-                    final_content = "(No response received from Claude CLI)"
+                    final_content = "(No response generated)"
 
                 await manager.send_event(websocket, "agent_complete", {
-                    "agent": "Claude",
-                    "agent_type": "assistant",
+                    "agent": "Supreme Orchestrator",
+                    "agent_type": "orchestrator",
                     "content": final_content,
                     "thinking": result.get("thinking", ""),
                 })
@@ -1181,33 +1252,22 @@ async def websocket_chat(websocket: WebSocket):
                 logger.error(f"Chat error: {e}", exc_info=True)
                 error_msg = str(e)
 
-                # Make error message user-friendly with clear fix instructions
-                if "timed out" in error_msg.lower():
-                    error_msg = (
-                        "**Claude CLI timed out.**\n\n"
-                        "This usually means the OAuth token is missing or invalid.\n\n"
-                        "**To fix:**\n"
-                        "1. Run `claude setup-token` in your terminal\n"
-                        "2. Copy the token it generates\n"
-                        "3. Create `backend/.env` with: `CLAUDE_CODE_OAUTH_TOKEN=your_token`\n"
-                        "4. Restart the backend server"
-                    )
-                elif "401" in error_msg or "authentication" in error_msg.lower() or "invalid" in error_msg.lower():
+                # Make error message user-friendly
+                if "ANTHROPIC_API_KEY" in error_msg:
+                    pass  # Already formatted nicely
+                elif "401" in error_msg or "authentication" in error_msg.lower():
                     error_msg = (
                         "**Authentication failed.**\n\n"
-                        "Your OAuth token is invalid or expired.\n\n"
+                        "Your API key may be invalid.\n\n"
                         "**To fix:**\n"
-                        "1. Run `claude setup-token` in your terminal\n"
-                        "2. Copy the new token\n"
-                        "3. Update `backend/.env` with: `CLAUDE_CODE_OAUTH_TOKEN=your_new_token`\n"
-                        "4. Restart the backend server"
+                        "1. Check your API key at https://console.anthropic.com\n"
+                        "2. Update `backend/.env` with: `ANTHROPIC_API_KEY=your_key`\n"
+                        "3. Restart the backend server"
                     )
-                elif "permission" in error_msg.lower() or "auth" in error_msg.lower():
-                    error_msg = f"Authentication error: {error_msg}\n\nRun `claude setup-token` to set up authentication."
 
                 await manager.send_event(websocket, "agent_complete", {
-                    "agent": "Claude",
-                    "agent_type": "assistant",
+                    "agent": "Supreme Orchestrator",
+                    "agent_type": "orchestrator",
                     "content": error_msg,
                 })
                 await manager.send_event(websocket, "chat_complete", {
