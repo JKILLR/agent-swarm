@@ -16,6 +16,8 @@ interface Message {
   status?: 'thinking' | 'complete'
   timestamp: Date
   attachments?: Attachment[]
+  thinking?: string
+  isThinking?: boolean  // True while actively receiving thinking content
 }
 
 export default function ChatPage() {
@@ -59,6 +61,59 @@ export default function ChatPage() {
           ])
           break
 
+        case 'thinking_start':
+          // Claude is starting to think - mark the message as actively thinking
+          setMessages((prev) => {
+            const lastMessage = prev[prev.length - 1]
+            if (lastMessage && lastMessage.type === 'agent' && lastMessage.status === 'thinking') {
+              return [
+                ...prev.slice(0, -1),
+                {
+                  ...lastMessage,
+                  isThinking: true,
+                  thinking: '',
+                },
+              ]
+            }
+            return prev
+          })
+          break
+
+        case 'thinking_delta':
+          // Streaming thinking content
+          setMessages((prev) => {
+            const lastMessage = prev[prev.length - 1]
+            if (lastMessage && lastMessage.type === 'agent' && lastMessage.isThinking) {
+              return [
+                ...prev.slice(0, -1),
+                {
+                  ...lastMessage,
+                  thinking: (lastMessage.thinking || '') + (event.delta || ''),
+                },
+              ]
+            }
+            return prev
+          })
+          break
+
+        case 'thinking_complete':
+          // Thinking is done, now waiting for response
+          setMessages((prev) => {
+            const lastMessage = prev[prev.length - 1]
+            if (lastMessage && lastMessage.type === 'agent' && lastMessage.isThinking) {
+              return [
+                ...prev.slice(0, -1),
+                {
+                  ...lastMessage,
+                  isThinking: false,
+                  thinking: event.thinking || lastMessage.thinking,
+                },
+              ]
+            }
+            return prev
+          })
+          break
+
         case 'agent_delta':
           // Streaming text delta - append to current agent message
           setMessages((prev) => {
@@ -86,11 +141,13 @@ export default function ChatPage() {
             )
 
             if (thinkingIdx !== -1) {
-              // Update existing message to complete
+              // Update existing message to complete, preserving thinking
               const updated = [...prev]
               updated[thinkingIdx] = {
                 ...updated[thinkingIdx],
                 content: event.content || updated[thinkingIdx].content,
+                thinking: event.thinking || updated[thinkingIdx].thinking,
+                isThinking: false,
                 status: 'complete',
               }
               return updated
@@ -107,6 +164,7 @@ export default function ChatPage() {
                 agentType: event.agent_type || 'worker',
                 status: 'complete',
                 timestamp: new Date(),
+                thinking: event.thinking,
               },
             ]
           })
@@ -252,6 +310,8 @@ export default function ChatPage() {
                 agentType={message.agentType || 'worker'}
                 content={message.content}
                 status={message.status}
+                thinking={message.thinking}
+                isThinking={message.isThinking}
               />
             )
           ))
