@@ -6,7 +6,7 @@ tools:
   - Bash
   - Read
   - Grep
-model: haiku
+model: opus
 background: true
 wake_enabled: true
 ---

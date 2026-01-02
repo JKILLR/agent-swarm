@@ -1,7 +1,7 @@
 ---
 name: qa_agent
 type: quality
-model: sonnet
+model: opus
 description: Quality assurance, code standards, file organization, and documentation audits.
 tools:
   - Read

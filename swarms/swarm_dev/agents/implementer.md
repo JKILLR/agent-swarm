@@ -1,7 +1,7 @@
 ---
 name: implementer
 type: implementer
-model: sonnet
+model: opus
 description: Implementation specialist. Writes code, runs tests, commits changes.
 tools:
   - Read

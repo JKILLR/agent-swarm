@@ -1,7 +1,7 @@
 ---
 name: project_coordinator
 type: coordinator
-model: sonnet
+model: opus
 description: Cross-swarm task tracking, priority management, and handoff coordination.
 tools:
   - Read

@@ -1,7 +1,7 @@
 ---
 name: orchestrator
 type: orchestrator
-model: sonnet
+model: opus
 description: Swarm Dev coordinator. Manages development workflow, delegates to specialists.
 tools:
   - Task

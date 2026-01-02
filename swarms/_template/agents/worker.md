@@ -9,7 +9,7 @@ tools:
   - Bash
   - Grep
   - Glob
-model: sonnet
+model: opus
 background: true
 wake_enabled: true
 ---

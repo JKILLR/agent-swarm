@@ -1,7 +1,7 @@
 ---
 name: critic
 type: critic
-model: sonnet
+model: opus
 description: Code reviewer L2. Validates design, security, patterns.
 tools:
   - Read

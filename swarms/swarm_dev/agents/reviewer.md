@@ -1,7 +1,7 @@
 ---
 name: reviewer
 type: reviewer
-model: sonnet
+model: opus
 description: Code reviewer L1. Checks correctness, bugs, logic errors.
 tools:
   - Read

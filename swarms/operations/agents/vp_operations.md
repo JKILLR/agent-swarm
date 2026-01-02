@@ -1,7 +1,7 @@
 ---
 name: vp_operations
 type: orchestrator
-model: sonnet
+model: opus
 description: VP of Operations. Manages operational agents, coordinates cross-swarm activities. Reports to COO.
 tools:
   - Task

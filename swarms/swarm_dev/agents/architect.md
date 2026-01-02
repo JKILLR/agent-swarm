@@ -1,7 +1,7 @@
 ---
 name: architect
 type: architect
-model: sonnet
+model: opus
 description: System architect. Designs features, makes architecture decisions.
 background: true
 tools:
