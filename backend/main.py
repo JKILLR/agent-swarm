@@ -788,7 +788,7 @@ async def run_agentic_chat(
     messages = [{"role": "user", "content": user_message}]
 
     # Agentic loop - continue until no more tool calls
-    max_iterations = 15
+    max_iterations = 50  # Higher limit for complex multi-agent tasks
     for iteration in range(max_iterations):
         logger.info(f"Agentic loop iteration {iteration + 1}")
 
@@ -983,123 +983,133 @@ async def parse_claude_stream(
     Parse streaming JSON output from claude CLI and send events to WebSocket.
     Returns dict with full response text and thinking.
     """
-    full_response = ""
-    full_thinking = ""
-    current_block_type = None  # Track if we're in a thinking or text block
+    # Use a dict to accumulate response (mutable, passed by reference)
+    context = {
+        "full_response": "",
+        "full_thinking": "",
+        "current_block_type": None,
+    }
 
     if not process.stdout:
         return {"response": "", "thinking": ""}
 
+    # Read all output at once to avoid buffer issues, then parse line by line
+    buffer = b""
     while True:
-        line = await process.stdout.readline()
-        if not line:
+        try:
+            chunk = await asyncio.wait_for(process.stdout.read(65536), timeout=1.0)
+            if not chunk:
+                break
+            buffer += chunk
+
+            # Process complete lines from buffer
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                line_str = line.decode().strip()
+                if not line_str:
+                    continue
+
+                try:
+                    event = json.loads(line_str)
+                    # Process event and send to websocket
+                    await _process_cli_event(event, websocket, manager, context)
+                except json.JSONDecodeError:
+                    continue
+        except asyncio.TimeoutError:
+            # Check if process is still running
+            if process.returncode is not None:
+                break
+            continue
+        except Exception as e:
+            logger.error(f"Error reading stream: {e}")
             break
 
-        line_str = line.decode().strip()
-        if not line_str:
-            continue
-
-        try:
-            event = json.loads(line_str)
-            event_type = event.get("type", "")
-
-            # Handle different event types from claude CLI
-            if event_type == "assistant":
-                # Initial message with content blocks
-                message = event.get("message", {})
-                content_blocks = message.get("content", [])
-                for block in content_blocks:
-                    if block.get("type") == "thinking":
-                        text = block.get("thinking", "")
-                        full_thinking += text
-                    elif block.get("type") == "text":
-                        text = block.get("text", "")
-                        full_response += text
-
-            elif event_type == "content_block_start":
-                # New content block starting - track what type
-                content_block = event.get("content_block", {})
-                current_block_type = content_block.get("type", "text")
-
-                if current_block_type == "thinking":
-                    # Signal that thinking is starting
-                    await manager.send_event(websocket, "thinking_start", {
-                        "agent": "Claude",
-                    })
-
-            elif event_type == "content_block_delta":
-                # Streaming delta
-                delta = event.get("delta", {})
-                delta_type = delta.get("type", "")
-
-                if delta_type == "thinking_delta":
-                    # Thinking content
-                    text = delta.get("thinking", "")
-                    full_thinking += text
-                    await manager.send_event(websocket, "thinking_delta", {
-                        "agent": "Claude",
-                        "delta": text,
-                    })
-                elif delta_type == "text_delta":
-                    # Regular text content
-                    text = delta.get("text", "")
-                    full_response += text
-                    await manager.send_event(websocket, "agent_delta", {
-                        "agent": "Claude",
-                        "agent_type": "assistant",
-                        "delta": text,
-                    })
-
-            elif event_type == "content_block_stop":
-                # Content block completed
-                if current_block_type == "thinking":
-                    await manager.send_event(websocket, "thinking_complete", {
-                        "agent": "Claude",
-                        "thinking": full_thinking,
-                    })
-                current_block_type = None
-
-            elif event_type == "message_stop":
-                # Message completed
-                pass
-
-            elif event_type == "result":
-                # Final result
-                result_text = event.get("result", "")
-                if result_text and not full_response:
-                    full_response = result_text
-
-        except json.JSONDecodeError:
-            # Not JSON, might be plain text output
-            full_response += line_str + "\n"
-
-            await manager.send_event(websocket, "agent_delta", {
-                "agent": "Claude",
-                "agent_type": "assistant",
-                "delta": line_str + "\n",
-            })
+    # Process any remaining data in buffer
+    if buffer:
+        for line in buffer.decode().split("\n"):
+            line_str = line.strip()
+            if line_str:
+                try:
+                    event = json.loads(line_str)
+                    await _process_cli_event(event, websocket, manager, context)
+                except json.JSONDecodeError:
+                    pass
 
     # Wait for process to complete
     await process.wait()
 
-    # Check for errors
-    if process.returncode != 0 and process.stderr:
-        stderr = await process.stderr.read()
-        if stderr:
-            error_msg = stderr.decode().strip()
-            logger.error(f"Claude CLI error: {error_msg}")
+    return {"response": context["full_response"], "thinking": context["full_thinking"]}
 
-            # Check for common auth-related errors
-            if "401" in error_msg or "authentication" in error_msg.lower():
-                raise RuntimeError(f"401 Authentication failed: {error_msg}")
-            elif "403" in error_msg:
-                raise RuntimeError(f"403 Access denied: {error_msg}")
-            elif "/login" in error_msg:
-                raise RuntimeError(f"Authentication required: {error_msg}")
 
-            raise RuntimeError(f"Claude CLI error: {error_msg}")
+async def _process_cli_event(event: dict, websocket: WebSocket, manager, context: dict):
+    """Process a single CLI event and update response/thinking."""
+    event_type = event.get("type", "")
 
-    return {"response": full_response, "thinking": full_thinking}
+    try:
+        if event_type == "assistant":
+            message = event.get("message", {})
+            content_blocks = message.get("content", [])
+            for block in content_blocks:
+                if block.get("type") == "thinking":
+                    text = block.get("thinking", "")
+                    context["full_thinking"] = context.get("full_thinking", "") + text
+                elif block.get("type") == "text":
+                    text = block.get("text", "")
+                    context["full_response"] = context.get("full_response", "") + text
+                    await manager.send_event(websocket, "agent_delta", {
+                        "agent": "Supreme Orchestrator",
+                        "agent_type": "orchestrator",
+                        "delta": text,
+                    })
+
+        elif event_type == "content_block_start":
+            content_block = event.get("content_block", {})
+            context["current_block_type"] = content_block.get("type", "text")
+
+            if context["current_block_type"] == "thinking":
+                await manager.send_event(websocket, "thinking_start", {
+                    "agent": "Supreme Orchestrator",
+                })
+
+        elif event_type == "content_block_delta":
+            delta = event.get("delta", {})
+            delta_type = delta.get("type", "")
+
+            if delta_type == "thinking_delta":
+                text = delta.get("thinking", "")
+                context["full_thinking"] = context.get("full_thinking", "") + text
+                await manager.send_event(websocket, "thinking_delta", {
+                    "agent": "Supreme Orchestrator",
+                    "delta": text,
+                })
+            elif delta_type == "text_delta":
+                text = delta.get("text", "")
+                context["full_response"] = context.get("full_response", "") + text
+                await manager.send_event(websocket, "agent_delta", {
+                    "agent": "Supreme Orchestrator",
+                    "agent_type": "orchestrator",
+                    "delta": text,
+                })
+
+        elif event_type == "content_block_stop":
+            if context.get("current_block_type") == "thinking":
+                await manager.send_event(websocket, "thinking_complete", {
+                    "agent": "Supreme Orchestrator",
+                    "thinking": context.get("full_thinking", ""),
+                })
+
+        elif event_type == "result":
+            # Final result from CLI
+            text = event.get("result", "")
+            if text:
+                context["full_response"] = context.get("full_response", "") + text
+                await manager.send_event(websocket, "agent_delta", {
+                    "agent": "Supreme Orchestrator",
+                    "agent_type": "orchestrator",
+                    "delta": text,
+                })
+    except Exception as e:
+        logger.error(f"Error processing CLI event: {e}")
 
 
 @app.websocket("/ws/chat")
