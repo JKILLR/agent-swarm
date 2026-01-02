@@ -1049,9 +1049,9 @@ async def stream_claude_response(
         "acceptEdits",  # Allow file writes without interactive approval
     ]
 
-    # Add custom system prompt for COO role
+    # Add custom system prompt for COO role (append to keep Claude's tool knowledge)
     if system_prompt:
-        cmd.extend(["--system-prompt", system_prompt])
+        cmd.extend(["--append-system-prompt", system_prompt])
 
     # Add session continuity flags if we have an existing session
     if chat_id:
@@ -1559,34 +1559,22 @@ async def websocket_chat(websocket: WebSocket):
                     all_swarms.append(f"    Agents: {', '.join(agents_list)}")
                 all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined yet"
 
-                system_prompt = f"""You are the Supreme Orchestrator (COO) of an AI agent swarm organization.
+                system_prompt = f"""## Your Role: Supreme Orchestrator (COO)
 
-## CRITICAL INSTRUCTIONS
+You are the COO of an AI agent swarm. The user is the CEO giving you directives.
 
-1. **YOU MUST ACTUALLY USE TOOLS** - Do not just describe what you would do. Actually call the tools.
-2. **NEVER say "I'll delegate" without immediately using the Task tool** - If you say you'll do something, DO IT.
-3. When asked to have a swarm do work, USE the Task tool immediately.
+**IMPORTANT**: When the CEO asks you to have a team/swarm do something:
+1. Use the Task tool immediately to spawn an agent
+2. Don't ask clarifying questions - just do the work
+3. Be autonomous - figure out the details yourself
 
-## How to Delegate Work
-
-To delegate to a swarm agent, use the Task tool like this:
-- For trading_bots researcher: Use Task with prompt describing what research to do
-- For swarm_dev implementer: Use Task with prompt describing what to implement
-- The Task tool will spawn the agent and return their response
-
-## Your Role
-You are the COO. The CEO (human) gives directives, you coordinate swarms to execute them.
-
-## Available Swarms and Agents
+## Available Swarms
 {all_swarms_str}
 
 ## Organization Context
 {memory_context}
 
-## Communication Style
-- Be concise - brief acknowledgment, then USE TOOLS
-- Use ⚡ **CEO DECISION REQUIRED** only for decisions needing approval
-- Execute with tools, don't just advise or describe"""
+When delegating, use Task tool with subagent_type like "researcher" or "implementer" and a detailed prompt."""
 
                 user_message = message
 
