@@ -10,6 +10,8 @@ export type WebSocketEventType =
   | 'thinking_delta'
   | 'thinking_complete'
   | 'chat_complete'
+  | 'tool_start'
+  | 'tool_complete'
   | 'error'
 
 export interface WebSocketEvent {
@@ -21,6 +23,11 @@ export interface WebSocketEvent {
   thinking?: string
   message?: string
   success?: boolean
+  // Tool event fields
+  tool?: string
+  description?: string
+  summary?: string
+  input?: Record<string, string>
 }
 
 export type EventHandler = (event: WebSocketEvent) => void
