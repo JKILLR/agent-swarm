@@ -2,7 +2,7 @@
 name: implementer
 description: Code implementation agent. USE for writing, editing, and creating code files based on specifications. Works from plans provided by researcher or architect.
 tools: Read, Write, Edit, Bash
-model: sonnet
+model: opus
 permissionMode: acceptEdits
 ---
 

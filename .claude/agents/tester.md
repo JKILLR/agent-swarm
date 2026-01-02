@@ -2,7 +2,7 @@
 name: tester
 description: Test creation and execution agent. USE to write tests, run test suites, and verify implementations.
 tools: Read, Write, Edit, Bash
-model: sonnet
+model: opus
 permissionMode: acceptEdits
 ---
 

@@ -8,12 +8,15 @@ This hook runs before any Task tool invocation to:
 """
 
 import json
+import os
 import sys
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent.parent / ".claude" / "coordination.db"
+# Use environment variable or fallback to relative path
+SWARM_ROOT = Path(os.environ.get("SWARM_ROOT", Path(__file__).parent.parent.parent))
+DB_PATH = SWARM_ROOT / ".claude" / "coordination.db"
 
 
 def init_db():

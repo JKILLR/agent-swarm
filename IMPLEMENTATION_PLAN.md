@@ -1,6 +1,7 @@
 # Agent Swarm Architecture Improvements - Implementation Plan
 
 **Created:** January 2, 2026
+**Updated:** January 2, 2026 (incorporated reviewer feedback)
 **Based on:** ARCHITECTURE_REVIEW.md findings
 **Goal:** Transform the system into a "well-oiled machine" with 3-5x speed improvement
 
@@ -13,14 +14,14 @@ This plan addresses the critical bottlenecks identified in the architecture revi
 | Issue | Solution | Expected Impact |
 |-------|----------|-----------------|
 | Sequential tool execution | `asyncio.gather()` parallel execution | 3-5x speedup |
-| CLI subprocess overhead | Session continuity + connection pooling | 2-3s saved per agent |
-| Context pollution | Compact COO prompt + result summarization | Cleaner context |
+| CLI subprocess overhead | Session continuity (`--continue` flag) | 2-3s saved per agent |
+| Context pollution | Compact COO prompt + simple truncation | Cleaner context |
 | No coordination | Hooks system + shared memory | Better cohesion |
 | Missing verification | PreToolUse/PostToolUse hooks | Self-correcting agents |
 
 ---
 
-## Phase 1: Parallel Execution Foundation (Priority: Critical)
+## Phase 1: Parallel Execution (Day 1) - CRITICAL
 
 ### 1.1 Parallel Tool Execution in Agentic Loop
 
@@ -60,32 +61,29 @@ if tool_uses:
 - Send a message that triggers multiple Task tool calls
 - Verify agents spawn concurrently (check timestamps in logs)
 
-### 1.2 ParallelTasks Tool Enhancement
+### 1.2 Parallel Subprocess Spawning in Task Tool (CRITICAL FIX)
 
 **File:** `backend/tools.py`
 
-**Current:** ParallelTasks tool exists but may not execute truly in parallel.
+**Current Problem:** Each `Task` tool spawns Claude subprocess sequentially, even with `asyncio.gather()` at the tool level.
 
-**Change:** Ensure the ParallelTasks tool uses `asyncio.gather()`:
+**Change:** Ensure the internal subprocess creation is truly parallel:
 
 ```python
 async def _execute_parallel_tasks(self, input: dict[str, Any]) -> str:
-    """Execute multiple tasks TRULY in parallel."""
+    """Execute multiple tasks with TRUE parallel subprocess spawning."""
     tasks = input.get("tasks", [])
 
     if not tasks:
         return "No tasks provided"
 
-    # Create all coroutines
+    # Create subprocess coroutines (don't await yet!)
     coroutines = [
-        self._execute_task({
-            "agent": t.get("agent"),
-            "prompt": t.get("prompt"),
-        })
+        self._spawn_agent_subprocess(t.get("agent"), t.get("prompt"))
         for t in tasks
     ]
 
-    # Execute ALL in parallel
+    # NOW they run truly in parallel
     results = await asyncio.gather(*coroutines, return_exceptions=True)
 
     # Format results
@@ -95,68 +93,64 @@ async def _execute_parallel_tasks(self, input: dict[str, Any]) -> str:
         if isinstance(result, Exception):
             output_lines.append(f"### {agent}\n**Error:** {result}\n")
         else:
-            output_lines.append(f"### {agent}\n{result}\n")
+            # Truncate long results
+            result_str = str(result)
+            if len(result_str) > 2000:
+                result_str = self._truncate_result(result_str, 2000)
+            output_lines.append(f"### {agent}\n{result_str}\n")
 
     return "\n".join(output_lines)
+
+async def _spawn_agent_subprocess(self, agent: str, prompt: str) -> str:
+    """Spawn a Claude subprocess for the agent. This is the unit of parallelism."""
+    # Build command
+    cmd = [
+        "claude",
+        "-p",
+        "--output-format", "stream-json",
+        "--permission-mode", "default",
+        prompt,
+    ]
+
+    # ... subprocess creation and handling ...
+    # Returns the result string
 ```
 
-### 1.3 Connection Pooling
+### 1.3 Update _execute_task to Support Concurrent Spawning
 
-**File:** `backend/api_client.py` (NEW)
+**File:** `backend/tools.py`
 
-Create a singleton API client with connection reuse:
+Ensure `_execute_task` creates the subprocess in a way that allows concurrent execution:
 
 ```python
-"""Anthropic API client with connection pooling."""
+async def _execute_task(self, input: dict[str, Any]) -> str:
+    """Execute a single Task - must be async-safe for concurrent use."""
+    agent = input.get("agent", "")
+    prompt = input.get("prompt", "")
 
-import os
-from typing import Optional
-import anthropic
+    # Don't block - create subprocess asynchronously
+    result = await self._spawn_agent_subprocess(agent, prompt)
 
-class ClaudeAPIPool:
-    """Singleton API client with connection reuse."""
+    # Truncate if needed (no LLM call - too slow)
+    if len(result) > 2000:
+        result = self._truncate_result(result, 2000)
 
-    _instance: Optional["ClaudeAPIPool"] = None
-
-    def __init__(self):
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if api_key:
-            self.client = anthropic.Anthropic(
-                api_key=api_key,
-                max_retries=3,
-            )
-        else:
-            self.client = None
-
-    @classmethod
-    def get_client(cls) -> Optional[anthropic.Anthropic]:
-        """Get or create the singleton client."""
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance.client
-
-    @classmethod
-    def reset(cls):
-        """Reset the connection pool."""
-        cls._instance = None
+    return result
 ```
-
-**Integration:** Use this client in `shared/agent_executor.py` instead of creating new clients.
 
 ---
 
-## Phase 2: Session Continuity & Coordination (Priority: High)
+## Phase 2: Session Continuity (Day 1-2) - HIGH PRIORITY
 
 ### 2.1 Session Manager
 
 **File:** `backend/session_manager.py` (NEW)
 
-Maintain persistent Claude sessions per chat:
-
 ```python
 """Session manager for persistent Claude sessions."""
 
 import asyncio
+import os
 from typing import Dict, Optional
 from dataclasses import dataclass
 from datetime import datetime
@@ -167,6 +161,9 @@ class ClaudeSession:
     chat_id: str
     created_at: datetime
     last_used: datetime
+
+# Singleton instance
+_session_manager: Optional["SessionManager"] = None
 
 class SessionManager:
     """Maintain persistent Claude sessions per chat."""
@@ -184,8 +181,8 @@ class SessionManager:
                 return session.session_id
             return None
 
-    async def create_session(self, chat_id: str, session_id: str):
-        """Register a new session."""
+    async def register_session(self, chat_id: str, session_id: str):
+        """Register a new session from Claude output."""
         async with self._lock:
             self.active_sessions[chat_id] = ClaudeSession(
                 session_id=session_id,
@@ -199,21 +196,121 @@ class SessionManager:
         async with self._lock:
             self.active_sessions.pop(chat_id, None)
 
-    def get_continue_flag(self, chat_id: str) -> list[str]:
-        """Get --continue flag if session exists."""
+    def get_continue_flags(self, chat_id: str) -> list[str]:
+        """Get --continue flags if session exists (sync for command building)."""
         session = self.active_sessions.get(chat_id)
         if session:
             return ["--continue", session.session_id]
         return []
+
+def get_session_manager() -> SessionManager:
+    """Get the singleton session manager."""
+    global _session_manager
+    if _session_manager is None:
+        _session_manager = SessionManager()
+    return _session_manager
 ```
 
-**Integration:** Modify `stream_claude_response()` in `backend/main.py` to use session continuity.
+### 2.2 Integrate Session Manager with stream_claude_response()
 
-### 2.2 Hooks System
+**File:** `backend/main.py`
 
-**File:** `.claude/settings.json` (NEW)
+**CRITICAL:** This is the missing integration code:
 
-Create hooks configuration:
+```python
+from session_manager import get_session_manager
+
+async def stream_claude_response(
+    prompt: str,
+    chat_id: str,  # ADD THIS PARAMETER
+    workspace: Path | None = None,
+) -> asyncio.subprocess.Process:
+    """Stream response from Claude CLI with session continuity."""
+
+    session_mgr = get_session_manager()
+
+    cmd = [
+        "claude",
+        "-p",
+        "--output-format", "stream-json",
+        "--verbose",
+        "--permission-mode", "acceptEdits",
+    ]
+
+    # ADD SESSION CONTINUITY
+    continue_flags = session_mgr.get_continue_flags(chat_id)
+    if continue_flags:
+        cmd.extend(continue_flags)  # ["--continue", "<session_id>"]
+
+    cmd.append(prompt)
+
+    # Build environment
+    env = os.environ.copy()
+
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=str(workspace) if workspace else None,
+        env=env,
+    )
+
+    return process
+```
+
+### 2.3 Update WebSocket Handler to Pass chat_id
+
+**File:** `backend/main.py`
+
+```python
+@app.websocket("/ws/chat")
+async def websocket_chat(websocket: WebSocket, session_id: str = None):
+    # ... existing code ...
+
+    # When calling stream_claude_response, pass the session_id
+    process = await stream_claude_response(
+        prompt=full_prompt,
+        chat_id=session_id,  # PASS THIS
+        workspace=PROJECT_ROOT,
+    )
+
+    # After first message, capture and register the Claude session ID
+    # (Claude outputs session ID in its stream - capture it)
+```
+
+### 2.4 Capture Session ID from Claude Output
+
+**File:** `backend/main.py`
+
+When parsing the Claude stream, look for session information:
+
+```python
+async def parse_claude_stream(process, websocket, session_id):
+    """Parse Claude CLI stream and capture session ID."""
+    session_mgr = get_session_manager()
+
+    async for line in process.stdout:
+        event = json.loads(line.decode())
+
+        # Look for session info in the stream
+        if event.get("type") == "session_start":
+            claude_session_id = event.get("session_id")
+            if claude_session_id:
+                await session_mgr.register_session(session_id, claude_session_id)
+
+        # ... rest of event handling ...
+```
+
+---
+
+## Phase 3: Hooks & Coordination (Day 2)
+
+### 3.1 Fix Hook Paths and Permissions
+
+**CRITICAL:** Hooks must use proper paths and be executable.
+
+**File:** `.claude/settings.json`
 
 ```json
 {
@@ -222,20 +319,20 @@ Create hooks configuration:
       {
         "matcher": "Task",
         "hooks": [
-          {"type": "command", "command": "python3 scripts/hooks/pre_task.py"}
+          {"type": "command", "command": "./scripts/hooks/pre_task.py"}
         ]
       },
       {
         "matcher": "Write|Edit",
         "hooks": [
-          {"type": "command", "command": "python3 scripts/hooks/pre_write.py"}
+          {"type": "command", "command": "./scripts/hooks/pre_write.py"}
         ]
       }
     ],
     "SubagentStop": [
       {
         "hooks": [
-          {"type": "command", "command": "python3 scripts/hooks/agent_complete.py"}
+          {"type": "command", "command": "./scripts/hooks/agent_complete.py"}
         ]
       }
     ]
@@ -243,7 +340,21 @@ Create hooks configuration:
 }
 ```
 
-**File:** `scripts/hooks/pre_task.py` (NEW)
+### 3.2 Make Hook Scripts Executable
+
+**Run these commands:**
+
+```bash
+chmod +x scripts/hooks/pre_task.py
+chmod +x scripts/hooks/pre_write.py
+chmod +x scripts/hooks/agent_complete.py
+```
+
+### 3.3 Fix DB_PATH in Hook Scripts
+
+**File:** `scripts/hooks/pre_task.py`
+
+Use environment variable for robust path resolution:
 
 ```python
 #!/usr/bin/env python3
@@ -252,10 +363,13 @@ Create hooks configuration:
 import json
 import sys
 import sqlite3
+import os
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent.parent / ".claude" / "coordination.db"
+# Use environment variable or fallback to relative path
+SWARM_ROOT = Path(os.environ.get("SWARM_ROOT", Path(__file__).parent.parent.parent))
+DB_PATH = SWARM_ROOT / ".claude" / "coordination.db"
 
 def init_db():
     """Initialize coordination database."""
@@ -271,103 +385,7 @@ def init_db():
             status TEXT
         )
     """)
-    conn.commit()
-    return conn
-
-def main():
-    try:
-        hook_input = json.loads(sys.stdin.read())
-    except:
-        sys.exit(0)  # Allow on parse error
-
-    tool_input = hook_input.get("tool_input", {})
-    agent_name = tool_input.get("agent", "unknown")
-    prompt = tool_input.get("prompt", "")[:500]
-
-    conn = init_db()
-
-    # Log the task
-    conn.execute(
-        "INSERT INTO task_log (agent, prompt, started_at, status) VALUES (?, ?, ?, ?)",
-        (agent_name, prompt, datetime.now().isoformat(), "starting")
-    )
-    conn.commit()
-
-    # Check for conflicts
-    running = conn.execute(
-        "SELECT agent FROM task_log WHERE status = 'running' AND agent = ?",
-        (agent_name,)
-    ).fetchall()
-
-    if running:
-        print(json.dumps({
-            "message": f"Note: {agent_name} already has a running task",
-            "continue": True
-        }))
-
-    conn.close()
-    sys.exit(0)
-
-if __name__ == "__main__":
-    main()
-```
-
-**File:** `scripts/hooks/agent_complete.py` (NEW)
-
-```python
-#!/usr/bin/env python3
-"""Agent completion hook for coordination."""
-
-import json
-import sys
-import sqlite3
-from datetime import datetime
-from pathlib import Path
-
-DB_PATH = Path(__file__).parent.parent.parent / ".claude" / "coordination.db"
-
-def main():
-    try:
-        hook_input = json.loads(sys.stdin.read())
-    except:
-        sys.exit(0)
-
-    agent_name = hook_input.get("agent", "unknown")
-
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        conn.execute(
-            "UPDATE task_log SET status = ?, completed_at = ? WHERE agent = ? AND status = 'running'",
-            ("completed", datetime.now().isoformat(), agent_name)
-        )
-        conn.commit()
-        conn.close()
-    except:
-        pass
-
-    sys.exit(0)
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-## Phase 3: Shared Memory & Compact Context (Priority: High)
-
-### 3.1 Enhanced Memory Layer
-
-**File:** `backend/memory.py`
-
-Add decisions tracking and compact state:
-
-```python
-# Add to MemoryManager class
-
-def _init_decisions_table(self):
-    """Initialize decisions tracking table."""
-    conn = sqlite3.connect(self.db_path)
-    conn.executescript("""
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS decisions (
             id INTEGER PRIMARY KEY,
             namespace TEXT NOT NULL,
@@ -376,39 +394,151 @@ def _init_decisions_table(self):
             agent TEXT,
             timestamp TEXT,
             UNIQUE(namespace, key)
-        );
-        CREATE INDEX IF NOT EXISTS idx_decisions_ns ON decisions(namespace);
+        )
     """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_task_agent ON task_log(agent, status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_decisions_ns ON decisions(namespace)")
     conn.commit()
-    conn.close()
+    return conn
 
-def store_decision(self, namespace: str, key: str, value: Any, agent: str = None):
-    """Store a decision that other agents can reference."""
-    conn = sqlite3.connect(self.db_path)
+def main():
+    try:
+        hook_input = json.loads(sys.stdin.read())
+    except json.JSONDecodeError:
+        sys.exit(0)  # Allow on parse error
+
+    tool_input = hook_input.get("tool_input", {})
+    agent_name = tool_input.get("agent", "unknown")
+    prompt = tool_input.get("prompt", "")[:500]
+
+    conn = init_db()
+
+    # Log the task as starting
     conn.execute(
-        "INSERT OR REPLACE INTO decisions (namespace, key, value, agent, timestamp) VALUES (?, ?, ?, ?, ?)",
-        (namespace, key, json.dumps(value), agent, datetime.now().isoformat())
+        "INSERT INTO task_log (agent, prompt, started_at, status) VALUES (?, ?, ?, ?)",
+        (agent_name, prompt, datetime.now().isoformat(), "starting")
+    )
+    conn.commit()
+
+    # Check for conflicts
+    running = conn.execute(
+        "SELECT id, agent FROM task_log WHERE status = 'running' AND agent = ?",
+        (agent_name,)
+    ).fetchall()
+
+    if running:
+        print(json.dumps({
+            "message": f"Note: {agent_name} already has {len(running)} running task(s)",
+            "continue": True
+        }))
+
+    # Update to running
+    conn.execute(
+        "UPDATE task_log SET status = 'running' WHERE agent = ? AND status = 'starting'",
+        (agent_name,)
     )
     conn.commit()
     conn.close()
 
-def get_decision(self, namespace: str, key: str) -> Optional[dict]:
-    """Get a previous decision."""
-    conn = sqlite3.connect(self.db_path)
-    row = conn.execute(
-        "SELECT value, agent, timestamp FROM decisions WHERE namespace = ? AND key = ?",
-        (namespace, key)
-    ).fetchone()
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()
+```
+
+### 3.4 Initialize Coordination DB on Startup
+
+**File:** `backend/main.py`
+
+Add initialization on app startup:
+
+```python
+@app.on_event("startup")
+async def init_coordination_db():
+    """Initialize the coordination database on startup."""
+    db_path = PROJECT_ROOT / ".claude" / "coordination.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS task_log (
+            id INTEGER PRIMARY KEY,
+            agent TEXT,
+            prompt TEXT,
+            started_at TEXT,
+            completed_at TEXT,
+            status TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS decisions (
+            id INTEGER PRIMARY KEY,
+            namespace TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            agent TEXT,
+            timestamp TEXT,
+            UNIQUE(namespace, key)
+        )
+    """)
+    conn.commit()
     conn.close()
+```
 
-    if row:
-        return {"value": json.loads(row[0]), "agent": row[1], "timestamp": row[2]}
-    return None
+---
 
+## Phase 4: Context Optimization (Day 2-3)
+
+### 4.1 Simple Result Truncation (NOT LLM Summarization)
+
+**File:** `backend/tools.py`
+
+**IMPORTANT:** LLM summarization adds 0.5-1s latency. Use simple truncation instead:
+
+```python
+def _truncate_result(self, result: str, max_length: int = 2000) -> str:
+    """Truncate result while preserving structure."""
+    if len(result) <= max_length:
+        return result
+
+    # Find the last complete section/paragraph
+    lines = result.split('\n')
+    truncated = []
+    char_count = 0
+
+    for line in lines:
+        if char_count + len(line) + 1 > max_length - 100:  # Leave room for notice
+            break
+        truncated.append(line)
+        char_count += len(line) + 1
+
+    truncated.append("")
+    truncated.append(f"... [Truncated {len(result) - char_count} chars]")
+    truncated.append("Use `Read` tool to see full output if needed.")
+
+    return '\n'.join(truncated)
+```
+
+### 4.2 Add get_compact_state() to Memory Manager
+
+**File:** `backend/memory.py`
+
+```python
 def get_compact_state(self) -> str:
     """Get compact state for COO - NOT detailed implementation."""
-    conn = sqlite3.connect(self.db_path)
+    db_path = PROJECT_ROOT / ".claude" / "coordination.db"
 
+    if not db_path.exists():
+        return "## Current State\nNo active tasks."
+
+    conn = sqlite3.connect(str(db_path))
+
+    # Get active tasks
+    active = conn.execute(
+        "SELECT agent, prompt, started_at FROM task_log WHERE status = 'running'"
+    ).fetchall()
+
+    # Get recent decisions
     recent = conn.execute(
         "SELECT namespace, key, agent FROM decisions ORDER BY timestamp DESC LIMIT 10"
     ).fetchall()
@@ -416,26 +546,33 @@ def get_compact_state(self) -> str:
     conn.close()
 
     lines = ["## Current State (Compact)"]
+
+    if active:
+        lines.append("\n### Active Tasks")
+        for agent, prompt, started in active:
+            lines.append(f"- **{agent}**: {prompt[:50]}...")
+
     if recent:
         lines.append("\n### Recent Decisions")
         for ns, key, agent in recent:
             lines.append(f"- [{ns}] {key} by {agent}")
 
+    if not active and not recent:
+        lines.append("\nNo active tasks or recent decisions.")
+
     return "\n".join(lines)
 ```
 
-### 3.2 Compact COO Prompt
+### 4.3 Compact COO Prompt
 
 **File:** `backend/main.py`
 
-Create a helper function for compact COO prompt:
+Replace the massive system prompt with a compact version:
 
 ```python
 def build_compact_coo_prompt(orchestrator, memory_manager) -> str:
-    """
-    Build a COMPACT orchestrator prompt.
-    The COO routes - it doesn't hold implementation details.
-    """
+    """Build a COMPACT orchestrator prompt. COO routes, doesn't hold details."""
+
     # Get swarm list (compact)
     swarms = orchestrator.list_swarms()
     teams = []
@@ -451,7 +588,7 @@ def build_compact_coo_prompt(orchestrator, memory_manager) -> str:
 ## Your Role
 - Route tasks to the right swarm/agent
 - Maintain high-level awareness ONLY
-- DELEGATE all implementation details to subagents
+- DELEGATE all implementation to subagents
 - Use Task tool to spawn agents with isolated context
 
 ## Available Teams
@@ -462,137 +599,25 @@ def build_compact_coo_prompt(orchestrator, memory_manager) -> str:
 
 ## Rules
 1. NEVER hold detailed implementation context
-2. Use Task("swarm/agent", "specific instruction") to delegate
+2. Use Task("swarm/agent", "instruction") to delegate
 3. Subagents return summaries - trust their work
-4. For parallel work, spawn multiple Tasks in one message
-5. Check memory for previous decisions before delegating
+4. For parallel work, use ParallelTasks tool
+5. Check memory for previous decisions
 
 ## Parallel Execution
-When you need multiple agents, use ParallelTasks:
+Use ParallelTasks for concurrent work:
 ```json
 {{"tool": "ParallelTasks", "input": {{"tasks": [
-  {{"agent": "swarm_dev/researcher", "prompt": "Research..."}},
-  {{"agent": "swarm_dev/architect", "prompt": "Design..."}}
+  {{"agent": "swarm_dev/researcher", "prompt": "..."}},
+  {{"agent": "swarm_dev/architect", "prompt": "..."}}
 ]}}}}
 ```
 
 ## Communication
 - Brief status updates to CEO
 - ⚡ **DECISION REQUIRED** for approvals
-- Synthesize subagent results, don't repeat them verbatim
+- Synthesize results, don't repeat verbatim
 """
-```
-
-### 3.3 Result Summarization
-
-**File:** `backend/tools.py`
-
-Add auto-summarization for long results:
-
-```python
-async def _summarize_if_needed(self, result: str, max_length: int = 2000) -> str:
-    """Summarize long results before returning to orchestrator."""
-    if len(result) <= max_length:
-        return result
-
-    # Use quick summarization
-    summary_prompt = f"""Summarize these findings in 3-5 bullet points.
-Focus on: key discoveries, blockers, actionable items.
-
-FULL RESULT:
-{result[:8000]}...
-"""
-
-    # Quick summarization with haiku
-    try:
-        client = ClaudeAPIPool.get_client()
-        if client:
-            response = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=500,
-                messages=[{"role": "user", "content": summary_prompt}]
-            )
-            return response.content[0].text
-    except:
-        pass
-
-    # Fallback: truncate with notice
-    return result[:max_length] + "\n\n[Result truncated. Use Read tool to see full output.]"
-```
-
----
-
-## Phase 4: Subagent Definitions (Priority: Medium)
-
-### 4.1 Create .claude/agents/ Directory
-
-**Files to create:**
-
-1. `.claude/agents/researcher.md`
-2. `.claude/agents/architect.md`
-3. `.claude/agents/implementer.md`
-4. `.claude/agents/critic.md`
-5. `.claude/agents/tester.md`
-
-Use the example definitions provided in the conversation (from the user's examples).
-
-### 4.2 Update Workflow with Subagent Patterns
-
-**File:** `.claude/workflow.md`
-
-Add new section:
-
-```markdown
----
-
-## Subagent Patterns (NEW)
-
-### Parallel Execution
-For tasks requiring multiple perspectives, use ParallelTasks:
-
-```json
-{
-  "tool": "ParallelTasks",
-  "input": {
-    "tasks": [
-      {"agent": "swarm_dev/researcher", "prompt": "Research existing patterns"},
-      {"agent": "swarm_dev/architect", "prompt": "Design the solution"},
-      {"agent": "swarm_dev/critic", "prompt": "Identify potential issues"}
-    ]
-  }
-}
-```
-
-### Pipeline Chaining
-For deterministic workflows, chain agents sequentially:
-1. researcher → gather information
-2. architect → design solution
-3. implementer → write code
-4. tester → verify implementation
-5. critic → final review
-
-### Context Isolation
-- Each subagent has its own context window
-- Return SUMMARIES, not full context
-- Use shared memory for cross-agent decisions
-
-### Session Continuity
-Use `--continue` flag to maintain context across messages:
-```bash
-claude -p --continue <session_id> "Follow-up prompt"
-```
-
----
-
-## Hooks for Coordination (NEW)
-
-Hooks in `.claude/settings.json` enable automated feedback loops:
-
-- **PreToolUse**: Validate actions before execution
-- **SubagentStop**: Coordinate handoffs between agents
-- **Stop**: Finalize session state
-
-See `scripts/hooks/` for implementations.
 ```
 
 ---
@@ -602,50 +627,99 @@ See `scripts/hooks/` for implementations.
 ### 5.1 Test Parallel Execution
 
 ```bash
-# Test that parallel tasks actually run in parallel
-# 1. Start the server
-./run.sh
+# 1. Add timing logs to tools.py
+import time
+start = time.time()
+# ... subprocess call ...
+print(f"Agent {agent} completed in {time.time() - start:.2f}s")
 
-# 2. Send a message that triggers multiple agents
-# Observe logs for concurrent execution timestamps
+# 2. Send a message that triggers 3 agents
+# Expected: All 3 start within 0.5s of each other (parallel)
+# NOT: Agent 1 finishes, then Agent 2 starts (sequential)
 ```
 
 ### 5.2 Test Session Continuity
 
 ```bash
-# Test that sessions persist
-# 1. Send a message, note the session ID
-# 2. Send a follow-up, verify context is maintained
-# 3. Restart server, verify session resumes
+# 1. Send: "Remember the number 42"
+# 2. Send: "What number did I tell you?"
+# 3. Expected: Claude remembers 42 (session maintained)
 ```
 
 ### 5.3 Test Hooks
 
 ```bash
-# Test hooks are triggered
-# 1. Check .claude/coordination.db exists after Task tool use
-# 2. Verify task_log table has entries
-# 3. Check status transitions (starting → running → completed)
+# 1. Send a message that triggers Task tool
+# 2. Check DB:
+sqlite3 .claude/coordination.db "SELECT * FROM task_log"
+# Expected: Entry with status 'running' or 'completed'
+```
+
+### 5.4 Measure COO Prompt Size
+
+```python
+# In build_compact_coo_prompt, add:
+import tiktoken
+enc = tiktoken.encoding_for_model("claude-3-opus-20240229")
+tokens = len(enc.encode(prompt))
+print(f"COO prompt: {tokens} tokens")
+# Target: < 2000 tokens
 ```
 
 ---
 
-## Implementation Order
+## Updated Implementation Checklist
 
-| Order | Task | Est. Effort | Files |
-|-------|------|-------------|-------|
-| 1 | Parallel tool execution | 1-2 hours | `backend/main.py` |
-| 2 | ParallelTasks enhancement | 1 hour | `backend/tools.py` |
-| 3 | Connection pooling | 30 min | `backend/api_client.py` (NEW) |
-| 4 | Session manager | 1 hour | `backend/session_manager.py` (NEW) |
-| 5 | Hooks system | 2 hours | `.claude/settings.json`, `scripts/hooks/` |
-| 6 | Enhanced memory | 1 hour | `backend/memory.py` |
-| 7 | Compact COO prompt | 30 min | `backend/main.py` |
-| 8 | Result summarization | 1 hour | `backend/tools.py` |
-| 9 | Subagent definitions | 1 hour | `.claude/agents/` |
-| 10 | Workflow updates | 30 min | `.claude/workflow.md` |
+```markdown
+## Phase 1: Parallel Execution (Day 1)
+- [ ] 1.1 Parallel tool execution in run_agentic_chat()
+- [ ] 1.2 Parallel subprocess spawning in ParallelTasks tool
+- [ ] 1.3 Update _execute_task for concurrent subprocess
 
-**Total Estimated Effort:** 10-12 hours
+## Phase 2: Session Continuity (Day 1-2)
+- [ ] 2.1 Create SessionManager class
+- [ ] 2.2 Integrate with stream_claude_response()
+- [ ] 2.3 Pass chat_id through WebSocket handler
+- [ ] 2.4 Capture session ID from Claude output
+- [ ] 2.5 Test session persistence across 5+ messages
+
+## Phase 3: Hooks & Coordination (Day 2)
+- [ ] 3.1 Update .claude/settings.json with correct paths
+- [ ] 3.2 Make hook scripts executable (chmod +x)
+- [ ] 3.3 Fix DB_PATH to use SWARM_ROOT env var
+- [ ] 3.4 Initialize coordination.db on startup
+- [ ] 3.5 Test hooks write to database
+
+## Phase 4: Context Optimization (Day 2-3)
+- [ ] 4.1 Add simple _truncate_result() (NOT LLM summarization)
+- [ ] 4.2 Implement get_compact_state() in memory.py
+- [ ] 4.3 Create build_compact_coo_prompt()
+- [ ] 4.4 Replace massive system prompt
+- [ ] 4.5 Measure COO prompt token count (target: <2000)
+
+## Phase 5: Testing & Validation
+- [ ] Test parallel execution with timing logs
+- [ ] Test session continuity across messages
+- [ ] Test hooks write to coordination.db
+- [ ] Measure actual speedup (target: 3-5x)
+```
+
+---
+
+## Updated Implementation Order
+
+| Order | Task | Impact | Est. Effort |
+|-------|------|--------|-------------|
+| 1 | Parallel tool execution | High | 1 hour |
+| 2 | Parallel subprocess in Task | **Critical** | 1 hour |
+| 3 | Session continuity | **High** | 2 hours |
+| 4 | Hooks system (with fixes) | Medium | 1.5 hours |
+| 5 | Simple result truncation | Medium | 30 min |
+| 6 | Compact COO prompt | Medium | 30 min |
+| 7 | Enhanced memory layer | Medium | 1 hour |
+| 8 | Connection pooling | Low (API only) | 30 min |
+
+**Total Estimated Effort:** 8-10 hours
 
 ---
 
@@ -653,26 +727,27 @@ See `scripts/hooks/` for implementations.
 
 After implementation, verify:
 
-1. **Speed**: Chat responses 3-5x faster for multi-agent tasks
-2. **Context**: COO prompt stays under 2000 tokens
-3. **Coordination**: Hooks log all Task tool invocations
-4. **Summarization**: Long results auto-summarized
-5. **Sessions**: Context persists across messages
+1. **Speed**: 3-5x faster for multi-agent tasks (measured with timing logs)
+2. **Context**: COO prompt < 2000 tokens
+3. **Coordination**: Hooks log all Task invocations to DB
+4. **Sessions**: Context persists across 5+ messages
+5. **Parallel**: Multiple agents start within 0.5s of each other
 
 ---
 
 ## Quick Start
 
-To begin implementation:
-
 ```bash
-# 1. Start with Phase 1 (parallel execution)
-# Edit backend/main.py - modify tool execution loop
+# 1. Make hooks executable
+chmod +x scripts/hooks/*.py
 
-# 2. Test the change
+# 2. Start with Phase 1 (parallel execution)
+# Edit backend/main.py and backend/tools.py
+
+# 3. Test parallel execution
 ./run.sh
 # Send: "Research sparse attention AND design an implementation plan"
-# Verify both agents spawn concurrently
+# Check logs for concurrent timestamps
 
-# 3. Continue with remaining phases
+# 4. Continue with Phase 2 (session continuity)
 ```

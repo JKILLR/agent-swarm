@@ -242,6 +242,15 @@ For deterministic workflows, chain agents sequentially:
 
 ## Subagent Definitions
 
+### Model Requirement: Opus 4.5 ONLY
+
+**CRITICAL:** All agents MUST use `claude-opus-4-5-20251101` (Opus 4.5).
+
+No other models are permitted. This ensures:
+- Consistent reasoning quality across all agents
+- Maximum capability for complex tasks
+- Unified behavior and context handling
+
 ### Location
 Subagent definitions are in `.claude/agents/`:
 - `researcher.md` - Deep research and exploration
@@ -258,7 +267,7 @@ Each subagent has YAML frontmatter + markdown body:
 name: researcher
 description: Deep research agent
 tools: Read, Grep, Glob, Bash, WebSearch
-model: sonnet
+model: opus  # ALWAYS opus - no exceptions
 ---
 
 You are a Research Specialist...
@@ -338,21 +347,38 @@ The backend should maintain session IDs per chat:
 
 ---
 
-## Result Summarization
+## Result Truncation
 
 ### Long Results
-Subagent results over 2000 chars should be auto-summarized:
+Subagent results over 2000 chars should be truncated (NOT LLM-summarized, as that adds latency):
 
 ```python
-if len(result) > 2000:
-    result = await summarize_with_haiku(result)
+def _truncate_result(result: str, max_length: int = 2000) -> str:
+    """Truncate result while preserving structure."""
+    if len(result) <= max_length:
+        return result
+
+    lines = result.split('\n')
+    truncated = []
+    char_count = 0
+
+    for line in lines:
+        if char_count + len(line) + 1 > max_length - 100:
+            break
+        truncated.append(line)
+        char_count += len(line) + 1
+
+    truncated.append("")
+    truncated.append(f"... [Truncated {len(result) - char_count} chars]")
+    truncated.append("Use `Read` tool to see full output if needed.")
+
+    return '\n'.join(truncated)
 ```
 
-### Summary Format
-Summaries should include:
-- Key findings (3-5 bullet points)
-- Relevant files (if applicable)
-- Next steps (actionable items)
+### Why Not LLM Summarization?
+- Adds 0.5-1s latency per summarization call
+- Simple truncation is instant
+- Agents can use Read tool to get full output if needed
 
 ---
 

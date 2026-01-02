@@ -4,20 +4,20 @@
       {
         "matcher": "Task",
         "hooks": [
-          {"type": "command", "command": "python3 scripts/hooks/pre_task.py"}
+          {"type": "command", "command": "./scripts/hooks/pre_task.py"}
         ]
       },
       {
         "matcher": "Write|Edit",
         "hooks": [
-          {"type": "command", "command": "python3 scripts/hooks/pre_write.py"}
+          {"type": "command", "command": "./scripts/hooks/pre_write.py"}
         ]
       }
     ],
     "SubagentStop": [
       {
         "hooks": [
-          {"type": "command", "command": "python3 scripts/hooks/agent_complete.py"}
+          {"type": "command", "command": "./scripts/hooks/agent_complete.py"}
         ]
       }
     ]
