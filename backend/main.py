@@ -408,6 +408,11 @@ async def list_files(name: str, path: str = "") -> Dict[str, Any]:
     workspace = swarm.workspace
     target_path = workspace / path if path else workspace
 
+    # Auto-create workspace directory if it doesn't exist (only for root workspace)
+    if not workspace.exists():
+        logger.info(f"Creating missing workspace directory: {workspace}")
+        workspace.mkdir(parents=True, exist_ok=True)
+
     if not target_path.exists():
         raise HTTPException(status_code=404, detail=f"Path not found: {path}")
 

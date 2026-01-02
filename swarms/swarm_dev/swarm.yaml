@@ -3,8 +3,8 @@ description: Development team for the agent-swarm system itself
 version: 0.1.0
 status: active
 
-# Workspace points to the actual repo
-workspace: /home/user/agent-swarm
+# Workspace points to the project root (relative to swarm folder)
+workspace: ../..
 
 agents:
   # Coordinator
