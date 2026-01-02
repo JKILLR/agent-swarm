@@ -37,8 +37,18 @@ from supreme.orchestrator import SupremeOrchestrator
 from jobs import get_job_queue, get_job_manager, JobStatus
 from session_manager import get_session_manager
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging - both console and file for COO diagnostics
+LOG_FILE = PROJECT_ROOT / "logs" / "backend.log"
+LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Console
+        logging.FileHandler(LOG_FILE, mode='a'),  # File for COO to read
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
@@ -1520,11 +1530,18 @@ Each swarm has a `workspace/STATE.md` file that maintains shared context across 
 The STATE.md contains: objectives, progress log, key files, architecture decisions, known issues, and next steps.
 All agents are instructed to read it first and update it after completing work.
 
+## Diagnostics
+If something isn't working or the user asks about system status:
+- Read `logs/backend.log` for recent backend activity and errors
+- This shows WebSocket connections, CLI spawns, and any errors
+- Use this to diagnose issues and explain what's happening
+
 ## Rules
 1. DELEGATE - use Task to spawn agents for implementation work
 2. Read STATE.md first to understand current swarm state
 3. Be specific in prompts - tell agents exactly what to do and where STATE.md is
-4. Synthesize agent results into clear summaries for the user"""
+4. Synthesize agent results into clear summaries for the user
+5. If errors occur, check logs/backend.log to understand and explain the issue"""
 
                 user_message = message
 
