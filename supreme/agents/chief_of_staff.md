@@ -6,7 +6,7 @@ tools:
   - Read
   - Glob
   - Task
-model: sonnet
+model: opus
 background: false
 wake_enabled: true
 ---

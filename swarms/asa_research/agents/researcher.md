@@ -8,7 +8,7 @@ tools:
   - Grep
   - WebSearch
   - WebFetch
-model: sonnet
+model: opus
 background: true
 wake_enabled: true
 ---

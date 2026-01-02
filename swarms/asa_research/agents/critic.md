@@ -6,7 +6,7 @@ tools:
   - Read
   - Glob
   - Grep
-model: sonnet
+model: opus
 background: false
 wake_enabled: true
 ---

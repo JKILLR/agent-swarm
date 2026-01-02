@@ -1,0 +1,80 @@
+name: Operations
+description: Operational management and cross-swarm coordination. Reports to COO (Supreme Orchestrator).
+version: 0.1.0
+status: active
+
+# Full access to entire agent-swarm codebase and all swarm workspaces
+workspace: ../..
+
+agents:
+  # VP of Operations - reports to COO
+  - name: vp_operations
+    role: orchestrator
+    prompt_file: agents/vp_operations.md
+    max_turns: 30
+
+  # Project Coordinator - task tracking and cross-swarm handoffs
+  - name: project_coordinator
+    role: coordinator
+    prompt_file: agents/project_coordinator.md
+    max_turns: 25
+
+  # QA Agent - standards, organization, documentation
+  - name: qa_agent
+    role: quality
+    prompt_file: agents/qa_agent.md
+    max_turns: 25
+
+settings:
+  max_concurrent_tasks: 3
+  timeout: 600
+  parallel_execution: true
+
+# Swarms under operational management
+managed_swarms:
+  - swarm_dev
+  - asa_research
+  - mynd_app
+
+# Operational responsibilities
+responsibilities:
+  project_coordinator:
+    - Cross-swarm task handoffs
+    - Priority queue management
+    - Progress tracking and reporting
+    - Blockers identification and escalation
+    - Resource allocation recommendations
+
+  qa_agent:
+    - Code style and standards enforcement
+    - File organization audits
+    - Documentation quality checks
+    - Consistency across swarms
+    - Technical debt tracking
+
+# Reporting structure
+reporting:
+  reports_to: Supreme Orchestrator (COO)
+  frequency: on_request
+  metrics:
+    - active_tasks_per_swarm
+    - blocked_tasks
+    - code_quality_scores
+    - documentation_coverage
+
+# Operational priorities
+priorities:
+  - priority: 1
+    task: "Establish cross-swarm visibility"
+    description: "Create dashboards for tracking all swarm activities"
+    status: not_started
+
+  - priority: 2
+    task: "Standardize code review process"
+    description: "Ensure consistent review workflow across all swarms"
+    status: not_started
+
+  - priority: 3
+    task: "Documentation audit"
+    description: "Identify gaps in documentation across all swarms"
+    status: not_started

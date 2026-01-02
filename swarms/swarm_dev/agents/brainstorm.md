@@ -1,7 +1,7 @@
 ---
 name: brainstorm
 type: researcher
-model: sonnet
+model: opus
 description: Ideas sandbox. Explores future features without implementation pressure.
 background: true
 tools:

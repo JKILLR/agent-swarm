@@ -1,7 +1,7 @@
 ---
 name: refactorer
 type: worker
-model: sonnet
+model: opus
 description: Code quality specialist. Identifies tech debt, maintains cleanliness.
 background: true
 tools:
