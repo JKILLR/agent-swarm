@@ -943,7 +943,7 @@ async def stream_claude_response(
         "-p",  # Print mode (non-interactive)
         "--output-format", "stream-json",
         "--verbose",  # Required for stream-json output
-        "--permission-mode", "default",
+        "--permission-mode", "acceptEdits",  # Allow file writes without interactive approval
         prompt,  # Pass prompt as argument
     ]
 

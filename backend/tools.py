@@ -313,6 +313,7 @@ Please complete this task. You have access to tools: Read, Write, Bash, Glob, Gr
             "claude",
             "-p",  # Print mode
             "--output-format", "json",
+            "--permission-mode", "acceptEdits",  # Allow file writes without blocking
             prompt,
         ]
 
