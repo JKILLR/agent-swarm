@@ -1128,7 +1128,7 @@ Image path: {path}
             return f"Error syncing: {str(e)}"
 
     async def _execute_git_status(self, input: Dict[str, Any]) -> str:
-        """Check git status."""
+        """Check git status including sync with remote main."""
         try:
             results = []
 
@@ -1139,9 +1139,43 @@ Image path: {path}
                 capture_output=True,
                 text=True
             )
-            results.append(f"**Branch:** {branch.stdout.strip()}")
+            current_branch = branch.stdout.strip()
+            results.append(f"**Branch:** {current_branch}")
 
-            # Status
+            # Fetch from origin to get latest refs
+            subprocess.run(
+                ["git", "fetch", "origin"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            # Check sync status with origin/main
+            behind_ahead = subprocess.run(
+                ["git", "rev-list", "--left-right", "--count", "HEAD...origin/main"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+
+            if behind_ahead.returncode == 0:
+                counts = behind_ahead.stdout.strip().split()
+                if len(counts) == 2:
+                    ahead, behind = int(counts[0]), int(counts[1])
+                    if ahead == 0 and behind == 0:
+                        results.append("**Sync with origin/main:** ✅ Up to date")
+                    else:
+                        sync_parts = []
+                        if behind > 0:
+                            sync_parts.append(f"⚠️ {behind} commits behind")
+                        if ahead > 0:
+                            sync_parts.append(f"📤 {ahead} commits ahead")
+                        results.append(f"**Sync with origin/main:** {', '.join(sync_parts)}")
+                        if behind > 0:
+                            results.append("  → Run GitSync to pull latest main")
+
+            # Local changes
             status = subprocess.run(
                 ["git", "status", "--short"],
                 cwd=str(PROJECT_ROOT),
@@ -1150,9 +1184,9 @@ Image path: {path}
             )
 
             if status.stdout.strip():
-                results.append(f"\n**Changes:**\n```\n{status.stdout.strip()}\n```")
+                results.append(f"\n**Uncommitted changes:**\n```\n{status.stdout.strip()}\n```")
             else:
-                results.append("\n**Changes:** None (working tree clean)")
+                results.append("\n**Uncommitted changes:** None (working tree clean)")
 
             # Recent commits
             log = subprocess.run(
