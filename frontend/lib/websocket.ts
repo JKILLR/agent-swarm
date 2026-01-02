@@ -3,6 +3,7 @@ const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
 export type WebSocketEventType =
   | 'chat_start'
   | 'agent_start'
+  | 'agent_delta'
   | 'agent_chunk'
   | 'agent_complete'
   | 'chat_complete'
@@ -13,6 +14,7 @@ export interface WebSocketEvent {
   agent?: string
   agent_type?: string
   content?: string
+  delta?: string
   message?: string
   success?: boolean
 }

@@ -65,23 +65,26 @@ export default function Sidebar() {
           <div className="px-3 py-2 text-sm text-zinc-500">No swarms found</div>
         ) : (
           <div className="space-y-1">
-            {swarms.map((swarm) => (
-              <Link
-                key={swarm.name}
-                href={`/swarm/${swarm.name}`}
-                className={cn(
-                  'flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
-                  pathname === `/swarm/${swarm.name}`
-                    ? 'bg-zinc-800 text-white'
-                    : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
-                )}
-              >
-                <span className="truncate">{swarm.name}</span>
-                <span className={cn('text-xs', getStatusColor(swarm.status))}>
-                  {swarm.agent_count}
-                </span>
-              </Link>
-            ))}
+            {swarms.map((swarm) => {
+              const encodedName = encodeURIComponent(swarm.name)
+              return (
+                <Link
+                  key={swarm.name}
+                  href={`/swarm/${encodedName}`}
+                  className={cn(
+                    'flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
+                    pathname === `/swarm/${encodedName}`
+                      ? 'bg-zinc-800 text-white'
+                      : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
+                  )}
+                >
+                  <span className="truncate">{swarm.name}</span>
+                  <span className={cn('text-xs', getStatusColor(swarm.status))}>
+                    {swarm.agent_count}
+                  </span>
+                </Link>
+              )
+            })}
           </div>
         )}
       </div>

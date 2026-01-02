@@ -59,15 +59,46 @@ export default function ChatPage() {
           ])
           break
 
+        case 'agent_delta':
+          // Streaming text delta - append to current agent message
+          setMessages((prev) => {
+            const lastMessage = prev[prev.length - 1]
+            if (lastMessage && lastMessage.type === 'agent' && lastMessage.status === 'thinking') {
+              // Update the thinking message with new content
+              return [
+                ...prev.slice(0, -1),
+                {
+                  ...lastMessage,
+                  content: lastMessage.content + (event.delta || ''),
+                },
+              ]
+            }
+            return prev
+          })
+          break
+
         case 'agent_complete':
           // Update or add agent response
           setMessages((prev) => {
-            // Remove any thinking indicators for this agent type
-            const filtered = prev.filter(
-              (m) => !(m.type === 'agent' && m.status === 'thinking' && m.agentType === event.agent_type)
+            // Find existing thinking message for this agent
+            const thinkingIdx = prev.findIndex(
+              (m) => m.type === 'agent' && m.status === 'thinking' && m.agentType === event.agent_type
             )
+
+            if (thinkingIdx !== -1) {
+              // Update existing message to complete
+              const updated = [...prev]
+              updated[thinkingIdx] = {
+                ...updated[thinkingIdx],
+                content: event.content || updated[thinkingIdx].content,
+                status: 'complete',
+              }
+              return updated
+            }
+
+            // No thinking message found, add new complete message
             return [
-              ...filtered,
+              ...prev,
               {
                 id: `agent-${Date.now()}-${event.agent}`,
                 type: 'agent',
