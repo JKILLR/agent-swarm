@@ -37,11 +37,11 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
-from tools import ToolExecutor, get_tool_definitions
+from .tools import ToolExecutor, get_tool_definitions
 
-from memory import get_memory_manager
+from .memory import get_memory_manager
 from supreme.orchestrator import SupremeOrchestrator
-from jobs import get_job_queue, get_job_manager, JobStatus
+from .jobs import get_job_queue, get_job_manager, JobStatus
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1165,47 +1165,72 @@ async def parse_claude_stream(
     if not process.stdout:
         return {"response": "", "thinking": ""}
 
+    async def drain_stderr():
+        """Drain stderr to prevent buffer deadlock."""
+        if process.stderr:
+            try:
+                while True:
+                    chunk = await process.stderr.read(65536)
+                    if not chunk:
+                        break
+                    # Log stderr output for debugging
+                    stderr_text = chunk.decode(errors='ignore').strip()
+                    if stderr_text:
+                        logger.debug(f"Claude CLI stderr: {stderr_text[:200]}")
+            except Exception as e:
+                logger.debug(f"Stderr drain error: {e}")
+
+    # Start draining stderr concurrently to prevent deadlock
+    stderr_task = asyncio.create_task(drain_stderr())
+
     # Read all output at once to avoid buffer issues, then parse line by line
     buffer = b""
-    while True:
+    try:
+        while True:
+            try:
+                chunk = await asyncio.wait_for(process.stdout.read(65536), timeout=1.0)
+                if not chunk:
+                    break
+                buffer += chunk
+
+                # Process complete lines from buffer
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    line_str = line.decode().strip()
+                    if not line_str:
+                        continue
+
+                    try:
+                        event = json.loads(line_str)
+                        # Process event and send to websocket
+                        await _process_cli_event(event, websocket, manager, context)
+                    except json.JSONDecodeError:
+                        continue
+            except asyncio.TimeoutError:
+                # Check if process is still running
+                if process.returncode is not None:
+                    break
+                continue
+            except Exception as e:
+                logger.error(f"Error reading stream: {e}")
+                break
+
+        # Process any remaining data in buffer
+        if buffer:
+            for line in buffer.decode().split("\n"):
+                line_str = line.strip()
+                if line_str:
+                    try:
+                        event = json.loads(line_str)
+                        await _process_cli_event(event, websocket, manager, context)
+                    except json.JSONDecodeError:
+                        pass
+    finally:
+        # Ensure stderr task completes
         try:
-            chunk = await asyncio.wait_for(process.stdout.read(65536), timeout=1.0)
-            if not chunk:
-                break
-            buffer += chunk
-
-            # Process complete lines from buffer
-            while b"\n" in buffer:
-                line, buffer = buffer.split(b"\n", 1)
-                line_str = line.decode().strip()
-                if not line_str:
-                    continue
-
-                try:
-                    event = json.loads(line_str)
-                    # Process event and send to websocket
-                    await _process_cli_event(event, websocket, manager, context)
-                except json.JSONDecodeError:
-                    continue
+            await asyncio.wait_for(stderr_task, timeout=5.0)
         except asyncio.TimeoutError:
-            # Check if process is still running
-            if process.returncode is not None:
-                break
-            continue
-        except Exception as e:
-            logger.error(f"Error reading stream: {e}")
-            break
-
-    # Process any remaining data in buffer
-    if buffer:
-        for line in buffer.decode().split("\n"):
-            line_str = line.strip()
-            if line_str:
-                try:
-                    event = json.loads(line_str)
-                    await _process_cli_event(event, websocket, manager, context)
-                except json.JSONDecodeError:
-                    pass
+            stderr_task.cancel()
 
     # Wait for process to complete
     await process.wait()

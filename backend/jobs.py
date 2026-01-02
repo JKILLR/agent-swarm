@@ -424,62 +424,82 @@ class JobManager:
 
         self._job_processes[job.id] = process
 
+        async def drain_stderr():
+            """Drain stderr to prevent buffer deadlock."""
+            if process.stderr:
+                try:
+                    while True:
+                        chunk = await process.stderr.read(65536)
+                        if not chunk:
+                            break
+                except Exception:
+                    pass
+
+        # Start draining stderr concurrently to prevent deadlock
+        stderr_task = asyncio.create_task(drain_stderr())
+
         # Collect response
         full_response = ""
 
-        if process.stdout:
-            job.current_activity = "Processing..."
-            self.queue.update_job(job)
+        try:
+            if process.stdout:
+                job.current_activity = "Processing..."
+                self.queue.update_job(job)
 
-            while True:
-                if job.id in self._cancelled:
-                    break
-
-                try:
-                    line = await asyncio.wait_for(
-                        process.stdout.readline(),
-                        timeout=1.0
-                    )
-                    if not line:
+                while True:
+                    if job.id in self._cancelled:
                         break
 
-                    # Parse and track progress
                     try:
-                        import json
-                        event = json.loads(line.decode().strip())
-                        event_type = event.get("type", "")
+                        line = await asyncio.wait_for(
+                            process.stdout.readline(),
+                            timeout=1.0
+                        )
+                        if not line:
+                            break
 
-                        # Track tool use as activity
-                        if event_type == "content_block_start":
-                            block = event.get("content_block", {})
-                            if block.get("type") == "tool_use":
-                                tool_name = block.get("name", "tool")
-                                job.current_activity = f"Using {tool_name}..."
-                                job.activities.append({
-                                    "tool": tool_name,
-                                    "time": datetime.now().isoformat(),
-                                })
-                                self.queue.update_job(job)
-                                if self.on_job_update:
-                                    self.on_job_update(job)
+                        # Parse and track progress
+                        try:
+                            event = json.loads(line.decode().strip())
+                            event_type = event.get("type", "")
 
-                        # Collect text response
-                        elif event_type == "content_block_delta":
-                            delta = event.get("delta", {})
-                            if delta.get("type") == "text_delta":
-                                full_response += delta.get("text", "")
+                            # Track tool use as activity
+                            if event_type == "content_block_start":
+                                block = event.get("content_block", {})
+                                if block.get("type") == "tool_use":
+                                    tool_name = block.get("name", "tool")
+                                    job.current_activity = f"Using {tool_name}..."
+                                    job.activities.append({
+                                        "tool": tool_name,
+                                        "time": datetime.now().isoformat(),
+                                    })
+                                    self.queue.update_job(job)
+                                    if self.on_job_update:
+                                        self.on_job_update(job)
 
-                        elif event_type == "result":
-                            full_response = event.get("result", full_response)
+                            # Collect text response
+                            elif event_type == "content_block_delta":
+                                delta = event.get("delta", {})
+                                if delta.get("type") == "text_delta":
+                                    full_response += delta.get("text", "")
 
-                    except json.JSONDecodeError:
-                        pass
+                            elif event_type == "result":
+                                full_response = event.get("result", full_response)
 
-                except asyncio.TimeoutError:
-                    # Check if process is still running
-                    if process.returncode is not None:
-                        break
-                    continue
+                        except json.JSONDecodeError:
+                            pass
+
+                    except asyncio.TimeoutError:
+                        # Check if process is still running
+                        if process.returncode is not None:
+                            break
+                        continue
+        finally:
+            # Ensure stderr task completes
+            try:
+                await asyncio.wait_for(stderr_task, timeout=5.0)
+            except asyncio.TimeoutError:
+                stderr_task.cancel()
 
         await process.wait()
         return full_response

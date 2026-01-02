@@ -42,6 +42,7 @@ env/
 logs/**/*.json
 logs/**/*.jsonl
 logs/**/*.log
+logs/**/*.db
 !logs/.gitkeep
 !logs/consensus/.gitkeep
 
