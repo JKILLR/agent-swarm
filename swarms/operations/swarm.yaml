@@ -1,7 +1,8 @@
 name: operations
-description: Operational management and cross-swarm coordination. Reports to COO (Supreme Orchestrator).
-version: 0.1.0
+description: Operational management and cross-swarm coordination. Reports to COO (Supreme Orchestrator). Operates under Hybrid Coordination Model (Tier 2 escalation).
+version: 1.0.0
 status: active
+coordination_model: hybrid
 
 # Full access to entire agent-swarm codebase and all swarm workspaces
 workspace: ../..
@@ -32,43 +33,112 @@ managed_swarms:
 
 # Operational responsibilities
 responsibilities:
-  project_coordinator:
-    - Cross-swarm task handoffs
-    - Priority queue management
-    - Progress tracking and reporting
-    - Blockers identification and escalation
-    - Resource allocation recommendations
+  ops_coordinator:
+    # Tier 2 Coordination (when escalated from COO)
+    - Multi-swarm task coordination and planning
+    - Dependency mapping and conflict resolution
+    - Resource allocation and priority management
+    - Cross-swarm handoff orchestration
+    - Progress tracking and status reporting
+    - Blocker identification and resolution
+
+    # Tier 1 Monitoring (passive awareness)
+    - Daily swarm status file reviews
+    - Commit message monitoring and compliance
+    - Automated alert processing
+    - Weekly metrics aggregation
+    - Trend analysis and recommendations
 
   qa_agent:
+    # Pre-Review (before implementation)
+    - Infrastructure change risk assessment
+    - Security modification review
+    - API design standards validation
+    - Multi-swarm work planning review
+    - Testing strategy recommendations
+
+    # Post-Audit (after implementation)
     - Code style and standards enforcement
     - File organization audits
     - Documentation quality checks
-    - Consistency across swarms
+    - Cross-swarm consistency validation
     - Technical debt tracking
 
 # Reporting structure
 reporting:
   reports_to: Supreme Orchestrator (COO)
-  frequency: on_request
+  daily_status: automated  # Tier 1 monitoring summaries
+  weekly_summary: automated  # Executive summary to COO
+  on_demand: as_requested  # Tier 2 coordination updates
+
   metrics:
-    - active_tasks_per_swarm
-    - blocked_tasks
-    - code_quality_scores
-    - documentation_coverage
+    efficiency:
+      - tier_1_completion_time
+      - tier_2_coordination_overhead
+      - escalation_rate
+      - false_escalation_rate
+
+    quality:
+      - commit_message_compliance
+      - qa_audit_pass_rate
+      - cross_swarm_conflict_rate
+      - rework_rate
+
+    coordination:
+      - multi_swarm_handoff_success
+      - blocker_resolution_time
+      - resource_conflict_prevention
+      - communication_overhead
+
+# Coordination protocols
+protocols:
+  coordination_model: protocols/coordination_model.md
+  commit_message_standard: "[SWARM:name] [PRIORITY:1-5] [STATUS:status] description"
+
+# Escalation triggers (Tier 1 → Tier 2)
+escalation_triggers:
+  automatic:
+    - multi_swarm_coordination_needed
+    - resource_conflicts_detected
+    - cross_swarm_dependencies_exist
+    - infrastructure_changes_required
+    - priority_1_or_2_tasks
+
+  monitoring_alerts:
+    - multiple_failed_commits_same_swarm
+    - blocked_status_exceeds_24h
+    - resource_utilization_exceeds_80_percent
+    - cross_swarm_file_conflicts
+
+# QA engagement rules
+qa_engagement:
+  pre_review_required:
+    - infrastructure_changes
+    - security_modifications
+    - api_changes
+    - multi_swarm_work
+    - database_schema_changes
+
+  post_audit_required:
+    - feature_implementations
+    - bug_fixes
+    - documentation_updates
+    - refactoring_work
+    - configuration_changes
 
 # Operational priorities
 priorities:
   - priority: 1
-    task: "Establish cross-swarm visibility"
-    description: "Create dashboards for tracking all swarm activities"
-    status: not_started
+    task: "Monitor hybrid coordination model effectiveness"
+    description: "Track Tier 1 vs Tier 2 metrics, identify optimization opportunities"
+    status: active
 
   - priority: 2
-    task: "Standardize code review process"
-    description: "Ensure consistent review workflow across all swarms"
-    status: not_started
+    task: "Enforce commit message standards"
+    description: "Ensure all swarms comply with [SWARM:name] [PRIORITY:1-5] [STATUS:status] format"
+    status: active
 
   - priority: 3
-    task: "Documentation audit"
-    description: "Identify gaps in documentation across all swarms"
+    task: "Automate daily status reporting"
+    description: "Create automated daily status reports from swarm status files"
     status: not_started

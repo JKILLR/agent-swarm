@@ -1,0 +1,8 @@
+
+# Test Configuration
+version: "1.0"
+test_mode: true
+capabilities:
+  - read_files
+  - write_files
+  - execute_bash
