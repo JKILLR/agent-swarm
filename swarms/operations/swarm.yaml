@@ -7,17 +7,11 @@ status: active
 workspace: ../..
 
 agents:
-  # VP of Operations - reports to COO
-  - name: vp_operations
+  # Operations Coordinator - team lead, reports to VP Operations
+  - name: ops_coordinator
     role: orchestrator
-    prompt_file: agents/vp_operations.md
+    prompt_file: agents/ops_coordinator.md
     max_turns: 30
-
-  # Project Coordinator - task tracking and cross-swarm handoffs
-  - name: project_coordinator
-    role: coordinator
-    prompt_file: agents/project_coordinator.md
-    max_turns: 25
 
   # QA Agent - standards, organization, documentation
   - name: qa_agent

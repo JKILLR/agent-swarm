@@ -24,7 +24,7 @@ interface OrgChartProps {
 
 export default function OrgChart({ onSelectNode, selectedNodeId }: OrgChartProps) {
   const [orgTree, setOrgTree] = useState<OrgNode | null>(null)
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['ceo', 'coo', 'operations']))
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['ceo', 'coo', 'vp-operations']))
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -50,7 +50,7 @@ export default function OrgChart({ onSelectNode, selectedNodeId }: OrgChartProps
         setOrgTree(tree)
 
         // Auto-expand first few levels
-        setExpandedNodes(new Set(['ceo', 'coo', 'operations', 'swarm_dev']))
+        setExpandedNodes(new Set(['ceo', 'coo', 'vp-operations', 'operations-swarm', 'swarm_dev']))
       } catch (error) {
         console.error('Failed to load org structure:', error)
       } finally {
@@ -62,12 +62,12 @@ export default function OrgChart({ onSelectNode, selectedNodeId }: OrgChartProps
   }, [])
 
   const buildOrgTree = (swarms: (Swarm & { agents: Agent[] })[]): OrgNode => {
-    // Find Operations swarm (VP level) - case-insensitive search
+    // Find Operations swarm
     const operationsSwarm = swarms.find(s => s.name.toLowerCase() === 'operations')
     const otherSwarms = swarms.filter(s => s.name.toLowerCase() !== 'operations')
 
-    // Build swarm nodes
-    const swarmNodes: OrgNode[] = otherSwarms.map(swarm => ({
+    // Build other swarm nodes (managed by Operations)
+    const managedSwarmNodes: OrgNode[] = otherSwarms.map(swarm => ({
       id: swarm.name,
       name: swarm.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
       type: 'swarm',
@@ -84,31 +84,35 @@ export default function OrgChart({ onSelectNode, selectedNodeId }: OrgChartProps
       })),
     }))
 
-    // Build Operations VP node
-    // Filter out vp_operations from agents since it IS the VP node
-    const operationsAgents = (operationsSwarm?.agents || [])
-      .filter(agent => agent.name !== 'vp_operations')
-      .map(agent => ({
+    // Build Operations Swarm node (the team under VP)
+    const operationsSwarmNode: OrgNode = {
+      id: 'operations-swarm',
+      name: 'Operations',
+      type: 'swarm',
+      description: 'Cross-swarm coordination team',
+      status: operationsSwarm?.status,
+      swarmName: 'operations',
+      children: (operationsSwarm?.agents || []).map(agent => ({
         id: `operations-${agent.name}`,
         name: agent.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         type: 'agent' as const,
         description: agent.description,
         model: agent.model,
         swarmName: 'operations',
-      }))
+      })),
+    }
 
-    const operationsNode: OrgNode = {
-      id: 'operations',
+    // Build VP Operations node (executive - no swarmName)
+    const vpNode: OrgNode = {
+      id: 'vp-operations',
       name: 'VP Operations',
       type: 'vp',
-      description: operationsSwarm?.description || 'Cross-swarm coordination',
-      status: operationsSwarm?.status,
-      swarmName: 'operations',
+      description: 'Executive managing Operations and production swarms',
       children: [
-        // Operations agents (excluding VP itself)
-        ...operationsAgents,
-        // Managed swarms
-        ...swarmNodes,
+        // Operations swarm (the VP's team)
+        operationsSwarmNode,
+        // Production swarms managed by Operations
+        ...managedSwarmNodes,
       ],
     }
 
@@ -118,7 +122,7 @@ export default function OrgChart({ onSelectNode, selectedNodeId }: OrgChartProps
       name: 'Supreme Orchestrator',
       type: 'coo',
       description: 'COO - Manages all swarms',
-      children: [operationsNode],
+      children: [vpNode],
     }
 
     // Build CEO node
