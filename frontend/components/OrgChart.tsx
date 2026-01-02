@@ -85,6 +85,18 @@ export default function OrgChart({ onSelectNode, selectedNodeId }: OrgChartProps
     }))
 
     // Build Operations VP node
+    // Filter out vp_operations from agents since it IS the VP node
+    const operationsAgents = (operationsSwarm?.agents || [])
+      .filter(agent => agent.name !== 'vp_operations')
+      .map(agent => ({
+        id: `operations-${agent.name}`,
+        name: agent.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        type: 'agent' as const,
+        description: agent.description,
+        model: agent.model,
+        swarmName: 'operations',
+      }))
+
     const operationsNode: OrgNode = {
       id: 'operations',
       name: 'VP Operations',
@@ -93,15 +105,8 @@ export default function OrgChart({ onSelectNode, selectedNodeId }: OrgChartProps
       status: operationsSwarm?.status,
       swarmName: 'operations',
       children: [
-        // Operations agents
-        ...(operationsSwarm?.agents || []).map(agent => ({
-          id: `operations-${agent.name}`,
-          name: agent.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          type: 'agent' as const,
-          description: agent.description,
-          model: agent.model,
-          swarmName: 'operations',
-        })),
+        // Operations agents (excluding VP itself)
+        ...operationsAgents,
         // Managed swarms
         ...swarmNodes,
       ],
