@@ -1,0 +1,117 @@
+name: Swarm Dev
+description: Development team for the agent-swarm system itself
+version: 0.1.0
+status: active
+
+# Workspace points to the actual repo
+workspace: /home/user/agent-swarm
+
+agents:
+  # Coordinator
+  - name: orchestrator
+    role: orchestrator
+    prompt_file: agents/orchestrator.md
+    max_turns: 30
+
+  # Architecture & Design
+  - name: architect
+    role: architect
+    prompt_file: agents/architect.md
+    max_turns: 25
+    background: true
+
+  # Implementation
+  - name: implementer
+    role: implementer
+    prompt_file: agents/implementer.md
+    max_turns: 30
+
+  # Code Review Layer 1: Correctness
+  - name: reviewer
+    role: reviewer
+    prompt_file: agents/reviewer.md
+    max_turns: 20
+
+  # Code Review Layer 2: Design & Security
+  - name: critic
+    role: critic
+    prompt_file: agents/critic.md
+    max_turns: 20
+
+  # Code Quality & Refactoring
+  - name: refactorer
+    role: worker
+    prompt_file: agents/refactorer.md
+    max_turns: 25
+    background: true
+
+  # Ideas & Future Planning
+  - name: brainstorm
+    role: researcher
+    prompt_file: agents/brainstorm.md
+    max_turns: 20
+    background: true
+
+settings:
+  max_concurrent_tasks: 4
+  require_consensus: true
+  consensus_threshold: 0.6
+  timeout: 600
+  min_voters: 2
+  parallel_execution: true
+
+# Code review workflow
+review_workflow:
+  - step: implement
+    agent: implementer
+  - step: review
+    agent: reviewer
+    required: true
+  - step: critique
+    agent: critic
+    required: true
+  - step: refactor_check
+    agent: refactorer
+    required: false
+
+# Current development priorities
+priorities:
+  - priority: 1
+    task: "Claude Agent SDK integration"
+    description: "Complete SDK integration for real agent execution"
+    status: in_progress
+
+  - priority: 2
+    task: "Web UI enhancements"
+    description: "File browser, chat attachments, swarm management"
+    status: in_progress
+
+  - priority: 3
+    task: "Testing infrastructure"
+    description: "Unit tests, integration tests for all components"
+    status: not_started
+
+  - priority: 4
+    task: "Documentation"
+    description: "API docs, usage guides, architecture docs"
+    status: not_started
+
+  - priority: 5
+    task: "GitHub integration"
+    description: "PR creation, issue tracking, CI/CD hooks"
+    status: not_started
+
+# Codebase structure reference
+codebase:
+  shared: "Core agent/swarm classes (agent_base.py, swarm_interface.py)"
+  supreme: "Supreme orchestrator and executive team"
+  swarms: "Individual swarm configurations"
+  backend: "FastAPI server for web interface"
+  frontend: "Next.js web dashboard"
+  main.py: "CLI entry point"
+
+# Git workflow
+git:
+  branch_prefix: "claude/"
+  main_branch: "main"
+  workflow: "User merges PRs, agents push to feature branches"
