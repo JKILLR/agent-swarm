@@ -69,3 +69,95 @@ export async function sendChat(message: string) {
   if (!res.ok) throw new Error('Failed to send message')
   return res.json()
 }
+
+// Chat History Types
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+  agent?: string
+  thinking?: string
+}
+
+export interface ChatSession {
+  id: string
+  title: string
+  swarm?: string
+  created_at: string
+  updated_at: string
+  messages: ChatMessage[]
+}
+
+export interface ChatSessionSummary {
+  id: string
+  title: string
+  swarm?: string
+  created_at: string
+  updated_at: string
+  message_count: number
+}
+
+// Chat History API
+export async function getChatSessions(): Promise<ChatSessionSummary[]> {
+  const res = await fetch(`${API_BASE}/api/chat/sessions`)
+  if (!res.ok) throw new Error('Failed to fetch chat sessions')
+  return res.json()
+}
+
+export async function getChatSession(sessionId: string): Promise<ChatSession> {
+  const res = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}`)
+  if (!res.ok) throw new Error(`Failed to fetch session: ${sessionId}`)
+  return res.json()
+}
+
+export async function createChatSession(swarm?: string, title?: string): Promise<ChatSession> {
+  const params = new URLSearchParams()
+  if (swarm) params.append('swarm', swarm)
+  if (title) params.append('title', title)
+
+  const res = await fetch(`${API_BASE}/api/chat/sessions?${params}`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to create chat session')
+  return res.json()
+}
+
+export async function updateChatSession(sessionId: string, updates: { title?: string; swarm?: string }): Promise<ChatSession> {
+  const params = new URLSearchParams()
+  if (updates.title) params.append('title', updates.title)
+  if (updates.swarm) params.append('swarm', updates.swarm)
+
+  const res = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}?${params}`, {
+    method: 'PUT',
+  })
+  if (!res.ok) throw new Error('Failed to update session')
+  return res.json()
+}
+
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error('Failed to delete session')
+}
+
+export async function addChatMessage(
+  sessionId: string,
+  role: 'user' | 'assistant',
+  content: string,
+  agent?: string,
+  thinking?: string
+): Promise<ChatMessage> {
+  const params = new URLSearchParams()
+  params.append('role', role)
+  params.append('content', content)
+  if (agent) params.append('agent', agent)
+  if (thinking) params.append('thinking', thinking)
+
+  const res = await fetch(`${API_BASE}/api/chat/sessions/${sessionId}/messages?${params}`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to add message')
+  return res.json()
+}
