@@ -744,15 +744,21 @@ User request: {message}"""
                     workspace=workspace,
                 )
 
-                # Stream and parse the response with timeout
+                # Stream and parse the response with timeout (30 seconds for initial response)
                 try:
                     result = await asyncio.wait_for(
                         parse_claude_stream(process, websocket, manager),
-                        timeout=300.0,  # 5 minute timeout
+                        timeout=30.0,  # 30 second timeout for initial test
                     )
                 except asyncio.TimeoutError:
                     process.kill()
-                    raise RuntimeError("Claude CLI timed out after 5 minutes")
+                    raise RuntimeError(
+                        "Claude CLI timed out. This usually means authentication is not set up for subprocess mode.\n\n"
+                        "**To fix this:**\n"
+                        "1. Run `claude setup-token` in your terminal to create a long-lived auth token\n"
+                        "2. Restart the backend server\n\n"
+                        "Alternatively, you can set an API key in the environment variable ANTHROPIC_API_KEY"
+                    )
 
                 # Send the complete response
                 final_content = result["response"]
@@ -773,10 +779,17 @@ User request: {message}"""
 
             except Exception as e:
                 logger.error(f"Chat error: {e}", exc_info=True)
+                error_msg = str(e)
+                # Make error message user-friendly
+                if "timed out" in error_msg.lower():
+                    pass  # Already has detailed message
+                elif "permission" in error_msg.lower() or "auth" in error_msg.lower():
+                    error_msg = f"Authentication error: {error_msg}\n\nRun `claude setup-token` to set up authentication."
+
                 await manager.send_event(websocket, "agent_complete", {
                     "agent": "Claude",
                     "agent_type": "assistant",
-                    "content": f"Error: {str(e)}",
+                    "content": f"**Error:** {error_msg}",
                 })
                 await manager.send_event(websocket, "chat_complete", {
                     "success": False,
