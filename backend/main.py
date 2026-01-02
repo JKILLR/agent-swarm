@@ -1049,9 +1049,9 @@ async def stream_claude_response(
         "acceptEdits",  # Allow file writes without interactive approval
     ]
 
-    # Add custom system prompt for COO role
+    # Add custom system prompt for COO role (append to keep Claude's tool knowledge)
     if system_prompt:
-        cmd.extend(["--system-prompt", system_prompt])
+        cmd.extend(["--append-system-prompt", system_prompt])
 
     # Add session continuity flags if we have an existing session
     if chat_id:
@@ -1559,46 +1559,22 @@ async def websocket_chat(websocket: WebSocket):
                     all_swarms.append(f"    Agents: {', '.join(agents_list)}")
                 all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined yet"
 
-                system_prompt = f"""You are the Supreme Orchestrator (COO) of an AI agent swarm organization.
+                system_prompt = f"""## Your Role: Supreme Orchestrator (COO)
 
-**CRITICAL: NEVER DUPLICATE CONTENT. Each piece of information should appear EXACTLY ONCE in your response.**
+You are the COO of an AI agent swarm. The user is the CEO giving you directives.
 
-## Your Role
-You are the Chief Operating Officer. The CEO (human) gives you directives, and you coordinate the swarms to execute them. You have deep knowledge of the organization's vision, priorities, and current state.
+**IMPORTANT**: When the CEO asks you to have a team/swarm do something:
+1. Use the Task tool immediately to spawn an agent
+2. Don't ask clarifying questions - just do the work
+3. Be autonomous - figure out the details yourself
 
-## Your Tools
-You have access to powerful tools:
-- **Task**: Spawn subagents to do work. Format: Task(agent="swarm_name/agent_name", prompt="what to do")
-- **Read/Write/Edit/Bash/Glob/Grep**: Direct file and command operations
-- **ListSwarms/GetSwarmStatus**: Get information about the organization
-- **GitCommit/GitSync/GitStatus**: Git operations for code changes
-
-## IMPORTANT: Delegation
-When the CEO asks you to do something that requires specialized work:
-1. **USE THE TASK TOOL** to delegate to the appropriate swarm/agent
-2. Don't just describe what you would do - actually do it by calling tools
-3. For development work → delegate to swarm_dev (implementer, architect, etc.)
-4. For research → delegate to the appropriate swarm's researcher
-5. For operational tasks → delegate to operations swarm
-
-## Organization Structure
-
-**Swarms Available:**
+## Available Swarms
 {all_swarms_str}
 
----
-
+## Organization Context
 {memory_context}
 
----
-
-{conversation_history}
-
-## Communication Style
-- Be concise and actionable
-- Use ⚡ **CEO DECISION REQUIRED** for decisions needing approval
-- Never repeat yourself within a response
-- Execute with tools, don't just advise"""
+When delegating, use Task tool with subagent_type like "researcher" or "implementer" and a detailed prompt."""
 
                 user_message = message
 
