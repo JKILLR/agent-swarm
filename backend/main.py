@@ -983,9 +983,12 @@ async def parse_claude_stream(
     Parse streaming JSON output from claude CLI and send events to WebSocket.
     Returns dict with full response text and thinking.
     """
-    full_response = ""
-    full_thinking = ""
-    current_block_type = None  # Track if we're in a thinking or text block
+    # Use a dict to accumulate response (mutable, passed by reference)
+    context = {
+        "full_response": "",
+        "full_thinking": "",
+        "current_block_type": None,
+    }
 
     if not process.stdout:
         return {"response": "", "thinking": ""}
@@ -1009,7 +1012,7 @@ async def parse_claude_stream(
                 try:
                     event = json.loads(line_str)
                     # Process event and send to websocket
-                    await _process_cli_event(event, websocket, manager, locals())
+                    await _process_cli_event(event, websocket, manager, context)
                 except json.JSONDecodeError:
                     continue
         except asyncio.TimeoutError:
@@ -1028,22 +1031,19 @@ async def parse_claude_stream(
             if line_str:
                 try:
                     event = json.loads(line_str)
-                    await _process_cli_event(event, websocket, manager, locals())
+                    await _process_cli_event(event, websocket, manager, context)
                 except json.JSONDecodeError:
                     pass
 
     # Wait for process to complete
     await process.wait()
 
-    return {"response": full_response, "thinking": full_thinking}
+    return {"response": context["full_response"], "thinking": context["full_thinking"]}
 
 
 async def _process_cli_event(event: dict, websocket: WebSocket, manager, context: dict):
     """Process a single CLI event and update response/thinking."""
     event_type = event.get("type", "")
-    full_response = context.get("full_response", "")
-    full_thinking = context.get("full_thinking", "")
-    current_block_type = context.get("current_block_type")
 
     try:
         if event_type == "assistant":
