@@ -1212,6 +1212,10 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
     """
     event_type = event.get("type", "")
 
+    # DEBUG: Log all event types to understand CLI format
+    if event_type not in ("assistant", "content_block_delta"):  # Skip noisy ones
+        logger.info(f"CLI EVENT: {event_type} - keys: {list(event.keys())}")
+
     try:
         # Capture session ID from Claude output for session continuity
         if event_type in ("init", "system", "session_start") and session_mgr and chat_id:
