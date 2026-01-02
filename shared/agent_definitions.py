@@ -131,6 +131,24 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
         background=False,
         wake_enabled=True,
     ),
+    "architect": AgentDefinition(
+        name="architect",
+        description="System design and architecture planning.",
+        tools=["Read", "Glob", "Grep", "Write", "Edit"],
+        model="opus",
+        agent_type="architect",
+        background=True,
+        wake_enabled=True,
+    ),
+    "reviewer": AgentDefinition(
+        name="reviewer",
+        description="Code review for correctness and best practices.",
+        tools=["Read", "Glob", "Grep"],
+        model="opus",
+        agent_type="reviewer",
+        background=True,
+        wake_enabled=True,
+    ),
 }
 
 
