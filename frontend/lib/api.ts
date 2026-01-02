@@ -161,3 +161,65 @@ export async function addChatMessage(
   if (!res.ok) throw new Error('Failed to add message')
   return res.json()
 }
+
+// Background Jobs API
+export interface Job {
+  id: string
+  type: string
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  created_at: string
+  started_at?: string
+  completed_at?: string
+  prompt: string
+  swarm?: string
+  session_id?: string
+  progress: number
+  current_activity: string
+  activities: Array<{ tool: string; time: string }>
+  result?: string
+  error?: string
+}
+
+export async function createBackgroundJob(
+  prompt: string,
+  type: string = 'chat',
+  swarm?: string,
+  sessionId?: string
+): Promise<{ success: boolean; job: Job }> {
+  const res = await fetch(`${API_BASE}/api/jobs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type,
+      prompt,
+      swarm,
+      session_id: sessionId,
+    }),
+  })
+  if (!res.ok) throw new Error('Failed to create job')
+  return res.json()
+}
+
+export async function getJobs(sessionId?: string, limit: number = 20): Promise<Job[]> {
+  const params = new URLSearchParams()
+  if (sessionId) params.append('session_id', sessionId)
+  params.append('limit', limit.toString())
+
+  const res = await fetch(`${API_BASE}/api/jobs?${params}`)
+  if (!res.ok) throw new Error('Failed to fetch jobs')
+  return res.json()
+}
+
+export async function getJob(jobId: string): Promise<Job> {
+  const res = await fetch(`${API_BASE}/api/jobs/${jobId}`)
+  if (!res.ok) throw new Error('Failed to fetch job')
+  return res.json()
+}
+
+export async function cancelJob(jobId: string): Promise<{ success: boolean }> {
+  const res = await fetch(`${API_BASE}/api/jobs/${jobId}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error('Failed to cancel job')
+  return res.json()
+}

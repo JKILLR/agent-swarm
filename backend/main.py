@@ -41,6 +41,7 @@ from tools import ToolExecutor, get_tool_definitions
 
 from memory import get_memory_manager
 from supreme.orchestrator import SupremeOrchestrator
+from jobs import get_job_queue, get_job_manager, JobStatus
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -64,6 +65,32 @@ app.add_middleware(
 
 # Global orchestrator instance
 orchestrator: SupremeOrchestrator | None = None
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup."""
+    logger.info("Starting Agent Swarm backend...")
+
+    # Initialize job manager with broadcast callback
+    job_manager = get_job_manager()
+
+    # Set up job update callback (will be defined later in the file)
+    def on_job_update(job):
+        # Schedule the async broadcast in the event loop
+        asyncio.create_task(_broadcast_job_update_safe(job))
+
+    job_manager.on_job_update = on_job_update
+    await job_manager.start()
+    logger.info("Job manager started")
+
+
+async def _broadcast_job_update_safe(job):
+    """Safely broadcast job updates (handles import order)."""
+    try:
+        await broadcast_job_update(job)
+    except Exception as e:
+        logger.error(f"Failed to broadcast job update: {e}")
 
 
 def get_orchestrator() -> SupremeOrchestrator:
@@ -262,6 +289,89 @@ async def get_status():
         swarm_count=len(orch.swarms),
         agent_count=len(orch.all_agents),
     )
+
+
+# Job Management Endpoints
+class JobCreate(BaseModel):
+    """Request to create a background job."""
+    type: str = "chat"  # "chat", "swarm_directive", "task"
+    prompt: str
+    swarm: str | None = None
+    session_id: str | None = None
+
+
+@app.get("/api/jobs")
+async def list_jobs(
+    session_id: str | None = None,
+    status: str | None = None,
+    limit: int = 20,
+) -> list[dict]:
+    """List background jobs."""
+    queue = get_job_queue()
+
+    if session_id:
+        jobs = queue.get_session_jobs(session_id)
+    else:
+        jobs = queue.get_recent_jobs(limit)
+
+    # Filter by status if specified
+    if status:
+        jobs = [j for j in jobs if j.status.value == status]
+
+    return [j.to_dict() for j in jobs]
+
+
+@app.post("/api/jobs")
+async def create_job(data: JobCreate) -> dict:
+    """Create a new background job."""
+    manager = get_job_manager()
+
+    job = await manager.submit_job(
+        job_type=data.type,
+        prompt=data.prompt,
+        swarm=data.swarm,
+        session_id=data.session_id,
+    )
+
+    return {
+        "success": True,
+        "job": job.to_dict(),
+        "message": f"Job {job.id} queued",
+    }
+
+
+@app.get("/api/jobs/status")
+async def get_job_manager_status() -> dict:
+    """Get job manager status."""
+    manager = get_job_manager()
+    return manager.get_status()
+
+
+@app.get("/api/jobs/{job_id}")
+async def get_job(job_id: str) -> dict:
+    """Get job details."""
+    queue = get_job_queue()
+    job = queue.get_job(job_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    return job.to_dict()
+
+
+@app.delete("/api/jobs/{job_id}")
+async def cancel_job(job_id: str) -> dict:
+    """Cancel a running job."""
+    manager = get_job_manager()
+    success = await manager.cancel_job(job_id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    return {
+        "success": True,
+        "message": f"Job {job_id} cancelled",
+    }
 
 
 @app.get("/api/swarms")
@@ -1286,6 +1396,96 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
 
     except Exception as e:
         logger.error(f"Error processing CLI event: {e}")
+
+
+# Job update subscribers
+job_update_subscribers: dict[str, list[WebSocket]] = {}
+
+
+@app.websocket("/ws/jobs")
+async def websocket_jobs(websocket: WebSocket):
+    """WebSocket endpoint for job updates."""
+    await websocket.accept()
+    subscribed_jobs: set[str] = set()
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            action = data.get("action")
+
+            if action == "subscribe":
+                # Subscribe to a specific job's updates
+                job_id = data.get("job_id")
+                if job_id:
+                    if job_id not in job_update_subscribers:
+                        job_update_subscribers[job_id] = []
+                    job_update_subscribers[job_id].append(websocket)
+                    subscribed_jobs.add(job_id)
+
+                    # Send current job status
+                    queue = get_job_queue()
+                    job = queue.get_job(job_id)
+                    if job:
+                        await websocket.send_json({
+                            "type": "job_status",
+                            "job": job.to_dict(),
+                        })
+
+            elif action == "subscribe_all":
+                # Subscribe to all job updates
+                if "all" not in job_update_subscribers:
+                    job_update_subscribers["all"] = []
+                job_update_subscribers["all"].append(websocket)
+                subscribed_jobs.add("all")
+
+            elif action == "unsubscribe":
+                job_id = data.get("job_id")
+                if job_id and job_id in subscribed_jobs:
+                    if job_id in job_update_subscribers:
+                        job_update_subscribers[job_id].remove(websocket)
+                    subscribed_jobs.discard(job_id)
+
+            elif action == "list":
+                # Get current jobs
+                queue = get_job_queue()
+                running = queue.get_running_jobs()
+                pending = queue.get_pending_jobs()
+                await websocket.send_json({
+                    "type": "job_list",
+                    "running": [j.to_dict() for j in running],
+                    "pending": [j.to_dict() for j in pending],
+                })
+
+    except WebSocketDisconnect:
+        pass
+    finally:
+        # Clean up subscriptions
+        for job_id in subscribed_jobs:
+            if job_id in job_update_subscribers:
+                if websocket in job_update_subscribers[job_id]:
+                    job_update_subscribers[job_id].remove(websocket)
+
+
+async def broadcast_job_update(job):
+    """Broadcast job update to subscribers."""
+    job_dict = job.to_dict()
+    message = {"type": "job_update", "job": job_dict}
+
+    # Send to job-specific subscribers
+    if job.id in job_update_subscribers:
+        for ws in job_update_subscribers[job.id][:]:
+            try:
+                await ws.send_json(message)
+            except Exception:
+                job_update_subscribers[job.id].remove(ws)
+
+    # Send to "all" subscribers
+    if "all" in job_update_subscribers:
+        for ws in job_update_subscribers["all"][:]:
+            try:
+                await ws.send_json(message)
+            except Exception:
+                job_update_subscribers["all"].remove(ws)
 
 
 @app.websocket("/ws/chat")

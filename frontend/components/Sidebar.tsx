@@ -8,6 +8,7 @@ import { getSwarms, type Swarm } from '@/lib/api'
 import { cn, getStatusColor } from '@/lib/utils'
 import { useAgentActivity } from '@/lib/AgentActivityContext'
 import CeoTodoPanel from './CeoTodoPanel'
+import JobsPanel from './JobsPanel'
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -104,6 +105,9 @@ export default function Sidebar() {
 
       {/* CEO Todo Panel */}
       <CeoTodoPanel />
+
+      {/* Background Jobs Panel */}
+      <JobsPanel />
 
       {/* Footer */}
       <div className="p-2 border-t border-zinc-800">
