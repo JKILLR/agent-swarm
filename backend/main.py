@@ -1508,9 +1508,8 @@ async def websocket_chat(websocket: WebSocket):
             )
 
             try:
-                # Load memory context for COO
+                # Memory manager for session summaries (NOT loading full context - too slow)
                 memory = get_memory_manager()
-                memory_context = memory.load_coo_context()
 
                 # Build conversation history from session (with summarization for long conversations)
                 conversation_history = ""
@@ -1550,31 +1549,25 @@ async def websocket_chat(websocket: WebSocket):
                                     "\n\n## Previous Conversation\n" + "\n\n".join(history_lines) + "\n\n---\n"
                                 )
 
-                # Build system prompt for the COO
+                # Build system prompt for the COO - keep it MINIMAL
                 all_swarms = []
                 for name, s in orch.swarms.items():
-                    s_status = s.get_status()
                     agents_list = list(s.agents.keys())
-                    all_swarms.append(f"  - **{name}**: {s_status.get('description', 'No description')}")
-                    all_swarms.append(f"    Agents: {', '.join(agents_list)}")
-                all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined yet"
+                    all_swarms.append(f"  - {name}: {', '.join(agents_list)}")
+                all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined"
 
-                system_prompt = f"""## Your Role: Supreme Orchestrator (COO)
+                # MINIMAL system prompt - let Claude Code do its thing
+                system_prompt = f"""You are the COO coordinating an AI agent swarm.
 
-You are the COO of an AI agent swarm. The user is the CEO giving you directives.
+When the user asks you to have a team do work, use the Task tool to delegate immediately.
 
-**IMPORTANT**: When the CEO asks you to have a team/swarm do something:
-1. Use the Task tool immediately to spawn an agent
-2. Don't ask clarifying questions - just do the work
-3. Be autonomous - figure out the details yourself
-
-## Available Swarms
+Available swarms and their agents:
 {all_swarms_str}
 
-## Organization Context
-{memory_context}
-
-When delegating, use Task tool with subagent_type like "researcher" or "implementer" and a detailed prompt."""
+Rules:
+- Use Task tool to spawn agents, don't just describe
+- Be autonomous - don't ask clarifying questions
+- Get work done, don't explain what you would do"""
 
                 user_message = message
 
