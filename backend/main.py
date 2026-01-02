@@ -1511,10 +1511,19 @@ Task(subagent_type="implementer", prompt="Add --yolo flag to skip confirmation i
 {all_swarms_str}
 Files are at: swarms/<swarm_name>/workspace/
 
+## STATE.md - Shared Context
+Each swarm has a `workspace/STATE.md` file that maintains shared context across agents:
+- **Before delegating**: Read STATE.md to understand current state
+- **In agent prompts**: Tell agents to read and update STATE.md
+- **If STATE.md doesn't exist**: Create it from the template when starting work on a swarm
+
+The STATE.md contains: objectives, progress log, key files, architecture decisions, known issues, and next steps.
+All agents are instructed to read it first and update it after completing work.
+
 ## Rules
 1. DELEGATE - use Task to spawn agents for implementation work
-2. Read files first to understand context
-3. Be specific in prompts - tell agents exactly what to do
+2. Read STATE.md first to understand current swarm state
+3. Be specific in prompts - tell agents exactly what to do and where STATE.md is
 4. Synthesize agent results into clear summaries for the user"""
 
                 user_message = message
