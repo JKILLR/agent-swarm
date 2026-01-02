@@ -12,6 +12,7 @@ export type WebSocketEventType =
   | 'chat_complete'
   | 'tool_start'
   | 'tool_complete'
+  | 'agent_spawn'
   | 'error'
 
 export interface WebSocketEvent {

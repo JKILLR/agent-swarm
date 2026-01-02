@@ -179,6 +179,20 @@ export default function ChatPage() {
           })
           break
 
+        case 'agent_spawn':
+          // Show when COO spawns/delegates to another agent
+          setActivities((prev) => [
+            ...prev,
+            {
+              id: `spawn-${Date.now()}-${event.agent}`,
+              tool: 'Agent',
+              description: `Activating ${event.agent}`,
+              status: 'running',
+              timestamp: new Date(),
+            },
+          ])
+          break
+
         case 'agent_start':
           // Add thinking indicator for agent
           setMessages((prev) => [
@@ -530,10 +544,19 @@ export default function ChatPage() {
             ))
           )}
 
-          {/* Live Activity Feed - shows during loading */}
-          {isLoading && activities.length > 0 && (
+          {/* Live Activity Feed - shows during loading with working indicator */}
+          {isLoading && (
             <div className="sticky bottom-0 pt-4">
-              <ActivityFeed activities={activities} maxItems={8} />
+              {activities.length > 0 ? (
+                <ActivityFeed activities={activities} maxItems={8} />
+              ) : (
+                <div className="bg-zinc-900/95 border border-zinc-700 rounded-lg p-3 backdrop-blur">
+                  <div className="flex items-center gap-2 text-sm text-zinc-400">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                    <span>Working on your request...</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

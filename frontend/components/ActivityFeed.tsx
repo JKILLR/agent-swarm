@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Check, X, Zap, Search, FileText, Terminal, Globe, GitBranch, Users } from 'lucide-react'
+import { Loader2, Check, X, Zap, Search, FileText, Terminal, Globe, GitBranch, Users, Bot } from 'lucide-react'
 
 export interface ActivityItem {
   id: string
@@ -19,8 +19,10 @@ interface ActivityFeedProps {
 
 const toolIcons: Record<string, React.ReactNode> = {
   Task: <Users className="w-3 h-3" />,
+  Agent: <Bot className="w-3 h-3 text-purple-400" />,
   Read: <FileText className="w-3 h-3" />,
   Write: <FileText className="w-3 h-3" />,
+  Edit: <FileText className="w-3 h-3" />,
   Bash: <Terminal className="w-3 h-3" />,
   Glob: <Search className="w-3 h-3" />,
   Grep: <Search className="w-3 h-3" />,
