@@ -179,6 +179,20 @@ export default function ChatPage() {
           })
           break
 
+        case 'agent_spawn':
+          // Show when COO spawns/delegates to another agent
+          setActivities((prev) => [
+            ...prev,
+            {
+              id: `spawn-${Date.now()}-${event.agent}`,
+              tool: 'Agent',
+              description: `Activating ${event.agent}`,
+              status: 'running',
+              timestamp: new Date(),
+            },
+          ])
+          break
+
         case 'agent_start':
           // Add thinking indicator for agent
           setMessages((prev) => [

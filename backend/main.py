@@ -1201,6 +1201,30 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                         "delta": text,
                     },
                 )
+            elif delta_type == "input_json_delta":
+                # Tool input is being streamed - accumulate it
+                partial_json = delta.get("partial_json", "")
+                context["current_tool_input_json"] = context.get("current_tool_input_json", "") + partial_json
+
+                # Try to parse and detect agent spawning for Task tool
+                if context.get("current_tool") == "Task":
+                    try:
+                        import json
+                        partial_input = json.loads(context["current_tool_input_json"])
+                        agent_name = partial_input.get("agent", "")
+                        if agent_name and not context.get("agent_spawn_sent"):
+                            # Send agent_spawn event
+                            await manager.send_event(
+                                websocket,
+                                "agent_spawn",
+                                {
+                                    "agent": agent_name,
+                                    "description": partial_input.get("prompt", "")[:100],
+                                },
+                            )
+                            context["agent_spawn_sent"] = True
+                    except json.JSONDecodeError:
+                        pass  # JSON not complete yet
 
         elif event_type == "content_block_stop":
             block_type = context.get("current_block_type")
@@ -1225,7 +1249,10 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                         "summary": f"Completed: {tool_name}",
                     },
                 )
+                # Reset tool context
                 context["current_tool"] = None
+                context["current_tool_input_json"] = ""
+                context["agent_spawn_sent"] = False
 
         elif event_type == "result":
             # Final result from CLI - only use if we didn't stream content
