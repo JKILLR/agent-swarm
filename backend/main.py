@@ -27,7 +27,9 @@ from dotenv import load_dotenv
 
 load_dotenv(BACKEND_DIR / ".env")
 
+# Add both project root and backend dir to path for flexible imports
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(BACKEND_DIR))
 
 # Try to import Anthropic SDK
 try:
@@ -37,11 +39,11 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
-from .tools import ToolExecutor, get_tool_definitions
-
-from .memory import get_memory_manager
+# Use absolute imports (work both as module and direct execution)
+from tools import ToolExecutor, get_tool_definitions
+from memory import get_memory_manager
 from supreme.orchestrator import SupremeOrchestrator
-from .jobs import get_job_queue, get_job_manager, JobStatus
+from jobs import get_job_queue, get_job_manager, JobStatus
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

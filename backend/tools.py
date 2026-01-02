@@ -14,7 +14,7 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
-from .memory import get_memory_manager
+from memory import get_memory_manager
 
 logger = logging.getLogger(__name__)
 
