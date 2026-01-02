@@ -1586,43 +1586,28 @@ async def websocket_chat(websocket: WebSocket):
                 # Memory manager for session summaries (NOT loading full context - too slow)
                 memory = get_memory_manager()
 
-                # Build conversation history from session (with summarization for long conversations)
+                # Build conversation history - ONLY last 2 messages to avoid context pollution
                 conversation_history = ""
                 if session_id:
                     session = history.get_session(session_id)
                     if session and session.get("messages"):
                         messages = session["messages"]
+                        # Only use last 2 messages to keep context fresh and avoid pollution
+                        recent_messages = messages[-2:] if len(messages) > 2 else messages
 
-                        # Check if conversation needs summarization
-                        if memory.needs_summarization(messages, max_tokens=40000):
-                            logger.info(f"Session {session_id} needs summarization ({len(messages)} messages)")
+                        history_lines = []
+                        for msg in recent_messages:
+                            role = "User" if msg["role"] == "user" else "Assistant"
+                            content = msg["content"]
+                            # Truncate very long messages
+                            if len(content) > 1000:
+                                content = content[:1000] + "..."
+                            history_lines.append(f"{role}: {content}")
 
-                            # Use summary + recent messages
-                            summary_context = memory.get_context_with_summary(
-                                session_id=session_id,
-                                recent_messages=messages,
-                                max_recent=5,  # Keep last 5 messages in full
+                        if history_lines:
+                            conversation_history = (
+                                "\n\n## Recent Context\n" + "\n\n".join(history_lines) + "\n\n---\n"
                             )
-
-                            if summary_context:
-                                conversation_history = (
-                                    "\n\n## Conversation Context (Summarized)\n" + summary_context + "\n---\n"
-                                )
-                        else:
-                            # Full history for shorter conversations
-                            history_lines = []
-                            for msg in messages:
-                                role = "User" if msg["role"] == "user" else "Assistant"
-                                content = msg["content"]
-                                # Truncate very long messages in history
-                                if len(content) > 2000:
-                                    content = content[:2000] + "... [truncated]"
-                                history_lines.append(f"{role}: {content}")
-
-                            if history_lines:
-                                conversation_history = (
-                                    "\n\n## Previous Conversation\n" + "\n\n".join(history_lines) + "\n\n---\n"
-                                )
 
                 # Build system prompt for the COO - keep it MINIMAL
                 all_swarms = []
