@@ -1606,6 +1606,17 @@ When the CEO asks you to do something that requires specialized work:
                 result = None
                 process = None
 
+                # Debug: Log what we're sending to Claude
+                logger.info("=" * 50)
+                logger.info("FULL PROMPT BEING SENT TO CLAUDE:")
+                logger.info("=" * 50)
+                logger.info(f"Memory context length: {len(memory_context)} chars")
+                logger.info(f"Conversation history length: {len(conversation_history)} chars")
+                logger.info(f"User message: {user_message[:200]}...")
+                if conversation_history:
+                    logger.info(f"Conversation history preview: {conversation_history[:500]}...")
+                logger.info("=" * 50)
+
                 logger.info("Starting Claude CLI for COO chat (Max subscription auth)...")
                 try:
                     process = await stream_claude_response(

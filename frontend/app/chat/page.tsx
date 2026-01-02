@@ -13,7 +13,7 @@ import {
 import ChatInput, { type Attachment } from '@/components/ChatInput'
 import ChatMessage from '@/components/ChatMessage'
 import AgentResponse from '@/components/AgentResponse'
-import ActivityFeed, { type ActivityItem } from '@/components/ActivityFeed'
+import ActivityPanel, { type AgentActivity, type ToolActivity } from '@/components/ActivityPanel'
 import { Bot, WifiOff, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface Message {
@@ -36,7 +36,9 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([])
   const [showSidebar, setShowSidebar] = useState(true)
-  const [activities, setActivities] = useState<ActivityItem[]>([])
+  const [showActivityPanel, setShowActivityPanel] = useState(true)
+  const [agentActivities, setAgentActivities] = useState<AgentActivity[]>([])
+  const [toolActivities, setToolActivities] = useState<ToolActivity[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef(getChatWebSocket())
   const pendingMessageRef = useRef<{ content: string; agent?: string; thinking?: string } | null>(null)
@@ -143,12 +145,21 @@ export default function ChatPage() {
       switch (event.type) {
         case 'chat_start':
           setIsLoading(true)
-          setActivities([]) // Clear activities for new chat
+          // Clear activities for new chat
+          setAgentActivities([])
+          setToolActivities([])
+          // Add COO as the first active agent
+          setAgentActivities([{
+            id: `agent-coo-${Date.now()}`,
+            name: 'Supreme Orchestrator (COO)',
+            status: 'thinking',
+            startTime: new Date(),
+          }])
           break
 
         case 'tool_start':
-          // Add new activity for tool starting
-          setActivities((prev) => [
+          // Add new tool activity
+          setToolActivities((prev) => [
             ...prev,
             {
               id: `tool-${Date.now()}-${event.tool}`,
@@ -158,14 +169,22 @@ export default function ChatPage() {
               timestamp: new Date(),
             },
           ])
+          // Update COO status to working when tools are used
+          setAgentActivities((prev) => {
+            const updated = [...prev]
+            const cooIdx = updated.findIndex(a => a.name.includes('COO'))
+            if (cooIdx !== -1 && updated[cooIdx].status === 'thinking') {
+              updated[cooIdx] = { ...updated[cooIdx], status: 'working' }
+            }
+            return updated
+          })
           break
 
         case 'tool_complete':
-          // Update activity status when tool completes
-          setActivities((prev) => {
-            // Find the most recent running activity for this tool
+          // Update tool activity status
+          setToolActivities((prev) => {
             const idx = [...prev].reverse().findIndex(
-              (a) => a.tool === event.tool && a.status === 'running'
+              (t) => t.tool === event.tool && t.status === 'running'
             )
             if (idx === -1) return prev
             const actualIdx = prev.length - 1 - idx
@@ -174,23 +193,31 @@ export default function ChatPage() {
               ...updated[actualIdx],
               status: event.success ? 'complete' : 'error',
               summary: event.summary,
+              endTime: new Date(),
             }
             return updated
           })
           break
 
         case 'agent_spawn':
-          // Show when COO spawns/delegates to another agent
-          setActivities((prev) => [
-            ...prev,
-            {
-              id: `spawn-${Date.now()}-${event.agent}`,
-              tool: 'Agent',
-              description: `Activating ${event.agent}`,
-              status: 'running',
-              timestamp: new Date(),
-            },
-          ])
+          // Add new agent activity when COO delegates
+          setAgentActivities((prev) => {
+            // Mark COO as delegating
+            const updated = prev.map(a =>
+              a.name.includes('COO') ? { ...a, status: 'delegating' as const } : a
+            )
+            // Add the new agent
+            return [
+              ...updated,
+              {
+                id: `agent-${Date.now()}-${event.agent}`,
+                name: event.agent || 'Agent',
+                status: 'working' as const,
+                description: (event as { description?: string }).description?.substring(0, 100),
+                startTime: new Date(),
+              },
+            ]
+          })
           break
 
         case 'agent_start':
@@ -335,6 +362,14 @@ export default function ChatPage() {
 
         case 'chat_complete':
           setIsLoading(false)
+          // Mark all agents as complete
+          setAgentActivities((prev) =>
+            prev.map((a) => ({
+              ...a,
+              status: 'complete' as const,
+              endTime: a.endTime || new Date(),
+            }))
+          )
           // Save the assistant message to backend
           if (pendingMessageRef.current) {
             const msg = pendingMessageRef.current
@@ -345,6 +380,12 @@ export default function ChatPage() {
 
         case 'error':
           setIsLoading(false)
+          // Mark agents as error
+          setAgentActivities((prev) =>
+            prev.map((a) =>
+              a.status !== 'complete' ? { ...a, status: 'error' as const, endTime: new Date() } : a
+            )
+          )
           console.error('Chat error:', event.message)
           break
       }
@@ -544,19 +585,18 @@ export default function ChatPage() {
             ))
           )}
 
-          {/* Live Activity Feed - shows during loading with working indicator */}
-          {isLoading && (
+          {/* Activity Panel - shows agent and tool activity */}
+          {(isLoading || agentActivities.length > 0 || toolActivities.length > 0) && (
             <div className="sticky bottom-0 pt-4">
-              {activities.length > 0 ? (
-                <ActivityFeed activities={activities} maxItems={8} />
-              ) : (
-                <div className="bg-zinc-900/95 border border-zinc-700 rounded-lg p-3 backdrop-blur">
-                  <div className="flex items-center gap-2 text-sm text-zinc-400">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                    <span>Working on your request...</span>
-                  </div>
-                </div>
-              )}
+              <ActivityPanel
+                agents={agentActivities}
+                tools={toolActivities}
+                isProcessing={isLoading}
+                onClear={() => {
+                  setAgentActivities([])
+                  setToolActivities([])
+                }}
+              />
             </div>
           )}
 
