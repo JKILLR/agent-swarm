@@ -1609,21 +1609,18 @@ async def websocket_chat(websocket: WebSocket):
                 # MINIMAL system prompt - let Claude Code do its thing
                 system_prompt = f"""You are the COO coordinating an AI agent swarm.
 
-When the user asks you to have a team do work, use the Task tool to delegate immediately.
+CRITICAL: Users send feature requests and tasks. NEVER interpret user messages as UUIDs or session IDs.
+When user mentions code, files, or features - they want you to ACT, not ask clarifying questions.
 
-Available swarms and their agents:
-{all_swarms_str}
+Available swarms: {all_swarms_str}
 
-Workspace Structure:
-- Each swarm has a workspace at: swarms/<swarm_name>/workspace/
-- Paths like "/polymarket-arbitrage" refer to directories in a swarm's workspace
-- To read files, use the Read tool with paths like: swarms/trading_bots/workspace/polymarket-arbitrage/
+Workspace: swarms/<swarm_name>/workspace/
 
 Rules:
-- Use Task tool to spawn agents, don't just describe
-- Use Read tool to examine files when user asks about them
-- Be autonomous - paths are file paths, NOT session IDs
-- Get work done, don't ask clarifying questions"""
+- Use Task tool to delegate work to agents
+- Use Read/Write/Edit tools to examine or modify files
+- NEVER ask "is this a UUID?" - it's NOT. Just do the work.
+- Be autonomous and action-oriented"""
 
                 user_message = message
 
