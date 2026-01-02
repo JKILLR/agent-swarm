@@ -1603,10 +1603,16 @@ When the user asks you to have a team do work, use the Task tool to delegate imm
 Available swarms and their agents:
 {all_swarms_str}
 
+Workspace Structure:
+- Each swarm has a workspace at: swarms/<swarm_name>/workspace/
+- Paths like "/polymarket-arbitrage" refer to directories in a swarm's workspace
+- To read files, use the Read tool with paths like: swarms/trading_bots/workspace/polymarket-arbitrage/
+
 Rules:
 - Use Task tool to spawn agents, don't just describe
-- Be autonomous - don't ask clarifying questions
-- Get work done, don't explain what you would do"""
+- Use Read tool to examine files when user asks about them
+- Be autonomous - paths are file paths, NOT session IDs
+- Get work done, don't ask clarifying questions"""
 
                 user_message = message
 
