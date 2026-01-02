@@ -1025,6 +1025,7 @@ async def stream_claude_response(
     swarm_name: str | None = None,
     workspace: Path | None = None,
     chat_id: str | None = None,
+    system_prompt: str | None = None,
 ) -> asyncio.subprocess.Process:
     """
     Start a claude CLI process and return it for streaming.
@@ -1032,8 +1033,10 @@ async def stream_claude_response(
     Uses 'claude -p --output-format stream-json' which outputs JSON lines
     that we can parse and stream to the frontend.
 
-    Session continuity: If chat_id is provided and a session exists,
-    uses --continue flag for 2-3s faster response.
+    Args:
+        prompt: The user message/request
+        system_prompt: Custom system prompt (COO role, context, etc.)
+        chat_id: Session ID for continuity
     """
     # Build the command with prompt as argument (more reliable than stdin)
     cmd = [
@@ -1046,6 +1049,10 @@ async def stream_claude_response(
         "acceptEdits",  # Allow file writes without interactive approval
     ]
 
+    # Add custom system prompt for COO role
+    if system_prompt:
+        cmd.extend(["--system-prompt", system_prompt])
+
     # Add session continuity flags if we have an existing session
     if chat_id:
         session_mgr = get_session_manager()
@@ -1054,7 +1061,7 @@ async def stream_claude_response(
             cmd.extend(continue_flags)
             logger.info(f"Using session continuity for chat {chat_id}")
 
-    # Add prompt as final argument
+    # Add user prompt as final argument
     cmd.append(prompt)
 
     # Set working directory to workspace if specified
@@ -1595,12 +1602,16 @@ When the CEO asks you to do something that requires specialized work:
 
                 user_message = message
 
-                # Combine system prompt and user message for CLI
-                full_prompt = f"""{system_prompt}
+                # Build user prompt with conversation context if needed
+                if conversation_history:
+                    user_prompt = f"""## Previous Conversation
+{conversation_history}
 
 ---
 
-**User request:** {user_message}"""
+**Current request:** {user_message}"""
+                else:
+                    user_prompt = user_message
 
                 # Use Claude CLI (Max subscription handles authentication automatically)
                 result = None
@@ -1608,19 +1619,18 @@ When the CEO asks you to do something that requires specialized work:
 
                 # Debug: Log what we're sending to Claude
                 logger.info("=" * 50)
-                logger.info("FULL PROMPT BEING SENT TO CLAUDE:")
+                logger.info("SENDING TO CLAUDE CLI:")
                 logger.info("=" * 50)
-                logger.info(f"Memory context length: {len(memory_context)} chars")
-                logger.info(f"Conversation history length: {len(conversation_history)} chars")
+                logger.info(f"System prompt length: {len(system_prompt)} chars")
+                logger.info(f"User prompt length: {len(user_prompt)} chars")
                 logger.info(f"User message: {user_message[:200]}...")
-                if conversation_history:
-                    logger.info(f"Conversation history preview: {conversation_history[:500]}...")
                 logger.info("=" * 50)
 
                 logger.info("Starting Claude CLI for COO chat (Max subscription auth)...")
                 try:
                     process = await stream_claude_response(
-                        prompt=full_prompt,
+                        prompt=user_prompt,
+                        system_prompt=system_prompt,  # Pass COO role as system prompt
                         swarm_name=None,
                         workspace=PROJECT_ROOT,
                         chat_id=session_id,  # Enable session continuity
