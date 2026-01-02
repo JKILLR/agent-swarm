@@ -19,17 +19,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+# Add parent directory to path for imports
+BACKEND_DIR = Path(__file__).parent
+PROJECT_ROOT = BACKEND_DIR.parent
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(BACKEND_DIR / ".env")
+
+sys.path.insert(0, str(PROJECT_ROOT))
+
 # Try to import Anthropic SDK
 try:
     import anthropic
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
-
-# Add parent directory to path for imports
-BACKEND_DIR = Path(__file__).parent
-PROJECT_ROOT = BACKEND_DIR.parent
-sys.path.insert(0, str(PROJECT_ROOT))
 
 from supreme.orchestrator import SupremeOrchestrator
 from shared.swarm_interface import load_swarm
@@ -626,15 +631,25 @@ async def stream_claude_response(
     # Set working directory to workspace if specified
     cwd = str(workspace) if workspace else None
 
+    # Build environment with OAuth token for subprocess authentication
+    env = os.environ.copy()
+    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if oauth_token:
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+        logger.info("Claude CLI using OAuth token from environment")
+    else:
+        logger.warning("CLAUDE_CODE_OAUTH_TOKEN not set - CLI may fail to authenticate")
+
     logger.info(f"Starting Claude CLI in {cwd or 'current dir'}")
 
-    # Start the process
+    # Start the process with explicit environment
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdin=asyncio.subprocess.DEVNULL,  # Don't use stdin
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=cwd,
+        env=env,  # Pass environment with token
     )
 
     return process
@@ -754,6 +769,15 @@ async def parse_claude_stream(
         if stderr:
             error_msg = stderr.decode().strip()
             logger.error(f"Claude CLI error: {error_msg}")
+
+            # Check for common auth-related errors
+            if "401" in error_msg or "authentication" in error_msg.lower():
+                raise RuntimeError(f"401 Authentication failed: {error_msg}")
+            elif "403" in error_msg:
+                raise RuntimeError(f"403 Access denied: {error_msg}")
+            elif "/login" in error_msg:
+                raise RuntimeError(f"Authentication required: {error_msg}")
+
             raise RuntimeError(f"Claude CLI error: {error_msg}")
 
     return {"response": full_response, "thinking": full_thinking}
@@ -793,13 +817,6 @@ async def websocket_chat(websocket: WebSocket):
                     swarm = orch.get_swarm(swarm_name)
                     if swarm:
                         workspace = swarm.workspace
-
-                # Send initial acknowledgment message
-                await manager.send_event(websocket, "agent_delta", {
-                    "agent": "Claude",
-                    "agent_type": "assistant",
-                    "delta": "Processing your request...\n\n",
-                })
 
                 # Build context-aware prompt
                 if swarm_name and workspace:
@@ -867,16 +884,35 @@ User request: {message}"""
             except Exception as e:
                 logger.error(f"Chat error: {e}", exc_info=True)
                 error_msg = str(e)
-                # Make error message user-friendly
+
+                # Make error message user-friendly with clear fix instructions
                 if "timed out" in error_msg.lower():
-                    pass  # Already has detailed message
+                    error_msg = (
+                        "**Claude CLI timed out.**\n\n"
+                        "This usually means the OAuth token is missing or invalid.\n\n"
+                        "**To fix:**\n"
+                        "1. Run `claude setup-token` in your terminal\n"
+                        "2. Copy the token it generates\n"
+                        "3. Create `backend/.env` with: `CLAUDE_CODE_OAUTH_TOKEN=your_token`\n"
+                        "4. Restart the backend server"
+                    )
+                elif "401" in error_msg or "authentication" in error_msg.lower() or "invalid" in error_msg.lower():
+                    error_msg = (
+                        "**Authentication failed.**\n\n"
+                        "Your OAuth token is invalid or expired.\n\n"
+                        "**To fix:**\n"
+                        "1. Run `claude setup-token` in your terminal\n"
+                        "2. Copy the new token\n"
+                        "3. Update `backend/.env` with: `CLAUDE_CODE_OAUTH_TOKEN=your_new_token`\n"
+                        "4. Restart the backend server"
+                    )
                 elif "permission" in error_msg.lower() or "auth" in error_msg.lower():
                     error_msg = f"Authentication error: {error_msg}\n\nRun `claude setup-token` to set up authentication."
 
                 await manager.send_event(websocket, "agent_complete", {
                     "agent": "Claude",
                     "agent_type": "assistant",
-                    "content": f"**Error:** {error_msg}",
+                    "content": error_msg,
                 })
                 await manager.send_event(websocket, "chat_complete", {
                     "success": False,
