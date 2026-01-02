@@ -1047,20 +1047,21 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
 
     try:
         if event_type == "assistant":
+            # Final assistant message - content was already streamed via deltas
+            # Just accumulate for the final response, don't re-send deltas
             message = event.get("message", {})
             content_blocks = message.get("content", [])
             for block in content_blocks:
                 if block.get("type") == "thinking":
                     text = block.get("thinking", "")
-                    context["full_thinking"] = context.get("full_thinking", "") + text
+                    # Only set if we didn't get it from streaming
+                    if not context.get("full_thinking"):
+                        context["full_thinking"] = text
                 elif block.get("type") == "text":
                     text = block.get("text", "")
-                    context["full_response"] = context.get("full_response", "") + text
-                    await manager.send_event(websocket, "agent_delta", {
-                        "agent": "Supreme Orchestrator",
-                        "agent_type": "orchestrator",
-                        "delta": text,
-                    })
+                    # Only set if we didn't get it from streaming
+                    if not context.get("full_response"):
+                        context["full_response"] = text
 
         elif event_type == "content_block_start":
             content_block = event.get("content_block", {})
@@ -1099,10 +1100,10 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 })
 
         elif event_type == "result":
-            # Final result from CLI
+            # Final result from CLI - only use if we didn't stream content
             text = event.get("result", "")
-            if text:
-                context["full_response"] = context.get("full_response", "") + text
+            if text and not context.get("full_response"):
+                context["full_response"] = text
                 await manager.send_event(websocket, "agent_delta", {
                     "agent": "Supreme Orchestrator",
                     "agent_type": "orchestrator",

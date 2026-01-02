@@ -292,6 +292,28 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
                 "properties": {},
                 "required": []
             }
+        },
+        {
+            "name": "Edit",
+            "description": "Make a targeted edit to a file by replacing old_string with new_string. Safer than Write for modifying existing files.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to file (relative to project root)"
+                    },
+                    "old_string": {
+                        "type": "string",
+                        "description": "The exact string to find and replace (must be unique in file)"
+                    },
+                    "new_string": {
+                        "type": "string",
+                        "description": "The string to replace it with"
+                    }
+                },
+                "required": ["path", "old_string", "new_string"]
+            }
         }
     ]
 
@@ -328,6 +350,7 @@ class ToolExecutor:
             "GitCommit": lambda i: f"Committing to {i.get('branch', 'branch')}",
             "GitSync": lambda i: f"Syncing with {i.get('branch', 'main')}",
             "GitStatus": lambda i: "Checking git status",
+            "Edit": lambda i: f"Editing {i.get('path', 'file')}",
         }
 
         desc_fn = descriptions.get(tool_name, lambda i: f"Executing {tool_name}")
@@ -380,6 +403,8 @@ class ToolExecutor:
                 result = await self._execute_git_sync(tool_input)
             elif tool_name == "GitStatus":
                 result = await self._execute_git_status(tool_input)
+            elif tool_name == "Edit":
+                result = await self._execute_edit(tool_input)
             else:
                 result = f"Unknown tool: {tool_name}"
 
@@ -642,6 +667,43 @@ Please complete this task. You have access to tools: Read, Write, Bash, Glob, Gr
             return f"Successfully wrote {len(content)} chars to {path}"
         except Exception as e:
             return f"Error writing file: {e}"
+
+    async def _execute_edit(self, input: Dict[str, Any]) -> str:
+        """Make a targeted edit to a file."""
+        path = input.get("path", "")
+        old_string = input.get("old_string", "")
+        new_string = input.get("new_string", "")
+        full_path = PROJECT_ROOT / path
+
+        if not full_path.exists():
+            return f"Error: File not found: {path}"
+
+        if not old_string:
+            return "Error: old_string is required"
+
+        try:
+            content = full_path.read_text()
+
+            # Check if old_string exists in file
+            if old_string not in content:
+                return f"Error: old_string not found in {path}. Make sure it matches exactly (including whitespace)."
+
+            # Check if old_string is unique
+            count = content.count(old_string)
+            if count > 1:
+                return f"Error: old_string appears {count} times in {path}. It must be unique. Add more context to make it unique."
+
+            # Perform the replacement
+            new_content = content.replace(old_string, new_string)
+            full_path.write_text(new_content)
+
+            # Calculate what changed
+            lines_removed = old_string.count('\n') + 1
+            lines_added = new_string.count('\n') + 1
+
+            return f"Successfully edited {path}: replaced {lines_removed} line(s) with {lines_added} line(s)"
+        except Exception as e:
+            return f"Error editing file: {e}"
 
     async def _execute_bash(self, input: Dict[str, Any]) -> str:
         """Execute a bash command."""
