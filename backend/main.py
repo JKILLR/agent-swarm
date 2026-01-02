@@ -1233,21 +1233,29 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 logger.info(f"Captured session ID {session_id[:8]}... for chat {chat_id}")
 
         if event_type == "assistant":
-            # Final assistant message - content was already streamed via deltas
-            # Just accumulate for the final response, don't re-send deltas
+            # Assistant message in agentic loop - may have text, thinking, or tool_use blocks
             message = event.get("message", {})
             content_blocks = message.get("content", [])
             for block in content_blocks:
                 if block.get("type") == "thinking":
                     text = block.get("thinking", "")
-                    # Only set if we didn't get it from streaming
-                    if not context.get("full_thinking"):
-                        context["full_thinking"] = text
+                    if text:
+                        context["full_thinking"] = context.get("full_thinking", "") + text
                 elif block.get("type") == "text":
                     text = block.get("text", "")
-                    # Only set if we didn't get it from streaming
-                    if not context.get("full_response"):
-                        context["full_response"] = text
+                    if text:
+                        logger.info(f">>> TEXT block in assistant message, length: {len(text)}")
+                        # Always send text content - this is the COO's response
+                        await manager.send_event(
+                            websocket,
+                            "agent_delta",
+                            {
+                                "agent": "Supreme Orchestrator",
+                                "agent_type": "orchestrator",
+                                "delta": text,
+                            },
+                        )
+                        context["full_response"] = context.get("full_response", "") + text
                 elif block.get("type") == "tool_use":
                     # FALLBACK: Detect tool_use from final assistant message
                     # This catches tools that weren't streamed via content_block_start
@@ -1386,9 +1394,12 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 context["agent_spawn_sent"] = False
 
         elif event_type == "result":
-            # Final result from CLI - only use if we didn't stream content
+            # Final result from CLI - this should contain the complete response
             text = event.get("result", "")
-            if text and not context.get("full_response"):
+            logger.info(f">>> RESULT event received, text length: {len(text) if text else 0}")
+            if text:
+                # Always send the final result - this is the complete response
+                # Previous streaming may have only captured partial content
                 context["full_response"] = text
                 await manager.send_event(
                     websocket,
