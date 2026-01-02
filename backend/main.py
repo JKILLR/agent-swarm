@@ -1212,9 +1212,14 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
     """
     event_type = event.get("type", "")
 
-    # DEBUG: Log all event types to understand CLI format
-    if event_type not in ("assistant", "content_block_delta"):  # Skip noisy ones
-        logger.info(f"CLI EVENT: {event_type} - keys: {list(event.keys())}")
+    # DEBUG: Log ALL events to a file for diagnosis
+    import json as json_debug
+    debug_log = Path(__file__).parent / "debug_events.log"
+    with open(debug_log, "a") as f:
+        f.write(f"[{event_type}] {json_debug.dumps(event)[:500]}\n")
+
+    # Log all event types to console
+    logger.info(f"CLI EVENT: type={event_type}, keys={list(event.keys())}")
 
     try:
         # Capture session ID from Claude output for session continuity
@@ -1243,6 +1248,33 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                     # Only set if we didn't get it from streaming
                     if not context.get("full_response"):
                         context["full_response"] = text
+                elif block.get("type") == "tool_use":
+                    # FALLBACK: Detect tool_use from final assistant message
+                    # This catches tools that weren't streamed via content_block_start
+                    tool_name = block.get("name", "unknown")
+                    tool_input = block.get("input", {})
+                    logger.info(f">>> FALLBACK tool_use detected in assistant message: {tool_name}")
+                    # Only send if we didn't already send via streaming
+                    if not context.get(f"sent_tool_{tool_name}"):
+                        await manager.send_event(
+                            websocket,
+                            "tool_start",
+                            {
+                                "tool": tool_name,
+                                "description": _get_tool_description(tool_name, tool_input),
+                                "input": tool_input,
+                            },
+                        )
+                        await manager.send_event(
+                            websocket,
+                            "tool_complete",
+                            {
+                                "tool": tool_name,
+                                "success": True,
+                                "summary": f"Completed: {tool_name}",
+                            },
+                        )
+                        context[f"sent_tool_{tool_name}"] = True
 
         elif event_type == "content_block_start":
             content_block = event.get("content_block", {})
@@ -1259,6 +1291,9 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 tool_name = content_block.get("name", "unknown")
                 tool_input = content_block.get("input", {})
                 context["current_tool"] = tool_name
+                logger.info(f">>> SENDING tool_start event (stream): {tool_name}")
+                # Mark as sent to avoid duplicate from fallback
+                context[f"sent_tool_{tool_name}"] = True
                 # Send tool_start event for real-time visibility
                 await manager.send_event(
                     websocket,
