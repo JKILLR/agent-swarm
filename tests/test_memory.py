@@ -1,9 +1,9 @@
 """Tests for memory management system."""
 
-import tempfile
-from pathlib import Path
-import pytest
 import sys
+from pathlib import Path
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
@@ -104,7 +104,7 @@ Entry 3
             decision="We chose option A",
             rationale="Option A is better because...",
             impact="This affects X and Y",
-            owner="Test Owner"
+            owner="Test Owner",
         )
 
         decisions_file = temp_memory_dir / "core" / "decisions.md"
@@ -147,11 +147,7 @@ Entry 3
         """Test updating swarm context."""
         swarm_name = "test_swarm"
 
-        memory_manager.update_swarm_context(
-            swarm_name,
-            "Current Focus",
-            "Working on feature X"
-        )
+        memory_manager.update_swarm_context(swarm_name, "Current Focus", "Working on feature X")
 
         context_file = temp_memory_dir / "swarms" / swarm_name / "context.md"
         assert context_file.exists()
@@ -258,10 +254,7 @@ class TestSessionSummarization:
         summary = "This conversation covered important topics X, Y, and Z."
 
         memory_manager.save_conversation_summary(
-            session_id=session_id,
-            summary=summary,
-            original_message_count=10,
-            swarm_name="test_swarm"
+            session_id=session_id, summary=summary, original_message_count=10, swarm_name="test_swarm"
         )
 
         # Load it back
@@ -280,9 +273,7 @@ class TestSessionSummarization:
 
         # Save a summary first
         memory_manager.save_conversation_summary(
-            session_id=session_id,
-            summary="Previous discussion about feature X.",
-            original_message_count=20
+            session_id=session_id, summary="Previous discussion about feature X.", original_message_count=20
         )
 
         # Get context with summary + recent messages
@@ -291,11 +282,7 @@ class TestSessionSummarization:
             {"role": "assistant", "content": "Feature Y is related to X."},
         ]
 
-        context = memory_manager.get_context_with_summary(
-            session_id=session_id,
-            recent_messages=recent,
-            max_recent=5
-        )
+        context = memory_manager.get_context_with_summary(session_id=session_id, recent_messages=recent, max_recent=5)
 
         assert "Previous Conversation Summary" in context
         assert "feature X" in context
@@ -308,9 +295,7 @@ class TestSessionSummarization:
         ]
 
         context = memory_manager.get_context_with_summary(
-            session_id="no-such-session",
-            recent_messages=recent,
-            max_recent=5
+            session_id="no-such-session", recent_messages=recent, max_recent=5
         )
 
         # Should still include recent messages

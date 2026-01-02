@@ -7,24 +7,20 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
-from rich.markdown import Markdown
-from rich.live import Live
-from rich.spinner import Spinner
 
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from shared.output_formatter import create_formatter
 from supreme.orchestrator import SupremeOrchestrator
-from shared.swarm_interface import load_swarm
-from shared.output_formatter import OutputFormatter, create_formatter
 
 console = Console()
 formatter = create_formatter(console)
@@ -104,7 +100,7 @@ def list_swarms() -> None:
 
 @cli.command("status")
 @click.argument("swarm", required=False)
-def show_status(swarm: Optional[str]) -> None:
+def show_status(swarm: str | None) -> None:
     """Show detailed status of a swarm or all swarms."""
     orchestrator = get_orchestrator()
 
@@ -127,20 +123,22 @@ def show_status(swarm: Optional[str]) -> None:
         details.append("")
         details.append("**Agents:**")
         for agent in status["agents"]:
-            agent_type = agent.get('type', agent.get('role', 'worker'))
-            bg_marker = " [bg]" if agent.get('background') else ""
-            model = agent.get('model', 'sonnet')
+            agent_type = agent.get("type", agent.get("role", "worker"))
+            bg_marker = " [bg]" if agent.get("background") else ""
+            model = agent.get("model", "sonnet")
             details.append(f"  - {agent['name']} ({agent_type}){bg_marker} - {model}")
         details.append("")
         details.append("**Priorities:**")
         for i, priority in enumerate(status.get("priorities", []), 1):
             details.append(f"  {i}. {priority}")
 
-        console.print(Panel(
-            Markdown("\n".join(details)),
-            title=f"[bold]{status['name']}[/bold]",
-            border_style="cyan",
-        ))
+        console.print(
+            Panel(
+                Markdown("\n".join(details)),
+                title=f"[bold]{status['name']}[/bold]",
+                border_style="cyan",
+            )
+        )
 
     else:
         # Show all swarms overview
@@ -159,18 +157,20 @@ def show_status(swarm: Optional[str]) -> None:
             # Format agents with types
             agent_list = []
             for agent in status.get("agents", []):
-                agent_type = agent.get('type', agent.get('role', 'worker'))
-                bg = "*" if agent.get('background') else ""
+                agent_type = agent.get("type", agent.get("role", "worker"))
+                bg = "*" if agent.get("background") else ""
                 agent_list.append(f"{agent['name']}{bg}")
 
-            console.print(Panel(
-                f"Status: [{status_color}]{status['status']}[/{status_color}]\n"
-                f"Agents: {', '.join(agent_list)}\n"
-                f"Tasks: {status.get('current_tasks', 0)}",
-                title=f"[bold]{name}[/bold]",
-                border_style=status_color,
-                width=60,
-            ))
+            console.print(
+                Panel(
+                    f"Status: [{status_color}]{status['status']}[/{status_color}]\n"
+                    f"Agents: {', '.join(agent_list)}\n"
+                    f"Tasks: {status.get('current_tasks', 0)}",
+                    title=f"[bold]{name}[/bold]",
+                    border_style=status_color,
+                    width=60,
+                )
+            )
 
 
 @cli.command("new")
@@ -201,14 +201,16 @@ def interactive_chat() -> None:
     """Start interactive chat with the Supreme Orchestrator."""
     orchestrator = get_orchestrator()
 
-    console.print(Panel(
-        "[bold]Agent Swarm - Interactive Mode[/bold]\n\n"
-        "Chat with the Supreme Orchestrator to manage your swarms.\n"
-        "The orchestrator can spawn parallel agents for complex tasks.\n\n"
-        "Type 'quit' or 'exit' to leave.\n"
-        "Type 'help' for available commands.",
-        border_style="cyan",
-    ))
+    console.print(
+        Panel(
+            "[bold]Agent Swarm - Interactive Mode[/bold]\n\n"
+            "Chat with the Supreme Orchestrator to manage your swarms.\n"
+            "The orchestrator can spawn parallel agents for complex tasks.\n\n"
+            "Type 'quit' or 'exit' to leave.\n"
+            "Type 'help' for available commands.",
+            border_style="cyan",
+        )
+    )
 
     # Show available swarms
     if orchestrator.swarms:
@@ -237,20 +239,22 @@ def interactive_chat() -> None:
             break
 
         if user_input.lower() == "help":
-            console.print(Panel(
-                "**Interactive Commands:**\n"
-                "  • `list` - List all swarms\n"
-                "  • `status <swarm>` - Show swarm status\n"
-                "  • `new <name>` - Create new swarm\n"
-                "  • `quit` / `exit` - Exit chat\n\n"
-                "**Or ask anything:**\n"
-                "  • Route requests to swarms\n"
-                "  • Get project overviews\n"
-                "  • Coordinate cross-swarm activities\n"
-                "  • Run parallel agent tasks",
-                title="Help",
-                border_style="green",
-            ))
+            console.print(
+                Panel(
+                    "**Interactive Commands:**\n"
+                    "  • `list` - List all swarms\n"
+                    "  • `status <swarm>` - Show swarm status\n"
+                    "  • `new <name>` - Create new swarm\n"
+                    "  • `quit` / `exit` - Exit chat\n\n"
+                    "**Or ask anything:**\n"
+                    "  • Route requests to swarms\n"
+                    "  • Get project overviews\n"
+                    "  • Coordinate cross-swarm activities\n"
+                    "  • Run parallel agent tasks",
+                    title="Help",
+                    border_style="green",
+                )
+            )
             continue
 
         # Handle quick commands
@@ -333,7 +337,7 @@ def run_directive(swarm: str, directive: str, parallel: bool) -> None:
 
 @cli.command("agents")
 @click.argument("swarm", required=False)
-def list_agents(swarm: Optional[str]) -> None:
+def list_agents(swarm: str | None) -> None:
     """List all agents, optionally filtered by swarm."""
     orchestrator = get_orchestrator()
 

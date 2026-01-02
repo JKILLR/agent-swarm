@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import logging
 import shutil
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
 import yaml
 
 from shared.agent_base import AgentConfig, BaseAgent
-from shared.agent_definitions import AgentDefinition, load_agent_from_file, parse_frontmatter
+from shared.agent_definitions import AgentDefinition, load_agent_from_file
 from shared.swarm_interface import Swarm, SwarmConfig, load_swarm
 
 try:
-    from claude_agent_sdk import query, ClaudeAgentOptions
+    from claude_agent_sdk import ClaudeAgentOptions, query
 except ImportError:
     query = None
     ClaudeAgentOptions = None
@@ -28,8 +29,8 @@ class SupremeOrchestrator:
     def __init__(
         self,
         base_path: Path,
-        config_path: Optional[Path] = None,
-        logs_dir: Optional[Path] = None,
+        config_path: Path | None = None,
+        logs_dir: Path | None = None,
     ) -> None:
         """Initialize the Supreme Orchestrator.
 
@@ -42,13 +43,13 @@ class SupremeOrchestrator:
         self.swarms_dir = self.base_path / "swarms"
         self.config_path = config_path or (self.base_path / "config.yaml")
         self.logs_dir = logs_dir or (self.base_path / "logs")
-        self.swarms: Dict[str, Swarm] = {}
-        self._config: Dict[str, Any] = {}
+        self.swarms: dict[str, Swarm] = {}
+        self._config: dict[str, Any] = {}
 
         # Agent definition for supreme orchestrator
-        self.agent: Optional[AgentDefinition] = None
+        self.agent: AgentDefinition | None = None
         # All agents across all swarms (for cross-swarm dispatch)
-        self.all_agents: Dict[str, AgentDefinition] = {}
+        self.all_agents: dict[str, AgentDefinition] = {}
 
         # Load configuration
         if self.config_path.exists():
@@ -178,18 +179,18 @@ Analyze requests and route to appropriate swarms. For complex tasks, use paralle
 
             # List agents with their types
             agent_list = []
-            for agent_info in status['agents']:
-                agent_type = agent_info.get('type', agent_info.get('role', 'worker'))
-                bg = " [bg]" if agent_info.get('background') else ""
+            for agent_info in status["agents"]:
+                agent_type = agent_info.get("type", agent_info.get("role", "worker"))
+                bg = " [bg]" if agent_info.get("background") else ""
                 agent_list.append(f"{agent_info['name']} ({agent_type}){bg}")
             lines.append(f"- Agents: {', '.join(agent_list)}")
 
-            if status['priorities']:
+            if status["priorities"]:
                 # Handle both string and dict priorities
                 priority_strs = []
-                for p in status['priorities'][:3]:
+                for p in status["priorities"][:3]:
                     if isinstance(p, dict):
-                        priority_strs.append(p.get('task', str(p)))
+                        priority_strs.append(p.get("task", str(p)))
                     else:
                         priority_strs.append(str(p))
                 lines.append(f"- Priorities: {', '.join(priority_strs)}")
@@ -197,7 +198,7 @@ Analyze requests and route to appropriate swarms. For complex tasks, use paralle
 
         return "\n".join(lines)
 
-    def discover_swarms(self) -> List[str]:
+    def discover_swarms(self) -> list[str]:
         """Discover and load all valid swarms from the swarms directory.
 
         Returns:
@@ -233,7 +234,7 @@ Analyze requests and route to appropriate swarms. For complex tasks, use paralle
 
         return discovered
 
-    def list_swarms(self) -> List[SwarmConfig]:
+    def list_swarms(self) -> list[SwarmConfig]:
         """List all loaded swarm configurations.
 
         Returns:
@@ -241,7 +242,7 @@ Analyze requests and route to appropriate swarms. For complex tasks, use paralle
         """
         return [swarm.config for swarm in self.swarms.values()]
 
-    def get_swarm(self, name: str) -> Optional[Swarm]:
+    def get_swarm(self, name: str) -> Swarm | None:
         """Get a swarm by name.
 
         Args:
@@ -252,7 +253,7 @@ Analyze requests and route to appropriate swarms. For complex tasks, use paralle
         """
         return self.swarms.get(name)
 
-    def get_all_status(self) -> Dict[str, Any]:
+    def get_all_status(self) -> dict[str, Any]:
         """Get status of all swarms.
 
         Returns:
@@ -261,10 +262,7 @@ Analyze requests and route to appropriate swarms. For complex tasks, use paralle
         return {
             "total_swarms": len(self.swarms),
             "total_agents": len(self.all_agents),
-            "swarms": {
-                name: swarm.get_status()
-                for name, swarm in self.swarms.items()
-            },
+            "swarms": {name: swarm.get_status() for name, swarm in self.swarms.items()},
         }
 
     async def chat(self, user_input: str) -> AsyncIterator[Any]:
@@ -304,7 +302,7 @@ Available Swarms:
 {self._format_swarms_info()}
 
 Available agents for parallel dispatch:
-{', '.join(self.all_agents.keys())}
+{", ".join(self.all_agents.keys())}
 
 Analyze this request and determine which swarm should handle it.
 For complex tasks, spawn multiple agents IN PARALLEL using the Task tool.
@@ -354,11 +352,13 @@ For meta-questions about the system, answer directly."""
             if defn.agent_type == "orchestrator":
                 continue  # Skip orchestrator for parallel tasks
 
-            tasks.append({
-                "agent": agent_name,
-                "prompt": f"{defn.agent_type.title()}: {directive}",
-                "background": defn.background,
-            })
+            tasks.append(
+                {
+                    "agent": agent_name,
+                    "prompt": f"{defn.agent_type.title()}: {directive}",
+                    "background": defn.background,
+                }
+            )
 
         async for message in swarm.run_parallel(tasks):
             yield message

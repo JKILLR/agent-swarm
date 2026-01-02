@@ -1,20 +1,19 @@
 """Tests for tool execution and error recovery."""
 
-import asyncio
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
 from tools import (
+    NonRetryableError,
+    RetryableError,
     is_retryable_error,
     with_retry,
-    RetryableError,
-    NonRetryableError,
-    RETRYABLE_PATTERNS,
 )
 
 
@@ -96,7 +95,7 @@ class TestWithRetry:
         result = await with_retry(
             failing_then_success,
             max_retries=3,
-            base_delay=0.01  # Fast for testing
+            base_delay=0.01,  # Fast for testing
         )
         assert result == "success"
         assert call_count == 3
@@ -112,11 +111,7 @@ class TestWithRetry:
             raise NonRetryableError("permanent failure")
 
         with pytest.raises(NonRetryableError):
-            await with_retry(
-                non_retryable_failure,
-                max_retries=3,
-                base_delay=0.01
-            )
+            await with_retry(non_retryable_failure, max_retries=3, base_delay=0.01)
 
         assert call_count == 1  # Only called once
 
@@ -131,11 +126,7 @@ class TestWithRetry:
             raise RetryableError("always failing")
 
         with pytest.raises(RetryableError):
-            await with_retry(
-                always_fails,
-                max_retries=2,
-                base_delay=0.01
-            )
+            await with_retry(always_fails, max_retries=2, base_delay=0.01)
 
         assert call_count == 3  # Initial + 2 retries
 
@@ -143,6 +134,7 @@ class TestWithRetry:
     async def test_exponential_backoff(self):
         """Should use exponential backoff between retries."""
         import time
+
         timestamps = []
 
         async def track_time_and_fail():
@@ -150,12 +142,7 @@ class TestWithRetry:
             raise RetryableError("failing")
 
         with pytest.raises(RetryableError):
-            await with_retry(
-                track_time_and_fail,
-                max_retries=2,
-                base_delay=0.1,
-                max_delay=1.0
-            )
+            await with_retry(track_time_and_fail, max_retries=2, base_delay=0.1, max_delay=1.0)
 
         # Check that delays increase (with some tolerance for jitter)
         if len(timestamps) >= 3:

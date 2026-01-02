@@ -20,6 +20,9 @@ pytest>=7.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.0
 
+# Linting and validation
+ruff>=0.1.0
+
 # Optional: Type checking
 # mypy>=1.0
 # types-PyYAML

@@ -4,20 +4,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
 
-from rich.console import Console, Group
-from rich.live import Live
+from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.style import Style
-from rich.table import Table
 from rich.text import Text
 
-
 # Agent type color schemes
-AGENT_COLORS: Dict[str, str] = {
+AGENT_COLORS: dict[str, str] = {
     "supreme": "bold blue",
     "orchestrator": "blue",
     "researcher": "green",
@@ -28,7 +22,7 @@ AGENT_COLORS: Dict[str, str] = {
     "worker": "white",
 }
 
-AGENT_ICONS: Dict[str, str] = {
+AGENT_ICONS: dict[str, str] = {
     "supreme": "👑",
     "orchestrator": "🎯",
     "researcher": "🔬",
@@ -54,9 +48,9 @@ class AgentMessage:
 class OutputFormatter:
     """Format agent outputs for rich CLI display."""
 
-    def __init__(self, console: Optional[Console] = None):
+    def __init__(self, console: Console | None = None):
         self.console = console or Console()
-        self._current_agents: Dict[str, str] = {}  # agent_name -> status
+        self._current_agents: dict[str, str] = {}  # agent_name -> status
 
     def get_agent_color(self, agent_type: str) -> str:
         """Get color for agent type."""
@@ -79,15 +73,11 @@ class OutputFormatter:
     def print_agent_panel(
         self,
         message: AgentMessage,
-        width: Optional[int] = None,
+        width: int | None = None,
     ) -> None:
         """Print a formatted panel for an agent's output."""
         color = self.get_agent_color(message.agent_type)
-        header = self.format_agent_header(
-            message.agent_name,
-            message.agent_type,
-            message.status
-        )
+        header = self.format_agent_header(message.agent_name, message.agent_type, message.status)
 
         # Parse and clean content
         content = self._clean_content(message.content)
@@ -111,15 +101,13 @@ class OutputFormatter:
         """Print a thinking indicator for an agent."""
         color = self.get_agent_color(agent_type)
         icon = self.get_agent_icon(agent_type)
-        self.console.print(
-            f"[{color}]{icon} {agent_name}[/{color}] [dim]thinking...[/dim]"
-        )
+        self.console.print(f"[{color}]{icon} {agent_name}[/{color}] [dim]thinking...[/dim]")
 
     def print_summary(
         self,
         title: str,
-        findings: List[str],
-        recommendations: Optional[List[str]] = None,
+        findings: list[str],
+        recommendations: list[str] | None = None,
     ) -> None:
         """Print a formatted summary panel."""
         content_parts = []
@@ -143,7 +131,7 @@ class OutputFormatter:
         )
         self.console.print(panel)
 
-    def print_divider(self, label: Optional[str] = None) -> None:
+    def print_divider(self, label: str | None = None) -> None:
         """Print a visual divider."""
         if label:
             self.console.rule(f"[dim]{label}[/dim]", style="dim")
@@ -169,13 +157,9 @@ class OutputFormatter:
 
         return content.strip()
 
-    def parse_raw_output(self, raw_output: str) -> List[AgentMessage]:
+    def parse_raw_output(self, raw_output: str) -> list[AgentMessage]:
         """Parse raw SDK output into structured messages."""
         messages = []
-
-        # Look for agent spawn patterns
-        spawn_pattern = r"Dispatched \d+ parallel agents from ASA Research swarm"
-        agent_pattern = r"(Researcher|Implementer|Critic|Benchmarker|Monitor):\s*\\n"
 
         # Try to split by agent sections
         sections = re.split(r"(#{1,3}\s*(?:Researcher|Implementer|Critic|Summary|Recommendation))", raw_output)
@@ -197,18 +181,22 @@ class OutputFormatter:
                     if current_type in ("summary", "recommendation"):
                         current_type = "orchestrator"
                 else:
-                    messages.append(AgentMessage(
-                        agent_name=current_agent,
-                        agent_type=current_type,
-                        content=section,
-                    ))
+                    messages.append(
+                        AgentMessage(
+                            agent_name=current_agent,
+                            agent_type=current_type,
+                            content=section,
+                        )
+                    )
         else:
             # Single message
-            messages.append(AgentMessage(
-                agent_name="Supreme Orchestrator",
-                agent_type="orchestrator",
-                content=raw_output,
-            ))
+            messages.append(
+                AgentMessage(
+                    agent_name="Supreme Orchestrator",
+                    agent_type="orchestrator",
+                    content=raw_output,
+                )
+            )
 
         return messages
 
@@ -223,16 +211,20 @@ class OutputFormatter:
             self._format_multi_agent_output(cleaned)
         else:
             # Single agent output
-            self.print_agent_panel(AgentMessage(
-                agent_name="Supreme Orchestrator",
-                agent_type="orchestrator",
-                content=cleaned,
-            ))
+            self.print_agent_panel(
+                AgentMessage(
+                    agent_name="Supreme Orchestrator",
+                    agent_type="orchestrator",
+                    content=cleaned,
+                )
+            )
 
     def _format_multi_agent_output(self, content: str) -> None:
         """Format output containing multiple agent responses."""
         # Split by major sections
-        sections = re.split(r"\n(?=#{1,3}\s+|\*\*(?:Researcher|Implementer|Critic|Summary|Key Finding|Recommendation))", content)
+        sections = re.split(
+            r"\n(?=#{1,3}\s+|\*\*(?:Researcher|Implementer|Critic|Summary|Key Finding|Recommendation))", content
+        )
 
         current_type = "orchestrator"
         buffer = []
@@ -270,7 +262,7 @@ class OutputFormatter:
         if buffer:
             self._print_buffered(current_type, buffer)
 
-    def _print_buffered(self, agent_type: str, buffer: List[str]) -> None:
+    def _print_buffered(self, agent_type: str, buffer: list[str]) -> None:
         """Print buffered content for an agent type."""
         content = "\n\n".join(buffer)
 
@@ -284,19 +276,23 @@ class OutputFormatter:
 
         # For summary, use special formatting
         if agent_type == "summary":
-            self.print_agent_panel(AgentMessage(
-                agent_name="Summary",
-                agent_type="orchestrator",
-                content=content,
-            ))
+            self.print_agent_panel(
+                AgentMessage(
+                    agent_name="Summary",
+                    agent_type="orchestrator",
+                    content=content,
+                )
+            )
         else:
-            self.print_agent_panel(AgentMessage(
-                agent_name=name_map.get(agent_type, agent_type.title()),
-                agent_type=agent_type,
-                content=content,
-            ))
+            self.print_agent_panel(
+                AgentMessage(
+                    agent_name=name_map.get(agent_type, agent_type.title()),
+                    agent_type=agent_type,
+                    content=content,
+                )
+            )
 
 
-def create_formatter(console: Optional[Console] = None) -> OutputFormatter:
+def create_formatter(console: Console | None = None) -> OutputFormatter:
     """Create a new output formatter."""
     return OutputFormatter(console)

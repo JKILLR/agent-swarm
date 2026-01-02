@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +46,7 @@ class MemoryManager:
     def _extract_summary(self, content: str) -> str:
         """Extract the Summary section from a markdown file."""
         # Look for ## Summary section
-        match = re.search(r'## Summary\s*\n(.*?)(?=\n##|\Z)', content, re.DOTALL)
+        match = re.search(r"## Summary\s*\n(.*?)(?=\n##|\Z)", content, re.DOTALL)
         if match:
             return match.group(1).strip()
         # Fallback: first 500 chars
@@ -57,7 +55,7 @@ class MemoryManager:
     def _extract_recent_entries(self, content: str, n: int = 10) -> str:
         """Extract the last N entries from a log-style markdown file."""
         # Split by ## headers (each entry)
-        entries = re.split(r'\n(?=## \d{4}-\d{2}-\d{2})', content)
+        entries = re.split(r"\n(?=## \d{4}-\d{2}-\d{2})", content)
         # Keep last N
         recent = entries[-n:] if len(entries) > n else entries
         return "\n".join(recent)
@@ -225,24 +223,25 @@ class MemoryManager:
         content = self._read_file(progress_file)
         if not content:
             # Create new progress file
-            content = f"# {swarm_name} Progress\n\n## Active Work\n\n## Blockers\n\n## Recently Completed\n\n## Next Up\n"
+            content = (
+                f"# {swarm_name} Progress\n\n## Active Work\n\n## Blockers\n\n## Recently Completed\n\n## Next Up\n"
+            )
 
         # Add update under appropriate category
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         entry = f"- [{timestamp}] {update}\n"
 
         # Insert under category
-        pattern = rf'(## {category}\s*\n)'
+        pattern = rf"(## {category}\s*\n)"
         if re.search(pattern, content):
-            content = re.sub(pattern, rf'\1{entry}', content)
+            content = re.sub(pattern, rf"\1{entry}", content)
         else:
             content += f"\n## {category}\n{entry}"
 
         progress_file.write_text(content)
         logger.info(f"Updated progress for {swarm_name}: {update[:50]}...")
 
-    def log_decision(self, title: str, context: str, decision: str,
-                     rationale: str, impact: str, owner: str = "CEO"):
+    def log_decision(self, title: str, context: str, decision: str, rationale: str, impact: str, owner: str = "CEO"):
         """Log a decision to the decisions file."""
         decisions_file = self.memory_path / "core" / "decisions.md"
         content = self._read_file(decisions_file)
@@ -261,15 +260,15 @@ class MemoryManager:
         # Insert after the header
         if "# " in content:
             # Insert after first line
-            lines = content.split('\n', 2)
-            content = lines[0] + '\n' + entry + '\n'.join(lines[1:])
+            lines = content.split("\n", 2)
+            content = lines[0] + "\n" + entry + "\n".join(lines[1:])
         else:
             content = "# Organizational Decision Log\n" + entry + content
 
         decisions_file.write_text(content)
         logger.info(f"Logged decision: {title}")
 
-    def save_session_summary(self, session_id: str, summary: str, swarm_name: Optional[str] = None):
+    def save_session_summary(self, session_id: str, summary: str, swarm_name: str | None = None):
         """Save a session summary to history."""
         # Save to sessions directory
         session_file = self.memory_path / "sessions" / f"{session_id}.md"
@@ -301,8 +300,8 @@ class MemoryManager:
             current = f"# {swarm_name} Context\n"
 
         # Replace or add section
-        pattern = rf'(## {section}\s*\n)(.*?)(?=\n##|\Z)'
-        replacement = f'## {section}\n{content}\n'
+        pattern = rf"(## {section}\s*\n)(.*?)(?=\n##|\Z)"
+        replacement = f"## {section}\n{content}\n"
 
         if re.search(pattern, current, re.DOTALL):
             current = re.sub(pattern, replacement, current, flags=re.DOTALL)
@@ -320,7 +319,7 @@ class MemoryManager:
         """Rough estimate of token count (4 chars per token average)."""
         return len(text) // 4
 
-    def needs_summarization(self, messages: List[Dict[str, str]], max_tokens: int = 50000) -> bool:
+    def needs_summarization(self, messages: list[dict[str, str]], max_tokens: int = 50000) -> bool:
         """
         Check if a conversation needs summarization.
 
@@ -335,7 +334,7 @@ class MemoryManager:
         estimated_tokens = self.estimate_tokens(total_text)
         return estimated_tokens > max_tokens
 
-    def create_summary_prompt(self, messages: List[Dict[str, str]]) -> str:
+    def create_summary_prompt(self, messages: list[dict[str, str]]) -> str:
         """
         Create a prompt for summarizing conversation history.
 
@@ -370,11 +369,7 @@ CONVERSATION:
 SUMMARY:"""
 
     def save_conversation_summary(
-        self,
-        session_id: str,
-        summary: str,
-        original_message_count: int,
-        swarm_name: Optional[str] = None
+        self, session_id: str, summary: str, original_message_count: int, swarm_name: str | None = None
     ):
         """
         Save a conversation summary for later retrieval.
@@ -402,7 +397,7 @@ SUMMARY:"""
         summary_file.write_text(content)
         logger.info(f"Saved summary for session {session_id}")
 
-    def load_session_summary(self, session_id: str) -> Optional[str]:
+    def load_session_summary(self, session_id: str) -> str | None:
         """
         Load a previously saved session summary.
 
@@ -416,17 +411,14 @@ SUMMARY:"""
         if summary_file.exists():
             content = self._read_file(summary_file)
             # Extract just the summary section
-            match = re.search(r'## Summary\s*\n(.*?)(?=\n##|\Z)', content, re.DOTALL)
+            match = re.search(r"## Summary\s*\n(.*?)(?=\n##|\Z)", content, re.DOTALL)
             if match:
                 return match.group(1).strip()
             return content
         return None
 
     def get_context_with_summary(
-        self,
-        session_id: Optional[str],
-        recent_messages: List[Dict[str, str]],
-        max_recent: int = 10
+        self, session_id: str | None, recent_messages: list[dict[str, str]], max_recent: int = 10
     ) -> str:
         """
         Build conversation context using summary + recent messages.
@@ -462,7 +454,7 @@ SUMMARY:"""
 
 
 # Global memory manager instance
-_memory_manager: Optional[MemoryManager] = None
+_memory_manager: MemoryManager | None = None
 
 
 def get_memory_manager() -> MemoryManager:

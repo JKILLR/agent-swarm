@@ -10,10 +10,10 @@ import asyncio
 import json
 import logging
 import os
-import subprocess
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Check for Anthropic SDK
 try:
     import anthropic
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     anthropic = None
@@ -30,11 +31,12 @@ except ImportError:
 @dataclass
 class ExecutionResult:
     """Result from agent execution."""
+
     content: str
     thinking: str = ""
-    tool_uses: List[Dict[str, Any]] = None
+    tool_uses: list[dict[str, Any]] = None
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
     def __post_init__(self):
         if self.tool_uses is None:
@@ -46,7 +48,7 @@ class AgentExecutor:
 
     def __init__(
         self,
-        workspace: Optional[Path] = None,
+        workspace: Path | None = None,
         model: str = "claude-sonnet-4-20250514",
         timeout: float = 300.0,
     ):
@@ -68,9 +70,9 @@ class AgentExecutor:
     async def execute(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        tools: Optional[List[str]] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        system_prompt: str | None = None,
+        tools: list[str] | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Execute an agent with streaming output.
 
         Args:
@@ -98,8 +100,8 @@ class AgentExecutor:
     async def execute_sync(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        tools: Optional[List[str]] = None,
+        system_prompt: str | None = None,
+        tools: list[str] | None = None,
     ) -> ExecutionResult:
         """Execute an agent and return complete result.
 
@@ -141,8 +143,8 @@ class AgentExecutor:
     async def _execute_anthropic(
         self,
         prompt: str,
-        tools: Optional[List[str]] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        tools: list[str] | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Execute using Anthropic API with streaming."""
         if not anthropic:
             yield {"type": "error", "content": "Anthropic SDK not available"}
@@ -157,15 +159,15 @@ class AgentExecutor:
                 messages=[{"role": "user", "content": prompt}],
             ) as stream:
                 for event in stream:
-                    if hasattr(event, 'type'):
+                    if hasattr(event, "type"):
                         if event.type == "content_block_start":
                             block = event.content_block
-                            if hasattr(block, 'type') and block.type == "thinking":
+                            if hasattr(block, "type") and block.type == "thinking":
                                 yield {"type": "thinking_start"}
 
                         elif event.type == "content_block_delta":
                             delta = event.delta
-                            if hasattr(delta, 'type'):
+                            if hasattr(delta, "type"):
                                 if delta.type == "thinking_delta":
                                     yield {
                                         "type": "thinking",
@@ -187,14 +189,15 @@ class AgentExecutor:
     async def _execute_cli(
         self,
         prompt: str,
-        tools: Optional[List[str]] = None,
-    ) -> AsyncIterator[Dict[str, Any]]:
+        tools: list[str] | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Execute using Claude CLI with streaming JSON output."""
         # Build command
         cmd = [
             "claude",
             "-p",  # Print mode
-            "--output-format", "stream-json",
+            "--output-format",
+            "stream-json",
             "--verbose",
             prompt,
         ]
@@ -250,7 +253,7 @@ class AgentExecutor:
     async def _parse_cli_stream(
         self,
         process: asyncio.subprocess.Process,
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Parse streaming JSON from Claude CLI."""
         if not process.stdout:
             return
@@ -321,10 +324,10 @@ class AgentExecutor:
 
 
 # Global executor instance
-_executor: Optional[AgentExecutor] = None
+_executor: AgentExecutor | None = None
 
 
-def get_executor(workspace: Optional[Path] = None) -> AgentExecutor:
+def get_executor(workspace: Path | None = None) -> AgentExecutor:
     """Get or create the global executor."""
     global _executor
     if _executor is None or (workspace and _executor.workspace != workspace):
@@ -334,9 +337,9 @@ def get_executor(workspace: Optional[Path] = None) -> AgentExecutor:
 
 async def execute_agent(
     prompt: str,
-    system_prompt: Optional[str] = None,
-    tools: Optional[List[str]] = None,
-    workspace: Optional[Path] = None,
+    system_prompt: str | None = None,
+    tools: list[str] | None = None,
+    workspace: Path | None = None,
 ) -> ExecutionResult:
     """Execute an agent and return the result.
 
@@ -357,10 +360,10 @@ async def execute_agent(
 
 async def stream_agent(
     prompt: str,
-    system_prompt: Optional[str] = None,
-    tools: Optional[List[str]] = None,
-    workspace: Optional[Path] = None,
-) -> AsyncIterator[Dict[str, Any]]:
+    system_prompt: str | None = None,
+    tools: list[str] | None = None,
+    workspace: Path | None = None,
+) -> AsyncIterator[dict[str, Any]]:
     """Execute an agent with streaming output.
 
     Args:
