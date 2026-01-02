@@ -788,7 +788,7 @@ async def run_agentic_chat(
     messages = [{"role": "user", "content": user_message}]
 
     # Agentic loop - continue until no more tool calls
-    max_iterations = 15
+    max_iterations = 50  # Higher limit for complex multi-agent tasks
     for iteration in range(max_iterations):
         logger.info(f"Agentic loop iteration {iteration + 1}")
 

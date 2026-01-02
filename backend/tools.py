@@ -213,10 +213,17 @@ class ToolExecutor:
             swarm_name = "operations"
             agent_name = agent_path
 
-        # Get the swarm
-        swarm = self.orchestrator.get_swarm(swarm_name)
+        # Get the swarm (case-insensitive lookup)
+        swarm = None
+        for name, s in self.orchestrator.swarms.items():
+            if name.lower() == swarm_name.lower() or name.lower().replace(" ", "_") == swarm_name.lower():
+                swarm = s
+                swarm_name = name  # Use the actual name
+                break
+
         if not swarm:
-            return f"Swarm not found: {swarm_name}"
+            available = list(self.orchestrator.swarms.keys())
+            return f"Swarm not found: {swarm_name}. Available: {available}"
 
         # Get the agent
         agent = swarm.get_agent(agent_name)
