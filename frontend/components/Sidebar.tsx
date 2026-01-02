@@ -7,6 +7,7 @@ import { MessageSquare, LayoutDashboard, Bot, Settings, Loader2 } from 'lucide-r
 import { getSwarms, type Swarm } from '@/lib/api'
 import { cn, getStatusColor } from '@/lib/utils'
 import { useAgentActivity } from '@/lib/AgentActivityContext'
+import CeoTodoPanel from './CeoTodoPanel'
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -100,6 +101,9 @@ export default function Sidebar() {
           </div>
         )}
       </div>
+
+      {/* CEO Todo Panel */}
+      <CeoTodoPanel />
 
       {/* Footer */}
       <div className="p-2 border-t border-zinc-800">
