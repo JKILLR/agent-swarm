@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +18,13 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+
+# Try to import Anthropic SDK
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
 
 # Add parent directory to path for imports
 BACKEND_DIR = Path(__file__).parent
@@ -529,6 +537,71 @@ def parse_agent_output(content: str) -> List[Dict[str, Any]]:
     return events if events else [{"agent": "Supreme Orchestrator", "agent_type": "orchestrator", "content": content}]
 
 
+async def stream_anthropic_response(
+    prompt: str,
+    websocket: WebSocket,
+    manager: "ConnectionManager",
+) -> dict:
+    """
+    Stream response using the Anthropic SDK (fallback when CLI doesn't work).
+    Requires ANTHROPIC_API_KEY environment variable.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+
+    if not ANTHROPIC_AVAILABLE:
+        raise RuntimeError("Anthropic SDK not installed")
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    full_response = ""
+    full_thinking = ""
+
+    # Use streaming
+    with client.messages.stream(
+        model="claude-sonnet-4-20250514",
+        max_tokens=8192,
+        messages=[{"role": "user", "content": prompt}],
+    ) as stream:
+        for event in stream:
+            if hasattr(event, 'type'):
+                if event.type == "content_block_start":
+                    block = event.content_block
+                    if hasattr(block, 'type') and block.type == "thinking":
+                        await manager.send_event(websocket, "thinking_start", {
+                            "agent": "Claude",
+                        })
+
+                elif event.type == "content_block_delta":
+                    delta = event.delta
+                    if hasattr(delta, 'type'):
+                        if delta.type == "thinking_delta":
+                            text = delta.thinking
+                            full_thinking += text
+                            await manager.send_event(websocket, "thinking_delta", {
+                                "agent": "Claude",
+                                "delta": text,
+                            })
+                        elif delta.type == "text_delta":
+                            text = delta.text
+                            full_response += text
+                            await manager.send_event(websocket, "agent_delta", {
+                                "agent": "Claude",
+                                "agent_type": "assistant",
+                                "delta": text,
+                            })
+
+                elif event.type == "content_block_stop":
+                    if full_thinking:
+                        await manager.send_event(websocket, "thinking_complete", {
+                            "agent": "Claude",
+                            "thinking": full_thinking,
+                        })
+
+    return {"response": full_response, "thinking": full_thinking}
+
+
 async def stream_claude_response(
     prompt: str,
     swarm_name: Optional[str] = None,
@@ -737,29 +810,42 @@ User request: {message}"""
                 else:
                     full_prompt = message
 
-                # Start claude CLI process
-                logger.info(f"Starting Claude CLI for prompt: {full_prompt[:100]}...")
-                process = await stream_claude_response(
-                    prompt=full_prompt,
-                    swarm_name=swarm_name,
-                    workspace=workspace,
-                )
+                # Try Anthropic SDK first if API key is available (more reliable)
+                api_key = os.environ.get("ANTHROPIC_API_KEY")
+                result = None
 
-                # Stream and parse the response with timeout (30 seconds for initial response)
-                try:
-                    result = await asyncio.wait_for(
-                        parse_claude_stream(process, websocket, manager),
-                        timeout=30.0,  # 30 second timeout for initial test
+                if api_key and ANTHROPIC_AVAILABLE:
+                    logger.info("Using Anthropic SDK with API key")
+                    try:
+                        result = await stream_anthropic_response(full_prompt, websocket, manager)
+                    except Exception as e:
+                        logger.error(f"Anthropic SDK error: {e}")
+                        # Fall through to try CLI
+
+                # Try Claude CLI if SDK didn't work
+                if result is None:
+                    logger.info(f"Starting Claude CLI for prompt: {full_prompt[:100]}...")
+                    process = await stream_claude_response(
+                        prompt=full_prompt,
+                        swarm_name=swarm_name,
+                        workspace=workspace,
                     )
-                except asyncio.TimeoutError:
-                    process.kill()
-                    raise RuntimeError(
-                        "Claude CLI timed out. This usually means authentication is not set up for subprocess mode.\n\n"
-                        "**To fix this:**\n"
-                        "1. Run `claude setup-token` in your terminal to create a long-lived auth token\n"
-                        "2. Restart the backend server\n\n"
-                        "Alternatively, you can set an API key in the environment variable ANTHROPIC_API_KEY"
-                    )
+
+                    # Stream and parse the response with timeout (30 seconds for initial response)
+                    try:
+                        result = await asyncio.wait_for(
+                            parse_claude_stream(process, websocket, manager),
+                            timeout=30.0,  # 30 second timeout for initial test
+                        )
+                    except asyncio.TimeoutError:
+                        process.kill()
+                        raise RuntimeError(
+                            "Claude CLI timed out. This usually means authentication is not set up for subprocess mode.\n\n"
+                            "**To fix this:**\n"
+                            "1. Run `claude setup-token` in your terminal to create a long-lived auth token\n"
+                            "2. Restart the backend server\n\n"
+                            "Or set ANTHROPIC_API_KEY environment variable to use the API directly."
+                        )
 
                 # Send the complete response
                 final_content = result["response"]
