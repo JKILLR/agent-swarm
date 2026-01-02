@@ -918,13 +918,13 @@ async def stream_claude_response(
     if system_prompt:
         cmd.extend(["--append-system-prompt", system_prompt])
 
-    # Add session continuity flags if we have an existing session
-    if chat_id:
-        session_mgr = get_session_manager()
-        continue_flags = session_mgr.get_continue_flags(chat_id)
-        if continue_flags:
-            cmd.extend(continue_flags)
-            logger.info(f"Using session continuity for chat {chat_id}")
+    # NOTE: Session continuity disabled - was causing "session doesn't exist" errors
+    # that confused the COO. Conversation history in prompt is sufficient context.
+    # if chat_id:
+    #     session_mgr = get_session_manager()
+    #     continue_flags = session_mgr.get_continue_flags(chat_id)
+    #     if continue_flags:
+    #         cmd.extend(continue_flags)
 
     # Add user prompt as final argument
     cmd.append(prompt)
@@ -968,8 +968,8 @@ async def parse_claude_stream(
         "session_id": None,  # Will be captured from Claude output
     }
 
-    # Session manager for capturing/registering sessions
-    session_mgr = get_session_manager() if chat_id else None
+    # Session manager disabled - was causing confusion
+    session_mgr = None
 
     if not process.stdout:
         return {"response": "", "thinking": ""}
