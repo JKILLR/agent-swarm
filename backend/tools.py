@@ -245,6 +245,53 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
                 },
                 "required": ["tasks"]
             }
+        },
+        {
+            "name": "GitCommit",
+            "description": "Commit changes and push to a feature branch. Creates branch if needed.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Commit message describing the changes"
+                    },
+                    "branch": {
+                        "type": "string",
+                        "description": "Feature branch name (will be prefixed with 'swarm/' automatically)"
+                    },
+                    "files": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Specific files to commit (optional, defaults to all changes)"
+                    }
+                },
+                "required": ["message", "branch"]
+            }
+        },
+        {
+            "name": "GitSync",
+            "description": "Sync local repository with remote main branch. Use after PRs are merged.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "branch": {
+                        "type": "string",
+                        "description": "Branch to sync (default: main)",
+                        "default": "main"
+                    }
+                },
+                "required": []
+            }
+        },
+        {
+            "name": "GitStatus",
+            "description": "Check git status - current branch, uncommitted changes, etc.",
+            "input_schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
         }
     ]
 
@@ -292,6 +339,12 @@ class ToolExecutor:
                 return await self._execute_read_image(tool_input)
             elif tool_name == "ParallelTasks":
                 return await self._execute_parallel_tasks(tool_input)
+            elif tool_name == "GitCommit":
+                return await self._execute_git_commit(tool_input)
+            elif tool_name == "GitSync":
+                return await self._execute_git_sync(tool_input)
+            elif tool_name == "GitStatus":
+                return await self._execute_git_status(tool_input)
             else:
                 return f"Unknown tool: {tool_name}"
         except Exception as e:
@@ -883,3 +936,235 @@ Image path: {path}
                 results.append(f"**Task {i+1} ({agent}):** Error - {str(e)}\n")
 
         return f"**Parallel Execution Results ({len(tasks)} tasks):**\n\n" + "\n---\n".join(results)
+
+    async def _execute_git_commit(self, input: Dict[str, Any]) -> str:
+        """Commit changes and push to a feature branch."""
+        message = input.get("message", "")
+        branch = input.get("branch", "")
+        files = input.get("files", [])
+
+        if not message:
+            return "Error: Commit message is required"
+        if not branch:
+            return "Error: Branch name is required"
+
+        # Ensure branch has swarm/ prefix
+        if not branch.startswith("swarm/"):
+            branch = f"swarm/{branch}"
+
+        try:
+            results = []
+
+            # Get current branch
+            current = subprocess.run(
+                ["git", "branch", "--show-current"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+            current_branch = current.stdout.strip()
+            results.append(f"Current branch: {current_branch}")
+
+            # Check if branch exists
+            branch_check = subprocess.run(
+                ["git", "branch", "--list", branch],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+
+            if not branch_check.stdout.strip():
+                # Create and checkout new branch
+                subprocess.run(
+                    ["git", "checkout", "-b", branch],
+                    cwd=str(PROJECT_ROOT),
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                results.append(f"Created new branch: {branch}")
+            elif current_branch != branch:
+                # Switch to existing branch
+                subprocess.run(
+                    ["git", "checkout", branch],
+                    cwd=str(PROJECT_ROOT),
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                results.append(f"Switched to branch: {branch}")
+
+            # Stage files
+            if files:
+                for f in files:
+                    subprocess.run(
+                        ["git", "add", f],
+                        cwd=str(PROJECT_ROOT),
+                        capture_output=True,
+                        text=True
+                    )
+                results.append(f"Staged {len(files)} files")
+            else:
+                subprocess.run(
+                    ["git", "add", "-A"],
+                    cwd=str(PROJECT_ROOT),
+                    capture_output=True,
+                    text=True
+                )
+                results.append("Staged all changes")
+
+            # Check if there are changes to commit
+            status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+
+            if not status.stdout.strip():
+                return "No changes to commit"
+
+            # Commit
+            commit_result = subprocess.run(
+                ["git", "commit", "-m", message],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+
+            if commit_result.returncode != 0:
+                return f"Commit failed: {commit_result.stderr}"
+
+            results.append(f"Committed: {message}")
+
+            # Push to origin
+            push_result = subprocess.run(
+                ["git", "push", "-u", "origin", branch],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+
+            if push_result.returncode != 0:
+                # Try force push if upstream doesn't exist
+                push_result = subprocess.run(
+                    ["git", "push", "--set-upstream", "origin", branch],
+                    cwd=str(PROJECT_ROOT),
+                    capture_output=True,
+                    text=True
+                )
+
+            if push_result.returncode == 0:
+                results.append(f"Pushed to origin/{branch}")
+            else:
+                results.append(f"Push warning: {push_result.stderr}")
+
+            return "**Git Commit Success:**\n" + "\n".join(f"- {r}" for r in results)
+
+        except subprocess.CalledProcessError as e:
+            return f"Git error: {e.stderr if e.stderr else str(e)}"
+        except Exception as e:
+            logger.error(f"Git commit error: {e}")
+            return f"Error: {str(e)}"
+
+    async def _execute_git_sync(self, input: Dict[str, Any]) -> str:
+        """Sync local repository with remote main branch."""
+        branch = input.get("branch", "main")
+
+        try:
+            results = []
+
+            # Fetch latest
+            fetch_result = subprocess.run(
+                ["git", "fetch", "origin", branch],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+            results.append(f"Fetched origin/{branch}")
+
+            # Get current branch
+            current = subprocess.run(
+                ["git", "branch", "--show-current"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+            current_branch = current.stdout.strip()
+
+            if current_branch != branch:
+                # Checkout target branch
+                checkout = subprocess.run(
+                    ["git", "checkout", branch],
+                    cwd=str(PROJECT_ROOT),
+                    capture_output=True,
+                    text=True
+                )
+                if checkout.returncode != 0:
+                    return f"Could not checkout {branch}: {checkout.stderr}"
+                results.append(f"Switched to {branch}")
+
+            # Pull latest
+            pull_result = subprocess.run(
+                ["git", "pull", "origin", branch],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+
+            if pull_result.returncode == 0:
+                results.append(f"Pulled latest from origin/{branch}")
+                if "Already up to date" in pull_result.stdout:
+                    results.append("Already up to date")
+                else:
+                    results.append(pull_result.stdout.strip()[:200])
+            else:
+                results.append(f"Pull warning: {pull_result.stderr}")
+
+            return "**Git Sync Complete:**\n" + "\n".join(f"- {r}" for r in results)
+
+        except Exception as e:
+            logger.error(f"Git sync error: {e}")
+            return f"Error syncing: {str(e)}"
+
+    async def _execute_git_status(self, input: Dict[str, Any]) -> str:
+        """Check git status."""
+        try:
+            results = []
+
+            # Current branch
+            branch = subprocess.run(
+                ["git", "branch", "--show-current"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+            results.append(f"**Branch:** {branch.stdout.strip()}")
+
+            # Status
+            status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+
+            if status.stdout.strip():
+                results.append(f"\n**Changes:**\n```\n{status.stdout.strip()}\n```")
+            else:
+                results.append("\n**Changes:** None (working tree clean)")
+
+            # Recent commits
+            log = subprocess.run(
+                ["git", "log", "--oneline", "-5"],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+            results.append(f"\n**Recent commits:**\n```\n{log.stdout.strip()}\n```")
+
+            return "\n".join(results)
+
+        except Exception as e:
+            logger.error(f"Git status error: {e}")
+            return f"Error getting status: {str(e)}"
