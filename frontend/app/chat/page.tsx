@@ -422,25 +422,37 @@ export default function ChatPage() {
     // Save user message to backend
     await saveMessage('user', content)
 
-    // Build message with attachment context for the AI
+    // Build message with text attachments inline
     let fullMessage = content
 
+    // Prepare image attachments to send to backend
+    const imageAttachments = attachments.filter(a => a.type === 'image').map(a => ({
+      type: a.type,
+      name: a.name,
+      content: a.content,
+      mimeType: a.mimeType,
+    }))
+
+    // Add text attachments inline in the message
     if (attachments.length > 0) {
-      const attachmentDescriptions = attachments.map((a) => {
+      const descriptions = attachments.map((a) => {
         if (a.type === 'text') {
           return `\n\n--- Attached Text: ${a.name} ---\n${a.content}\n--- End Attachment ---`
         } else if (a.type === 'image') {
-          return `\n\n[Attached Image: ${a.name}]`
+          return `\n\n[Image attached: ${a.name}]`
         } else {
-          return `\n\n[Attached Document: ${a.name}]`
+          return `\n\n[Document: ${a.name}]`
         }
       })
-      fullMessage += attachmentDescriptions.join('')
+      fullMessage += descriptions.join('')
     }
 
-    // Send via WebSocket with session context
+    // Send via WebSocket with session context and image data
     try {
-      wsRef.current.send(fullMessage, { session_id: sessionId || undefined })
+      wsRef.current.send(fullMessage, {
+        session_id: sessionId || undefined,
+        attachments: imageAttachments.length > 0 ? imageAttachments : undefined,
+      })
     } catch (e) {
       console.error('Failed to send message:', e)
       setIsLoading(false)

@@ -99,7 +99,7 @@ export class ChatWebSocket {
     }
   }
 
-  send(message: string, options?: { swarm?: string; session_id?: string }) {
+  send(message: string, options?: { swarm?: string; session_id?: string; attachments?: Array<{type: string; name: string; content: string; mimeType?: string}> }) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket not connected')
     }
@@ -108,6 +108,7 @@ export class ChatWebSocket {
       message,
       swarm: options?.swarm,
       session_id: options?.session_id,
+      attachments: options?.attachments,
     }))
   }
 

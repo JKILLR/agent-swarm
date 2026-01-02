@@ -1559,9 +1559,38 @@ async def websocket_chat(websocket: WebSocket):
             message = data.get("message", "")
             _swarm_name = data.get("swarm")  # Reserved for future swarm-specific routing
             session_id = data.get("session_id")
+            attachments = data.get("attachments", [])
 
             if not message:
                 continue
+
+            # Process image attachments - save to temp files for Claude CLI
+            image_paths = []
+            if attachments:
+                import tempfile
+                temp_dir = Path(tempfile.gettempdir()) / "agent_swarm_images"
+                temp_dir.mkdir(exist_ok=True)
+
+                for att in attachments:
+                    if att.get("type") == "image" and att.get("content"):
+                        # Save base64 image to temp file
+                        img_data = base64.b64decode(att["content"])
+                        ext = ".png"
+                        if att.get("mimeType"):
+                            if "jpeg" in att["mimeType"] or "jpg" in att["mimeType"]:
+                                ext = ".jpg"
+                            elif "gif" in att["mimeType"]:
+                                ext = ".gif"
+                            elif "webp" in att["mimeType"]:
+                                ext = ".webp"
+                        img_path = temp_dir / f"img_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{att.get('name', 'image')}{ext}"
+                        img_path.write_bytes(img_data)
+                        image_paths.append(str(img_path))
+                        logger.info(f"Saved image attachment to: {img_path}")
+
+                # Add image paths to the message for Claude to read
+                if image_paths:
+                    message += f"\n\n[Images saved for analysis: {', '.join(image_paths)}]\nUse the Read tool to view these images."
 
             # Send acknowledgment
             await manager.send_event(
