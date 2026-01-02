@@ -208,6 +208,117 @@ Entry 3
             assert "Test Swarm" in context or "Mission" in context
 
 
+class TestSessionSummarization:
+    """Tests for session summarization functionality."""
+
+    @pytest.fixture
+    def memory_manager(self, tmp_path):
+        return MemoryManager(memory_path=tmp_path / "memory")
+
+    def test_estimate_tokens(self, memory_manager):
+        """Test token estimation."""
+        # Roughly 4 chars per token
+        text = "a" * 400
+        tokens = memory_manager.estimate_tokens(text)
+        assert tokens == 100
+
+    def test_needs_summarization_short(self, memory_manager):
+        """Short conversation should not need summarization."""
+        messages = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there!"},
+        ]
+        assert not memory_manager.needs_summarization(messages, max_tokens=1000)
+
+    def test_needs_summarization_long(self, memory_manager):
+        """Long conversation should need summarization."""
+        # Create messages that exceed token limit
+        messages = [
+            {"role": "user", "content": "x" * 10000},
+            {"role": "assistant", "content": "y" * 10000},
+        ]
+        assert memory_manager.needs_summarization(messages, max_tokens=1000)
+
+    def test_create_summary_prompt(self, memory_manager):
+        """Test summary prompt generation."""
+        messages = [
+            {"role": "user", "content": "Can you help me?"},
+            {"role": "assistant", "content": "Of course!"},
+        ]
+        prompt = memory_manager.create_summary_prompt(messages)
+
+        assert "Please summarize" in prompt
+        assert "Can you help me?" in prompt
+        assert "Of course!" in prompt
+        assert "SUMMARY:" in prompt
+
+    def test_save_and_load_conversation_summary(self, memory_manager):
+        """Test saving and loading session summaries."""
+        session_id = "test-session-123"
+        summary = "This conversation covered important topics X, Y, and Z."
+
+        memory_manager.save_conversation_summary(
+            session_id=session_id,
+            summary=summary,
+            original_message_count=10,
+            swarm_name="test_swarm"
+        )
+
+        # Load it back
+        loaded = memory_manager.load_session_summary(session_id)
+        assert loaded is not None
+        assert "important topics" in loaded
+
+    def test_load_nonexistent_summary(self, memory_manager):
+        """Test loading summary that doesn't exist."""
+        loaded = memory_manager.load_session_summary("nonexistent-session")
+        assert loaded is None
+
+    def test_get_context_with_summary(self, memory_manager):
+        """Test building context with summary."""
+        session_id = "test-session-456"
+
+        # Save a summary first
+        memory_manager.save_conversation_summary(
+            session_id=session_id,
+            summary="Previous discussion about feature X.",
+            original_message_count=20
+        )
+
+        # Get context with summary + recent messages
+        recent = [
+            {"role": "user", "content": "What about feature Y?"},
+            {"role": "assistant", "content": "Feature Y is related to X."},
+        ]
+
+        context = memory_manager.get_context_with_summary(
+            session_id=session_id,
+            recent_messages=recent,
+            max_recent=5
+        )
+
+        assert "Previous Conversation Summary" in context
+        assert "feature X" in context
+        assert "feature Y" in context
+
+    def test_get_context_without_summary(self, memory_manager):
+        """Test building context when no summary exists."""
+        recent = [
+            {"role": "user", "content": "Hello"},
+        ]
+
+        context = memory_manager.get_context_with_summary(
+            session_id="no-such-session",
+            recent_messages=recent,
+            max_recent=5
+        )
+
+        # Should still include recent messages
+        assert "Hello" in context
+        # Should not have summary section
+        assert "Previous Conversation Summary" not in context
+
+
 class TestMemoryManagerEdgeCases:
     """Edge case tests for MemoryManager."""
 

@@ -312,6 +312,154 @@ class MemoryManager:
         context_file.write_text(current)
         logger.info(f"Updated {swarm_name} context: {section}")
 
+    # =========================================================================
+    # Session Summarization Methods
+    # =========================================================================
+
+    def estimate_tokens(self, text: str) -> int:
+        """Rough estimate of token count (4 chars per token average)."""
+        return len(text) // 4
+
+    def needs_summarization(self, messages: List[Dict[str, str]], max_tokens: int = 50000) -> bool:
+        """
+        Check if a conversation needs summarization.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            max_tokens: Token threshold before summarization is needed
+
+        Returns:
+            True if conversation exceeds token threshold
+        """
+        total_text = "\n".join(m.get("content", "") for m in messages)
+        estimated_tokens = self.estimate_tokens(total_text)
+        return estimated_tokens > max_tokens
+
+    def create_summary_prompt(self, messages: List[Dict[str, str]]) -> str:
+        """
+        Create a prompt for summarizing conversation history.
+
+        Args:
+            messages: List of message dicts to summarize
+
+        Returns:
+            Formatted prompt for summarization
+        """
+        conversation = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")[:2000]  # Truncate very long messages
+            conversation.append(f"**{role}**: {content}")
+
+        conversation_text = "\n\n".join(conversation)
+
+        return f"""Please summarize the following conversation. Focus on:
+1. Key decisions made
+2. Important context established
+3. Tasks completed or in progress
+4. Any blockers or issues identified
+5. Current state and next steps
+
+Provide a concise summary (under 500 words) that captures the essential context needed to continue the conversation.
+
+---
+CONVERSATION:
+{conversation_text}
+---
+
+SUMMARY:"""
+
+    def save_conversation_summary(
+        self,
+        session_id: str,
+        summary: str,
+        original_message_count: int,
+        swarm_name: Optional[str] = None
+    ):
+        """
+        Save a conversation summary for later retrieval.
+
+        Args:
+            session_id: The session being summarized
+            summary: The generated summary
+            original_message_count: Number of messages that were summarized
+            swarm_name: Optional swarm association
+        """
+        summaries_dir = self.memory_path / "sessions" / "summaries"
+        summaries_dir.mkdir(parents=True, exist_ok=True)
+
+        summary_file = summaries_dir / f"{session_id}.md"
+        date = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        content = f"""# Session Summary: {session_id}
+**Date**: {date}
+**Messages Summarized**: {original_message_count}
+{"**Swarm**: " + swarm_name if swarm_name else ""}
+
+## Summary
+{summary}
+"""
+        summary_file.write_text(content)
+        logger.info(f"Saved summary for session {session_id}")
+
+    def load_session_summary(self, session_id: str) -> Optional[str]:
+        """
+        Load a previously saved session summary.
+
+        Args:
+            session_id: The session to load summary for
+
+        Returns:
+            The summary text or None if not found
+        """
+        summary_file = self.memory_path / "sessions" / "summaries" / f"{session_id}.md"
+        if summary_file.exists():
+            content = self._read_file(summary_file)
+            # Extract just the summary section
+            match = re.search(r'## Summary\s*\n(.*?)(?=\n##|\Z)', content, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+            return content
+        return None
+
+    def get_context_with_summary(
+        self,
+        session_id: Optional[str],
+        recent_messages: List[Dict[str, str]],
+        max_recent: int = 10
+    ) -> str:
+        """
+        Build conversation context using summary + recent messages.
+
+        Args:
+            session_id: Session to load summary from
+            recent_messages: Most recent messages to include in full
+            max_recent: Maximum number of recent messages to include
+
+        Returns:
+            Formatted context string with summary and recent messages
+        """
+        sections = []
+
+        # Include summary if available
+        if session_id:
+            summary = self.load_session_summary(session_id)
+            if summary:
+                sections.append("## Previous Conversation Summary")
+                sections.append(summary)
+                sections.append("")
+
+        # Include recent messages
+        if recent_messages:
+            sections.append("## Recent Messages")
+            for msg in recent_messages[-max_recent:]:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                sections.append(f"**{role}**: {content[:1000]}")
+            sections.append("")
+
+        return "\n".join(sections)
+
 
 # Global memory manager instance
 _memory_manager: Optional[MemoryManager] = None

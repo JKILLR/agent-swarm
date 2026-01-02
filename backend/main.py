@@ -1144,22 +1144,43 @@ async def websocket_chat(websocket: WebSocket):
             })
 
             try:
-                # Build conversation history from session
+                # Load memory context for COO
+                memory = get_memory_manager()
+                memory_context = memory.load_coo_context()
+
+                # Build conversation history from session (with summarization for long conversations)
                 conversation_history = ""
                 if session_id:
                     session = history.get_session(session_id)
                     if session and session.get("messages"):
-                        history_lines = []
-                        for msg in session["messages"]:
-                            role = "User" if msg["role"] == "user" else "Assistant"
-                            content = msg["content"]
-                            # Truncate very long messages in history
-                            if len(content) > 2000:
-                                content = content[:2000] + "... [truncated]"
-                            history_lines.append(f"{role}: {content}")
+                        messages = session["messages"]
 
-                        if history_lines:
-                            conversation_history = "\n\n## Previous Conversation\n" + "\n\n".join(history_lines) + "\n\n---\n"
+                        # Check if conversation needs summarization
+                        if memory.needs_summarization(messages, max_tokens=40000):
+                            logger.info(f"Session {session_id} needs summarization ({len(messages)} messages)")
+
+                            # Use summary + recent messages
+                            summary_context = memory.get_context_with_summary(
+                                session_id=session_id,
+                                recent_messages=messages,
+                                max_recent=5  # Keep last 5 messages in full
+                            )
+
+                            if summary_context:
+                                conversation_history = "\n\n## Conversation Context (Summarized)\n" + summary_context + "\n---\n"
+                        else:
+                            # Full history for shorter conversations
+                            history_lines = []
+                            for msg in messages:
+                                role = "User" if msg["role"] == "user" else "Assistant"
+                                content = msg["content"]
+                                # Truncate very long messages in history
+                                if len(content) > 2000:
+                                    content = content[:2000] + "... [truncated]"
+                                history_lines.append(f"{role}: {content}")
+
+                            if history_lines:
+                                conversation_history = "\n\n## Previous Conversation\n" + "\n\n".join(history_lines) + "\n\n---\n"
 
                 # Get workspace and swarm info if specified
                 workspace = None
@@ -1168,10 +1189,6 @@ async def websocket_chat(websocket: WebSocket):
                     swarm = orch.get_swarm(swarm_name)
                     if swarm:
                         workspace = swarm.workspace
-
-                # Load memory context for COO
-                memory = get_memory_manager()
-                memory_context = memory.load_coo_context()
 
                 # Build system prompt for the COO
                 all_swarms = []
