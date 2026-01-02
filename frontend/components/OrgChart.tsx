@@ -62,9 +62,9 @@ export default function OrgChart({ onSelectNode, selectedNodeId }: OrgChartProps
   }, [])
 
   const buildOrgTree = (swarms: (Swarm & { agents: Agent[] })[]): OrgNode => {
-    // Find Operations swarm (VP level)
-    const operationsSwarm = swarms.find(s => s.name === 'operations')
-    const otherSwarms = swarms.filter(s => s.name !== 'operations')
+    // Find Operations swarm (VP level) - case-insensitive search
+    const operationsSwarm = swarms.find(s => s.name.toLowerCase() === 'operations')
+    const otherSwarms = swarms.filter(s => s.name.toLowerCase() !== 'operations')
 
     // Build swarm nodes
     const swarmNodes: OrgNode[] = otherSwarms.map(swarm => ({

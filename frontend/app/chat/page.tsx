@@ -418,10 +418,10 @@ export default function ChatPage() {
                 <ChevronRight className="w-5 h-5 text-zinc-400" />
               )}
             </button>
-            <Bot className="w-6 h-6 text-blue-500" />
+            <Bot className="w-6 h-6 text-purple-500" />
             <div>
-              <h1 className="font-semibold text-white">Chat</h1>
-              <p className="text-xs text-zinc-500">Talk to the Supreme Orchestrator</p>
+              <h1 className="font-semibold text-white">Chat with COO</h1>
+              <p className="text-xs text-zinc-500">Supreme Orchestrator - Chief Operating Officer</p>
             </div>
           </div>
 
@@ -444,13 +444,14 @@ export default function ChatPage() {
         <div className="flex-1 overflow-auto p-6 space-y-6">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <Bot className="w-16 h-16 text-zinc-700 mb-4" />
+              <Bot className="w-16 h-16 text-purple-700 mb-4" />
               <h2 className="text-xl font-semibold text-zinc-400 mb-2">
-                Start a conversation
+                Chat with the COO
               </h2>
               <p className="text-sm text-zinc-500 max-w-md">
-                Ask about your swarms, request research, or coordinate tasks across agents.
-                The Supreme Orchestrator will route your request to the appropriate team.
+                You are connected to the Supreme Orchestrator (COO). Ask about your swarms,
+                request research, or coordinate tasks. The COO will route your request to
+                the appropriate team or agent.
               </p>
               <div className="mt-6 space-y-2 text-left">
                 <p className="text-xs text-zinc-600">Try asking:</p>

@@ -1,4 +1,4 @@
-name: Operations
+name: operations
 description: Operational management and cross-swarm coordination. Reports to COO (Supreme Orchestrator).
 version: 0.1.0
 status: active

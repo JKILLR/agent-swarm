@@ -113,6 +113,24 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
         background=True,
         wake_enabled=True,
     ),
+    "coordinator": AgentDefinition(
+        name="coordinator",
+        description="Task coordination and cross-swarm handoffs.",
+        tools=["Read", "Glob", "Grep", "Write", "Edit"],
+        model="opus",
+        agent_type="coordinator",
+        background=False,
+        wake_enabled=True,
+    ),
+    "quality": AgentDefinition(
+        name="quality",
+        description="Quality assurance, standards enforcement, and audits.",
+        tools=["Read", "Glob", "Grep", "Write", "Edit", "Bash"],
+        model="opus",
+        agent_type="quality",
+        background=False,
+        wake_enabled=True,
+    ),
 }
 
 
