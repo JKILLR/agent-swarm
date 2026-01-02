@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MessageSquare, Play, Pause, Archive, FolderOpen } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Play, Pause, Archive, FolderOpen, Loader2 } from 'lucide-react'
 import { getSwarm, getSwarmAgents, type Agent } from '@/lib/api'
 import AgentPanel from '@/components/AgentPanel'
 import FileBrowser from '@/components/FileBrowser'
 import { cn, getStatusColor } from '@/lib/utils'
+import { useAgentActivity } from '@/lib/AgentActivityContext'
 
 interface SwarmDetails {
   name: string
@@ -29,6 +30,10 @@ export default function SwarmPage() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [showFiles, setShowFiles] = useState(true)
+  const { getSwarmActiveCount } = useAgentActivity()
+
+  // Get active agent count for this swarm
+  const activeCount = getSwarmActiveCount(name)
 
   useEffect(() => {
     if (!name) return
@@ -93,6 +98,12 @@ export default function SwarmPage() {
               >
                 {swarm.status}
               </span>
+              {activeCount > 0 && (
+                <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  {activeCount} active
+                </span>
+              )}
             </div>
             <p className="text-zinc-500">{swarm.description || 'No description'}</p>
           </div>
@@ -159,10 +170,17 @@ export default function SwarmPage() {
 
       {/* Agents */}
       <div className="mb-8">
-        <h2 className="text-lg font-semibold text-white mb-4">Agents</h2>
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="text-lg font-semibold text-white">Agents</h2>
+          {activeCount > 0 && (
+            <span className="text-xs text-amber-400">
+              {activeCount} working
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {agents.map((agent) => (
-            <AgentPanel key={agent.name} agent={agent} />
+            <AgentPanel key={agent.name} agent={agent} swarmName={name} />
           ))}
         </div>
       </div>
