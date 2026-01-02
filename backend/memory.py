@@ -66,135 +66,106 @@ class MemoryManager:
     # Context Loading Methods
     # =========================================================================
 
-    def load_coo_context(self) -> str:
+    def load_coo_context(self, max_chars: int = 4000) -> str:
         """
         Load context for the COO (Supreme Orchestrator).
 
-        Returns comprehensive organizational context including:
-        - Full vision and priorities
-        - Recent decisions
-        - All swarm summaries
-        - Cross-swarm dependencies
+        Returns concise organizational context including:
+        - Vision summary
+        - Current priorities (condensed)
+        - Swarm summaries
+
+        Limited to max_chars to prevent slow responses.
         """
         sections = []
 
-        # Core organizational context
+        # Vision - just the summary
         vision = self._read_file(self.memory_path / "core" / "vision.md")
         if vision:
-            sections.append("# ORGANIZATIONAL MEMORY\n")
-            sections.append(vision)
+            sections.append("# ORGANIZATIONAL CONTEXT\n")
+            sections.append(self._extract_summary(vision))
 
+        # Priorities - condensed
         priorities = self._read_file(self.memory_path / "core" / "priorities.md")
         if priorities:
-            sections.append("\n---\n")
-            sections.append(priorities)
+            sections.append("\n## Current Priorities")
+            # Extract just the priority headers and status
+            lines = priorities.split('\n')
+            priority_lines = [l for l in lines if l.startswith('## Priority') or l.startswith('**')][:10]
+            sections.append('\n'.join(priority_lines[:200]))
 
-        decisions = self._read_file(self.memory_path / "core" / "decisions.md")
-        if decisions:
-            sections.append("\n---\n## Recent Decisions\n")
-            sections.append(self._extract_recent_entries(decisions, 5))
-
-        # Cross-swarm context
-        cross = self._read_file(self.memory_path / "swarms" / "cross_swarm.md")
-        if cross:
-            sections.append("\n---\n")
-            sections.append(cross)
-
-        # Swarm summaries
+        # Swarm summaries only
         swarms_dir = self.memory_path / "swarms"
         swarm_summaries = []
-        for swarm_dir in swarms_dir.iterdir():
-            if swarm_dir.is_dir() and swarm_dir.name != "sessions":
+        for swarm_dir in sorted(swarms_dir.iterdir()):
+            if swarm_dir.is_dir() and swarm_dir.name not in ["sessions", "cross_swarm.md"]:
                 context_file = swarm_dir / "context.md"
                 if context_file.exists():
                     content = self._read_file(context_file)
                     summary = self._extract_summary(content)
-                    swarm_summaries.append(f"### {swarm_dir.name}\n{summary}")
+                    if summary:
+                        swarm_summaries.append(f"**{swarm_dir.name}**: {summary[:150]}")
 
         if swarm_summaries:
-            sections.append("\n---\n## Swarm Summaries\n")
-            sections.append("\n\n".join(swarm_summaries))
+            sections.append("\n## Swarms\n" + "\n".join(swarm_summaries))
 
-        return "\n".join(sections)
+        result = "\n".join(sections)
+        # Hard limit
+        if len(result) > max_chars:
+            result = result[:max_chars] + "\n...[context truncated]"
+        return result
 
-    def load_swarm_orchestrator_context(self, swarm_name: str) -> str:
+    def load_swarm_orchestrator_context(self, swarm_name: str, max_chars: int = 3000) -> str:
         """
         Load context for a swarm orchestrator.
-
-        Returns:
-        - Vision summary
-        - Swarm's section of priorities
-        - Full swarm context and progress
-        - Recent history
-        - Relevant cross-swarm dependencies
+        Limited to max_chars for performance.
         """
         sections = []
         swarm_path = self.memory_path / "swarms" / swarm_name
 
-        # Vision summary
-        vision = self._read_file(self.memory_path / "core" / "vision.md")
-        if vision:
-            sections.append("# MEMORY CONTEXT\n")
-            sections.append("## Organization Summary\n")
-            sections.append(self._extract_summary(vision))
-
-        # Full swarm context
+        # Swarm context summary
         context = self._read_file(swarm_path / "context.md")
         if context:
-            sections.append("\n---\n")
-            sections.append(context)
-
-        # Progress
-        progress = self._read_file(swarm_path / "progress.md")
-        if progress:
-            sections.append("\n---\n")
-            sections.append(progress)
-
-        # Recent history
-        history = self._read_file(swarm_path / "history.md")
-        if history:
-            sections.append("\n---\n## Recent Sessions\n")
-            sections.append(self._extract_recent_entries(history, 3))
-
-        # Cross-swarm dependencies (filtered for this swarm)
-        cross = self._read_file(self.memory_path / "swarms" / "cross_swarm.md")
-        if cross and swarm_name in cross:
-            sections.append("\n---\n## Cross-Swarm Dependencies\n")
-            sections.append(cross)
-
-        return "\n".join(sections)
-
-    def load_agent_context(self, swarm_name: str, agent_name: str) -> str:
-        """
-        Load context for an individual agent.
-
-        Returns:
-        - Swarm mission and current focus
-        - Active work from progress
-        """
-        sections = []
-        swarm_path = self.memory_path / "swarms" / swarm_name
-
-        # Swarm context (mission and current focus only)
-        context = self._read_file(swarm_path / "context.md")
-        if context:
-            # Extract just mission and current focus
-            sections.append("# SWARM CONTEXT\n")
-            mission_match = re.search(r'## Mission\s*\n(.*?)(?=\n##|\Z)', context, re.DOTALL)
-            if mission_match:
-                sections.append("## Mission\n" + mission_match.group(1).strip())
+            sections.append(f"# {swarm_name} Context\n")
+            sections.append(self._extract_summary(context))
+            # Also include current focus
             focus_match = re.search(r'## Current Focus\s*\n(.*?)(?=\n##|\Z)', context, re.DOTALL)
             if focus_match:
-                sections.append("\n## Current Focus\n" + focus_match.group(1).strip())
+                sections.append("\n## Current Focus\n" + focus_match.group(1).strip()[:300])
 
-        # Active work from progress
+        # Progress - just active work
         progress = self._read_file(swarm_path / "progress.md")
         if progress:
             active_match = re.search(r'## Active Work\s*\n(.*?)(?=\n##|\Z)', progress, re.DOTALL)
             if active_match:
-                sections.append("\n## Active Work\n" + active_match.group(1).strip())
+                sections.append("\n## Active Work\n" + active_match.group(1).strip()[:400])
 
-        return "\n".join(sections)
+        result = "\n".join(sections)
+        if len(result) > max_chars:
+            result = result[:max_chars] + "\n...[truncated]"
+        return result
+
+    def load_agent_context(self, swarm_name: str, agent_name: str, max_chars: int = 1500) -> str:
+        """
+        Load minimal context for an individual agent.
+        Very limited to keep agent prompts fast.
+        """
+        sections = []
+        swarm_path = self.memory_path / "swarms" / swarm_name
+
+        context = self._read_file(swarm_path / "context.md")
+        if context:
+            # Just mission
+            mission_match = re.search(r'## Mission\s*\n(.*?)(?=\n##|\Z)', context, re.DOTALL)
+            if mission_match:
+                sections.append("**Mission**: " + mission_match.group(1).strip()[:200])
+            # Current focus
+            focus_match = re.search(r'## Current Focus\s*\n(.*?)(?=\n##|\Z)', context, re.DOTALL)
+            if focus_match:
+                sections.append("**Focus**: " + focus_match.group(1).strip()[:200])
+
+        result = "\n".join(sections)
+        return result[:max_chars] if len(result) > max_chars else result
 
     def load_vp_context(self) -> str:
         """
