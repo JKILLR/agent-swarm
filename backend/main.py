@@ -8,6 +8,8 @@ import logging
 import os
 import subprocess
 import sys
+import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -107,6 +109,143 @@ class HealthResponse(BaseModel):
     status: str
     swarm_count: int
     agent_count: int
+
+
+# Chat History Models
+class ChatMessageModel(BaseModel):
+    id: str
+    role: str  # "user" or "assistant"
+    content: str
+    timestamp: str
+    agent: Optional[str] = None
+    thinking: Optional[str] = None
+
+
+class ChatSession(BaseModel):
+    id: str
+    title: str
+    swarm: Optional[str] = None
+    created_at: str
+    updated_at: str
+    messages: List[ChatMessageModel] = []
+
+
+class ChatHistoryManager:
+    """Manages chat history storage on disk."""
+
+    def __init__(self, base_path: Path):
+        self.chat_dir = base_path / "logs" / "chat"
+        self.chat_dir.mkdir(parents=True, exist_ok=True)
+
+    def _session_path(self, session_id: str) -> Path:
+        return self.chat_dir / f"{session_id}.json"
+
+    def list_sessions(self) -> List[Dict[str, Any]]:
+        """List all chat sessions (without full messages)."""
+        sessions = []
+        for file in sorted(self.chat_dir.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True):
+            try:
+                data = json.loads(file.read_text())
+                # Return summary without full messages
+                sessions.append({
+                    "id": data["id"],
+                    "title": data.get("title", "Untitled"),
+                    "swarm": data.get("swarm"),
+                    "created_at": data.get("created_at"),
+                    "updated_at": data.get("updated_at"),
+                    "message_count": len(data.get("messages", [])),
+                })
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.warning(f"Failed to read chat session {file}: {e}")
+        return sessions
+
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Get a chat session with all messages."""
+        path = self._session_path(session_id)
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text())
+        except json.JSONDecodeError:
+            return None
+
+    def create_session(self, swarm: Optional[str] = None, title: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new chat session."""
+        session_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+        session = {
+            "id": session_id,
+            "title": title or f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "swarm": swarm,
+            "created_at": now,
+            "updated_at": now,
+            "messages": [],
+        }
+        self._save_session(session)
+        return session
+
+    def add_message(self, session_id: str, role: str, content: str,
+                    agent: Optional[str] = None, thinking: Optional[str] = None) -> Dict[str, Any]:
+        """Add a message to a session."""
+        session = self.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        message = {
+            "id": str(uuid.uuid4()),
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now().isoformat(),
+            "agent": agent,
+            "thinking": thinking,
+        }
+        session["messages"].append(message)
+        session["updated_at"] = datetime.now().isoformat()
+
+        # Auto-update title from first user message if still default
+        if role == "user" and len(session["messages"]) == 1:
+            session["title"] = content[:50] + ("..." if len(content) > 50 else "")
+
+        self._save_session(session)
+        return message
+
+    def update_session(self, session_id: str, **kwargs) -> Optional[Dict[str, Any]]:
+        """Update session metadata (title, swarm, etc.)."""
+        session = self.get_session(session_id)
+        if not session:
+            return None
+
+        for key in ["title", "swarm"]:
+            if key in kwargs:
+                session[key] = kwargs[key]
+        session["updated_at"] = datetime.now().isoformat()
+        self._save_session(session)
+        return session
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a chat session."""
+        path = self._session_path(session_id)
+        if path.exists():
+            path.unlink()
+            return True
+        return False
+
+    def _save_session(self, session: Dict[str, Any]):
+        """Save session to disk."""
+        path = self._session_path(session["id"])
+        path.write_text(json.dumps(session, indent=2))
+
+
+# Global chat history manager
+chat_history: Optional[ChatHistoryManager] = None
+
+
+def get_chat_history() -> ChatHistoryManager:
+    """Get or create the chat history manager."""
+    global chat_history
+    if chat_history is None:
+        chat_history = ChatHistoryManager(PROJECT_ROOT)
+    return chat_history
 
 
 # REST Endpoints
@@ -473,6 +612,79 @@ async def delete_file(name: str, path: str) -> Dict[str, Any]:
         "success": True,
         "path": path,
     }
+
+
+# Chat History Endpoints
+@app.get("/api/chat/sessions")
+async def list_chat_sessions() -> List[Dict[str, Any]]:
+    """List all chat sessions."""
+    history = get_chat_history()
+    return history.list_sessions()
+
+
+@app.post("/api/chat/sessions")
+async def create_chat_session(
+    swarm: Optional[str] = None,
+    title: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create a new chat session."""
+    history = get_chat_history()
+    return history.create_session(swarm=swarm, title=title)
+
+
+@app.get("/api/chat/sessions/{session_id}")
+async def get_chat_session(session_id: str) -> Dict[str, Any]:
+    """Get a chat session with all messages."""
+    history = get_chat_history()
+    session = history.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    return session
+
+
+@app.put("/api/chat/sessions/{session_id}")
+async def update_chat_session(
+    session_id: str,
+    title: Optional[str] = None,
+    swarm: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Update chat session metadata."""
+    history = get_chat_history()
+    kwargs = {}
+    if title is not None:
+        kwargs["title"] = title
+    if swarm is not None:
+        kwargs["swarm"] = swarm
+
+    session = history.update_session(session_id, **kwargs)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    return session
+
+
+@app.delete("/api/chat/sessions/{session_id}")
+async def delete_chat_session(session_id: str) -> Dict[str, Any]:
+    """Delete a chat session."""
+    history = get_chat_history()
+    if history.delete_session(session_id):
+        return {"success": True, "id": session_id}
+    raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+
+@app.post("/api/chat/sessions/{session_id}/messages")
+async def add_chat_message(
+    session_id: str,
+    role: str,
+    content: str,
+    agent: Optional[str] = None,
+    thinking: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Add a message to a chat session."""
+    history = get_chat_history()
+    try:
+        return history.add_message(session_id, role, content, agent, thinking)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # WebSocket for streaming chat
