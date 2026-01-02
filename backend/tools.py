@@ -24,6 +24,178 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
+# =============================================================================
+# Error Recovery System
+# =============================================================================
+
+class RetryableError(Exception):
+    """Error that should trigger a retry."""
+    pass
+
+
+class NonRetryableError(Exception):
+    """Error that should NOT be retried."""
+    pass
+
+
+# Errors that are safe to retry (transient failures)
+RETRYABLE_ERRORS = (
+    TimeoutError,
+    asyncio.TimeoutError,
+    ConnectionError,
+    ConnectionRefusedError,
+    ConnectionResetError,
+    BrokenPipeError,
+    OSError,  # Includes network errors
+    RetryableError,
+)
+
+# Error messages that indicate retryable conditions
+RETRYABLE_PATTERNS = [
+    "rate limit",
+    "too many requests",
+    "429",
+    "503",
+    "502",
+    "connection refused",
+    "connection reset",
+    "timeout",
+    "temporarily unavailable",
+    "overloaded",
+]
+
+
+def is_retryable_error(error: Exception) -> bool:
+    """Determine if an error should trigger a retry."""
+    # Check exception type
+    if isinstance(error, RETRYABLE_ERRORS):
+        return True
+    if isinstance(error, NonRetryableError):
+        return False
+
+    # Check error message for retryable patterns
+    error_msg = str(error).lower()
+    return any(pattern in error_msg for pattern in RETRYABLE_PATTERNS)
+
+
+async def with_retry(
+    func: Callable[..., Awaitable[Any]],
+    *args,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 30.0,
+    operation_name: str = "operation",
+    **kwargs,
+) -> Any:
+    """
+    Execute an async function with exponential backoff retry.
+
+    Args:
+        func: Async function to execute
+        max_retries: Maximum number of retry attempts
+        base_delay: Initial delay between retries (seconds)
+        max_delay: Maximum delay between retries (seconds)
+        operation_name: Name for logging purposes
+
+    Returns:
+        Result of the function
+
+    Raises:
+        The last exception if all retries fail
+    """
+    last_error = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            last_error = e
+
+            # Don't retry non-retryable errors
+            if not is_retryable_error(e):
+                logger.warning(f"{operation_name} failed (non-retryable): {e}")
+                raise
+
+            # Don't retry if we've exhausted attempts
+            if attempt >= max_retries:
+                logger.error(f"{operation_name} failed after {max_retries + 1} attempts: {e}")
+                raise
+
+            # Calculate delay with exponential backoff and jitter
+            delay = min(base_delay * (2 ** attempt), max_delay)
+            # Add jitter (±25%)
+            import random
+            delay = delay * (0.75 + random.random() * 0.5)
+
+            logger.warning(
+                f"{operation_name} failed (attempt {attempt + 1}/{max_retries + 1}), "
+                f"retrying in {delay:.1f}s: {e}"
+            )
+            await asyncio.sleep(delay)
+
+    # Should never reach here, but just in case
+    raise last_error
+
+
+async def run_git_with_retry(
+    cmd: List[str],
+    cwd: str,
+    max_retries: int = 3,
+    operation_name: str = "git operation"
+) -> subprocess.CompletedProcess:
+    """
+    Run a git command with retry for network operations.
+
+    Network-related git operations (push, pull, fetch) can fail transiently.
+    This wrapper provides automatic retry with exponential backoff.
+    """
+    import random
+
+    last_error = None
+    for attempt in range(max_retries + 1):
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True
+        )
+
+        # Success
+        if result.returncode == 0:
+            return result
+
+        # Check if error is retryable (network-related)
+        error_msg = (result.stderr or "").lower()
+        retryable_errors = [
+            "could not resolve host",
+            "connection refused",
+            "connection timed out",
+            "network is unreachable",
+            "unable to access",
+            "ssl",
+            "couldn't connect",
+            "failed to connect",
+        ]
+
+        is_retryable = any(err in error_msg for err in retryable_errors)
+
+        if not is_retryable or attempt >= max_retries:
+            # Return the failed result for non-retryable errors or exhausted retries
+            return result
+
+        # Calculate delay with exponential backoff and jitter
+        delay = min(1.0 * (2 ** attempt), 30.0)
+        delay = delay * (0.75 + random.random() * 0.5)
+
+        logger.warning(
+            f"{operation_name} failed (attempt {attempt + 1}/{max_retries + 1}), "
+            f"retrying in {delay:.1f}s: {result.stderr[:100]}"
+        )
+        await asyncio.sleep(delay)
+
+    return result
+
+
 def get_tool_definitions() -> List[Dict[str, Any]]:
     """Get tool definitions for Claude API."""
     return [
@@ -533,22 +705,43 @@ Use tools to actually accomplish work - don't just describe what you would do.
         prompt: str,
         workspace: Path,
     ) -> str:
-        """Run a subagent using Claude CLI (Max subscription) or API fallback."""
+        """Run a subagent using Claude CLI (Max subscription) or API fallback with retry."""
 
-        # Try Claude CLI first (uses Max subscription)
+        async def attempt_subagent():
+            # Try Claude CLI first (uses Max subscription)
+            try:
+                result = await self._run_subagent_cli(prompt, workspace)
+                if result:
+                    return result
+            except asyncio.TimeoutError:
+                # Timeout is retryable
+                raise RetryableError(f"Subagent timed out after 5 minutes")
+            except Exception as e:
+                error_msg = str(e).lower()
+                # Check if it's a retryable error
+                if any(p in error_msg for p in ["rate limit", "overloaded", "503", "429"]):
+                    raise RetryableError(f"CLI subagent transient failure: {e}")
+                logger.warning(f"CLI subagent failed: {e}")
+
+            # Fall back to API if available
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            if api_key:
+                return await self._run_subagent_api(prompt, workspace)
+
+            raise NonRetryableError("Subagent execution failed - CLI not available and no API key set")
+
         try:
-            result = await self._run_subagent_cli(prompt, workspace)
-            if result:
-                return result
+            return await with_retry(
+                attempt_subagent,
+                max_retries=2,
+                base_delay=2.0,
+                max_delay=30.0,
+                operation_name=f"Subagent({agent_name})"
+            )
+        except NonRetryableError as e:
+            return f"[{str(e)}]"
         except Exception as e:
-            logger.warning(f"CLI subagent failed: {e}")
-
-        # Fall back to API if available
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if api_key:
-            return await self._run_subagent_api(prompt, workspace)
-
-        return f"[Subagent execution failed - CLI not available and no API key set]"
+            return f"[Subagent failed after retries: {str(e)}]"
 
     async def _run_subagent_cli(self, prompt: str, workspace: Path) -> str:
         """Run subagent via Claude CLI (uses Max subscription)."""
@@ -863,14 +1056,14 @@ Use tools to actually accomplish work - don't just describe what you would do.
         return "\n".join(result)
 
     async def _execute_web_search(self, input: Dict[str, Any]) -> str:
-        """Search the web using DuckDuckGo."""
+        """Search the web using DuckDuckGo with retry on transient failures."""
         query = input.get("query", "")
         num_results = min(input.get("num_results", 5), 10)
 
         if not query:
             return "Error: No search query provided"
 
-        try:
+        async def do_search():
             # Use DuckDuckGo HTML search (no API key needed)
             encoded_query = urllib.parse.quote(query)
             url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
@@ -882,8 +1075,21 @@ Use tools to actually accomplish work - don't just describe what you would do.
                 }
             )
 
-            with urllib.request.urlopen(req, timeout=10) as response:
-                html = response.read().decode("utf-8")
+            # Run blocking call in thread pool
+            loop = asyncio.get_event_loop()
+            response_data = await loop.run_in_executor(
+                None,
+                lambda: urllib.request.urlopen(req, timeout=15).read().decode("utf-8")
+            )
+            return response_data
+
+        try:
+            html = await with_retry(
+                do_search,
+                max_retries=3,
+                base_delay=1.0,
+                operation_name=f"WebSearch({query[:30]})"
+            )
 
             # Parse search results from HTML
             results = []
@@ -913,7 +1119,7 @@ Use tools to actually accomplish work - don't just describe what you would do.
             return f"Error searching web: {str(e)}"
 
     async def _execute_web_fetch(self, input: Dict[str, Any]) -> str:
-        """Fetch content from a URL."""
+        """Fetch content from a URL with retry on transient failures."""
         url = input.get("url", "")
         extract_text = input.get("extract_text", True)
 
@@ -923,7 +1129,7 @@ Use tools to actually accomplish work - don't just describe what you would do.
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
 
-        try:
+        async def do_fetch():
             req = urllib.request.Request(
                 url,
                 headers={
@@ -931,8 +1137,21 @@ Use tools to actually accomplish work - don't just describe what you would do.
                 }
             )
 
-            with urllib.request.urlopen(req, timeout=15) as response:
-                content = response.read().decode("utf-8", errors="replace")
+            # Run blocking call in thread pool
+            loop = asyncio.get_event_loop()
+            content = await loop.run_in_executor(
+                None,
+                lambda: urllib.request.urlopen(req, timeout=15).read().decode("utf-8", errors="replace")
+            )
+            return content
+
+        try:
+            content = await with_retry(
+                do_fetch,
+                max_retries=3,
+                base_delay=1.0,
+                operation_name=f"WebFetch({url[:40]})"
+            )
 
             if extract_text:
                 # Simple HTML to text conversion
@@ -945,7 +1164,10 @@ Use tools to actually accomplish work - don't just describe what you would do.
             return f"**Content from {url}:**\n\n{content}"
 
         except urllib.error.HTTPError as e:
-            return f"HTTP Error {e.code}: {e.reason}"
+            # 4xx errors are not retryable (except 429)
+            if 400 <= e.code < 500 and e.code != 429:
+                return f"HTTP Error {e.code}: {e.reason}"
+            raise  # Let retry handle it
         except urllib.error.URLError as e:
             return f"URL Error: {e.reason}"
         except Exception as e:
@@ -1167,21 +1389,21 @@ Image path: {path}
 
             results.append(f"Committed: {message}")
 
-            # Push to origin
-            push_result = subprocess.run(
+            # Push to origin with retry for network failures
+            push_result = await run_git_with_retry(
                 ["git", "push", "-u", "origin", branch],
                 cwd=str(PROJECT_ROOT),
-                capture_output=True,
-                text=True
+                max_retries=3,
+                operation_name=f"git push {branch}"
             )
 
             if push_result.returncode != 0:
-                # Try force push if upstream doesn't exist
-                push_result = subprocess.run(
+                # Try set-upstream if first push failed
+                push_result = await run_git_with_retry(
                     ["git", "push", "--set-upstream", "origin", branch],
                     cwd=str(PROJECT_ROOT),
-                    capture_output=True,
-                    text=True
+                    max_retries=3,
+                    operation_name=f"git push --set-upstream {branch}"
                 )
 
             if push_result.returncode == 0:
@@ -1198,20 +1420,23 @@ Image path: {path}
             return f"Error: {str(e)}"
 
     async def _execute_git_sync(self, input: Dict[str, Any]) -> str:
-        """Sync local repository with remote main branch."""
+        """Sync local repository with remote main branch with retry for network ops."""
         branch = input.get("branch", "main")
 
         try:
             results = []
 
-            # Fetch latest
-            fetch_result = subprocess.run(
+            # Fetch latest with retry
+            fetch_result = await run_git_with_retry(
                 ["git", "fetch", "origin", branch],
                 cwd=str(PROJECT_ROOT),
-                capture_output=True,
-                text=True
+                max_retries=3,
+                operation_name=f"git fetch {branch}"
             )
-            results.append(f"Fetched origin/{branch}")
+            if fetch_result.returncode == 0:
+                results.append(f"Fetched origin/{branch}")
+            else:
+                results.append(f"Fetch warning: {fetch_result.stderr}")
 
             # Get current branch
             current = subprocess.run(
@@ -1234,12 +1459,12 @@ Image path: {path}
                     return f"Could not checkout {branch}: {checkout.stderr}"
                 results.append(f"Switched to {branch}")
 
-            # Pull latest
-            pull_result = subprocess.run(
+            # Pull latest with retry
+            pull_result = await run_git_with_retry(
                 ["git", "pull", "origin", branch],
                 cwd=str(PROJECT_ROOT),
-                capture_output=True,
-                text=True
+                max_retries=3,
+                operation_name=f"git pull {branch}"
             )
 
             if pull_result.returncode == 0:
