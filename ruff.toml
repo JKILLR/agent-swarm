@@ -1,0 +1,48 @@
+# Ruff configuration for agent-swarm
+
+# Target Python 3.10+
+target-version = "py310"
+
+# Line length
+line-length = 120
+
+# Include/exclude patterns
+include = ["*.py"]
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "*.pyc",
+    "node_modules",
+    # Exclude swarm workspaces (user code, not ours)
+    "**/workspace/**",
+    "swarms/*/workspace",
+]
+
+[lint]
+# Enable common checks
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+]
+
+# Ignore specific rules
+ignore = [
+    "E501",   # line too long (handled by line-length)
+    "B008",   # function call in default argument
+    "B904",   # raise without from inside except
+    "E402",   # module level import not at top of file
+]
+
+# Allow unused variables when underscore-prefixed
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[lint.per-file-ignores]
+# Tests can have more relaxed rules
+"tests/*" = ["B", "C4"]

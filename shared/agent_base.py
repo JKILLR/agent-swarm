@@ -2,33 +2,29 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
 import yaml
 
 # Import the real agent executor
-from .agent_executor import execute_agent, stream_agent, ExecutionResult
+from .agent_executor import stream_agent
 
 # Check if execution is available (API key or CLI)
-import os
-CLAUDE_SDK_AVAILABLE = bool(
-    os.environ.get("ANTHROPIC_API_KEY") or
-    os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
-)
+CLAUDE_SDK_AVAILABLE = bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"))
 
 
 logger = logging.getLogger(__name__)
 
 
 # Default tools by role
-ROLE_TOOLS: Dict[str, List[str]] = {
+ROLE_TOOLS: dict[str, list[str]] = {
     "orchestrator": ["Read", "Glob", "Bash"],
     "worker": ["Read", "Write", "Edit", "Bash", "Glob"],
     "critic": ["Read", "Glob"],
@@ -41,12 +37,12 @@ class AgentConfig:
 
     name: str
     role: str
-    model: str = "claude-sonnet-4-5-20250929"
-    system_prompt: Optional[str] = None
-    system_prompt_file: Optional[str] = None
-    tools: Optional[List[str]] = None
+    model: str = "claude-opus-4-5-20251101"
+    system_prompt: str | None = None
+    system_prompt_file: str | None = None
+    tools: list[str] | None = None
     max_turns: int = 25
-    settings: Dict[str, Any] = field(default_factory=dict)
+    settings: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Set default tools based on role if not specified."""
@@ -54,12 +50,12 @@ class AgentConfig:
             self.tools = ROLE_TOOLS.get(self.role, ["Read", "Glob"])
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AgentConfig":
+    def from_dict(cls, data: dict[str, Any]) -> AgentConfig:
         """Create AgentConfig from dictionary."""
         return cls(
             name=data.get("name", "unnamed"),
             role=data.get("role", "worker"),
-            model=data.get("model", "claude-sonnet-4-5-20250929"),
+            model=data.get("model", "claude-opus-4-5-20251101"),
             system_prompt=data.get("system_prompt"),
             system_prompt_file=data.get("system_prompt_file"),
             tools=data.get("tools"),
@@ -67,7 +63,7 @@ class AgentConfig:
             settings=data.get("settings", {}),
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -87,8 +83,8 @@ class BaseAgent:
     def __init__(
         self,
         config: AgentConfig,
-        swarm_path: Optional[Path] = None,
-        logs_dir: Optional[Path] = None,
+        swarm_path: Path | None = None,
+        logs_dir: Path | None = None,
     ) -> None:
         """Initialize the agent.
 
@@ -100,8 +96,8 @@ class BaseAgent:
         self.config = config
         self.swarm_path = swarm_path
         self.logs_dir = logs_dir or Path("./logs")
-        self.conversation_history: List[Dict[str, str]] = []
-        self._system_prompt: Optional[str] = None
+        self.conversation_history: list[dict[str, str]] = []
+        self._system_prompt: str | None = None
 
         # Ensure logs directory exists
         self.logs_dir.mkdir(parents=True, exist_ok=True)
@@ -167,7 +163,7 @@ class BaseAgent:
         self,
         prompt: str,
         response: str,
-        workspace: Optional[str] = None,
+        workspace: str | None = None,
     ) -> None:
         """Log conversation to file."""
         timestamp = datetime.now().isoformat()
@@ -191,7 +187,7 @@ class BaseAgent:
     async def run(
         self,
         prompt: str,
-        workspace: Optional[str] = None,
+        workspace: str | None = None,
     ) -> AsyncIterator[str]:
         """Run the agent with a prompt.
 
@@ -250,7 +246,7 @@ class BaseAgent:
     async def run_sync(
         self,
         prompt: str,
-        workspace: Optional[str] = None,
+        workspace: str | None = None,
     ) -> str:
         """Run the agent and return complete response.
 
@@ -266,7 +262,7 @@ class BaseAgent:
             chunks.append(chunk)
         return "".join(chunks)
 
-    def get_history(self) -> List[Dict[str, str]]:
+    def get_history(self) -> list[dict[str, str]]:
         """Get conversation history."""
         return self.conversation_history.copy()
 
@@ -280,8 +276,8 @@ class BaseAgent:
 
 def load_agent_from_yaml(
     yaml_path: Path,
-    swarm_path: Optional[Path] = None,
-    logs_dir: Optional[Path] = None,
+    swarm_path: Path | None = None,
+    logs_dir: Path | None = None,
 ) -> BaseAgent:
     """Load an agent from a YAML config file.
 

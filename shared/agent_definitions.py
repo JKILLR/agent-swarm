@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -25,8 +24,8 @@ class AgentDefinition:
 
     name: str
     description: str
-    prompt: Optional[str] = None
-    tools: List[str] = field(default_factory=list)
+    prompt: str | None = None
+    tools: list[str] = field(default_factory=list)
     model: str = "opus"
     agent_type: str = "worker"
     background: bool = False
@@ -43,7 +42,7 @@ class AgentDefinition:
             model=self.model,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -58,7 +57,7 @@ class AgentDefinition:
 
 
 # Base agent type definitions with default configurations
-AGENT_TYPES: Dict[str, AgentDefinition] = {
+AGENT_TYPES: dict[str, AgentDefinition] = {
     "orchestrator": AgentDefinition(
         name="orchestrator",
         description="Coordinates work. Spawns subagents in parallel via Task tool.",
@@ -152,7 +151,7 @@ AGENT_TYPES: Dict[str, AgentDefinition] = {
 }
 
 
-def parse_frontmatter(content: str) -> tuple[Dict[str, Any], str]:
+def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     """Parse YAML frontmatter from markdown content.
 
     Args:
@@ -180,7 +179,7 @@ def parse_frontmatter(content: str) -> tuple[Dict[str, Any], str]:
 def load_agent(
     agent_type: str,
     prompt_file: Path,
-    name: Optional[str] = None,
+    name: str | None = None,
 ) -> AgentDefinition:
     """Load an agent definition from a prompt file.
 
@@ -206,8 +205,7 @@ def load_agent(
         name=name or frontmatter.get("name", base.name),
         description=frontmatter.get("description", base.description),
         prompt=prompt,
-        tools=frontmatter.get("tools", base.tools) if isinstance(frontmatter.get("tools"), list)
-              else base.tools,
+        tools=frontmatter.get("tools", base.tools) if isinstance(frontmatter.get("tools"), list) else base.tools,
         model=frontmatter.get("model", base.model),
         agent_type=frontmatter.get("type", agent_type),
         background=frontmatter.get("background", base.background),
@@ -255,6 +253,6 @@ def get_agent_type(name: str) -> AgentDefinition:
     return AGENT_TYPES[name]
 
 
-def list_agent_types() -> List[str]:
+def list_agent_types() -> list[str]:
     """List all available agent types."""
     return list(AGENT_TYPES.keys())

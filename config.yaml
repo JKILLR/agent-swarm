@@ -8,13 +8,13 @@ system:
 
 # Model configuration by role
 models:
-  default: "claude-sonnet-4-5-20250929"
+  default: "claude-opus-4-5-20251101"
   orchestrator: "claude-opus-4-5-20251101"
-  worker: "claude-sonnet-4-5-20250929"
-  researcher: "claude-sonnet-4-5-20250929"
-  implementer: "claude-sonnet-4-5-20250929"
-  critic: "claude-sonnet-4-5-20250929"
-  monitor: "claude-haiku-4-5-20251001"
+  worker: "claude-opus-4-5-20251101"
+  researcher: "claude-opus-4-5-20251101"
+  implementer: "claude-opus-4-5-20251101"
+  critic: "claude-opus-4-5-20251101"
+  monitor: "claude-opus-4-5-20251101"
 
 # Supreme Orchestrator settings
 orchestrator:
