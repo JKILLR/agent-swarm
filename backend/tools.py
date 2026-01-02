@@ -281,12 +281,75 @@ Please complete this task. You have access to tools: Read, Write, Bash, Glob, Gr
         prompt: str,
         workspace: Path,
     ) -> str:
-        """Run a subagent using Claude API."""
-        import anthropic
+        """Run a subagent using Claude CLI (Max subscription) or API fallback."""
+
+        # Try Claude CLI first (uses Max subscription)
+        try:
+            result = await self._run_subagent_cli(prompt, workspace)
+            if result:
+                return result
+        except Exception as e:
+            logger.warning(f"CLI subagent failed: {e}")
+
+        # Fall back to API if available
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if api_key:
+            return await self._run_subagent_api(prompt, workspace)
+
+        return f"[Subagent execution failed - CLI not available and no API key set]"
+
+    async def _run_subagent_cli(self, prompt: str, workspace: Path) -> str:
+        """Run subagent via Claude CLI (uses Max subscription)."""
+        import asyncio
+
+        cmd = [
+            "claude",
+            "-p",  # Print mode
+            "--output-format", "json",
+            prompt,
+        ]
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(workspace) if workspace else None,
+        )
+
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(),
+            timeout=120.0  # 2 minute timeout for subagents
+        )
+
+        if process.returncode != 0:
+            error = stderr.decode() if stderr else "Unknown error"
+            raise RuntimeError(f"CLI failed: {error}")
+
+        # Parse JSON output
+        output = stdout.decode()
+        try:
+            import json
+            data = json.loads(output)
+            # Extract text from response
+            if isinstance(data, dict):
+                if "result" in data:
+                    return data["result"]
+                if "content" in data:
+                    return data["content"]
+            return output
+        except json.JSONDecodeError:
+            return output
+
+    async def _run_subagent_api(self, prompt: str, workspace: Path) -> str:
+        """Run subagent via Anthropic API (fallback)."""
+        try:
+            import anthropic
+        except ImportError:
+            return "[Anthropic SDK not installed]"
 
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
-            return "Error: ANTHROPIC_API_KEY not set"
+            return "[ANTHROPIC_API_KEY not set]"
 
         client = anthropic.Anthropic(api_key=api_key)
 

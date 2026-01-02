@@ -1202,33 +1202,58 @@ Remember: You are an EXECUTOR, not just an advisor. Use your tools to get things
 
                 user_message = message
 
-                # Try Anthropic SDK with agentic loop
-                api_key = os.environ.get("ANTHROPIC_API_KEY")
-                result = None
+                # Combine system prompt and user message for CLI
+                full_prompt = f"""{system_prompt}
 
-                if api_key and ANTHROPIC_AVAILABLE:
-                    logger.info("Using agentic chat with tools")
-                    try:
-                        result = await run_agentic_chat(
-                            system_prompt=system_prompt,
-                            user_message=user_message,
-                            websocket=websocket,
-                            manager=manager,
-                            orchestrator=orch,
-                        )
-                    except Exception as e:
-                        logger.error(f"Agentic chat error: {e}", exc_info=True)
-                        raise RuntimeError(f"Agentic chat failed: {e}")
+---
+
+**User request:** {user_message}"""
+
+                # Try Claude CLI first (uses Max subscription)
+                result = None
+                api_key = os.environ.get("ANTHROPIC_API_KEY")
+
+                logger.info("Starting Claude CLI for COO chat...")
+                try:
+                    process = await stream_claude_response(
+                        prompt=full_prompt,
+                        swarm_name=None,
+                        workspace=PROJECT_ROOT,
+                    )
+
+                    # Stream and parse the response
+                    result = await asyncio.wait_for(
+                        parse_claude_stream(process, websocket, manager),
+                        timeout=300.0,  # 5 minute timeout for complex tasks
+                    )
+                except asyncio.TimeoutError:
+                    if process:
+                        process.kill()
+                    raise RuntimeError("Claude CLI timed out after 5 minutes")
+                except Exception as e:
+                    logger.warning(f"Claude CLI failed: {e}")
+                    # Fall back to API if available
+                    if api_key and ANTHROPIC_AVAILABLE:
+                        logger.info("Falling back to Anthropic API...")
+                        try:
+                            result = await run_agentic_chat(
+                                system_prompt=system_prompt,
+                                user_message=user_message,
+                                websocket=websocket,
+                                manager=manager,
+                                orchestrator=orch,
+                            )
+                        except Exception as api_err:
+                            logger.error(f"API fallback also failed: {api_err}")
+                            raise RuntimeError(f"Both CLI and API failed. CLI error: {e}")
+                    else:
+                        raise
 
                 # Check if we got a result
                 if result is None:
                     raise RuntimeError(
-                        "**ANTHROPIC_API_KEY not set.**\n\n"
-                        "The agentic chat requires an API key.\n\n"
-                        "**To fix:**\n"
-                        "1. Get your API key from https://console.anthropic.com\n"
-                        "2. Create `backend/.env` with: `ANTHROPIC_API_KEY=your_key`\n"
-                        "3. Restart the backend server"
+                        "**Failed to get response.**\n\n"
+                        "Make sure Claude CLI is authenticated (run `claude` in terminal first)."
                     )
 
                 # Send the complete response
