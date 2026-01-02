@@ -8,19 +8,10 @@ from typing import Any
 
 import yaml
 
-try:
-    from claude_agent_sdk import AgentDefinition as SDKAgentDefinition
-except ImportError:
-    SDKAgentDefinition = None
-
 
 @dataclass
 class AgentDefinition:
-    """Definition of an agent's capabilities and configuration.
-
-    This wraps the Claude Agent SDK's AgentDefinition with additional
-    metadata for the swarm system.
-    """
+    """Definition of an agent's capabilities and configuration."""
 
     name: str
     description: str
@@ -30,17 +21,6 @@ class AgentDefinition:
     agent_type: str = "worker"
     background: bool = False
     wake_enabled: bool = False
-
-    def to_sdk_definition(self) -> Any:
-        """Convert to Claude Agent SDK AgentDefinition if available."""
-        if SDKAgentDefinition is None:
-            return self
-        return SDKAgentDefinition(
-            description=self.description,
-            prompt=self.prompt,
-            tools=self.tools,
-            model=self.model,
-        )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
