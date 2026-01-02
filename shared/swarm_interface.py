@@ -258,7 +258,7 @@ class Swarm(SwarmInterface):
                 agent_config = AgentConfig(
                     name=agent_name,
                     role=agent_def.get("role", self._infer_role(agent_name)),
-                    model=agent_def.get("model", "claude-sonnet-4-5-20250929"),
+                    model=agent_def.get("model", "claude-opus-4-5-20251101"),
                     system_prompt_file=prompt_file_path,
                     tools=agent_def.get("tools"),
                     max_turns=agent_def.get("max_turns", 25),

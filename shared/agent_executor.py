@@ -49,7 +49,7 @@ class AgentExecutor:
     def __init__(
         self,
         workspace: Path | None = None,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-opus-4-5-20251101",
         timeout: float = 300.0,
     ):
         """Initialize the executor.

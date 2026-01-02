@@ -756,7 +756,7 @@ Use tools to actually accomplish work - don't just describe what you would do.
         # Agentic loop for subagent (max 10 iterations)
         for _ in range(10):
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-opus-4-5-20251101",
                 max_tokens=4096,
                 tools=subagent_tools,
                 messages=messages,

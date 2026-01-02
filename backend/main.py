@@ -824,7 +824,7 @@ async def run_agentic_chat(
 
         # Make API call with tools
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-opus-4-5-20251101",
             max_tokens=8192,
             system=system_prompt,
             tools=tools,
@@ -928,7 +928,7 @@ async def stream_anthropic_response(
 
     # Use streaming
     with client.messages.stream(
-        model="claude-sonnet-4-20250514",
+        model="claude-opus-4-5-20251101",
         max_tokens=8192,
         messages=[{"role": "user", "content": prompt}],
     ) as stream:

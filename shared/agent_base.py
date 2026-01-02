@@ -37,7 +37,7 @@ class AgentConfig:
 
     name: str
     role: str
-    model: str = "claude-sonnet-4-5-20250929"
+    model: str = "claude-opus-4-5-20251101"
     system_prompt: str | None = None
     system_prompt_file: str | None = None
     tools: list[str] | None = None
@@ -55,7 +55,7 @@ class AgentConfig:
         return cls(
             name=data.get("name", "unnamed"),
             role=data.get("role", "worker"),
-            model=data.get("model", "claude-sonnet-4-5-20250929"),
+            model=data.get("model", "claude-opus-4-5-20251101"),
             system_prompt=data.get("system_prompt"),
             system_prompt_file=data.get("system_prompt_file"),
             tools=data.get("tools"),
