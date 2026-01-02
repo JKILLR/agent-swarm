@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -21,7 +22,19 @@ from pydantic import BaseModel
 # Add parent directory to path for imports
 BACKEND_DIR = Path(__file__).parent
 PROJECT_ROOT = BACKEND_DIR.parent
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(BACKEND_DIR / ".env")
+
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# Try to import Anthropic SDK
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
 
 from supreme.orchestrator import SupremeOrchestrator
 from shared.swarm_interface import load_swarm
@@ -529,6 +542,71 @@ def parse_agent_output(content: str) -> List[Dict[str, Any]]:
     return events if events else [{"agent": "Supreme Orchestrator", "agent_type": "orchestrator", "content": content}]
 
 
+async def stream_anthropic_response(
+    prompt: str,
+    websocket: WebSocket,
+    manager: "ConnectionManager",
+) -> dict:
+    """
+    Stream response using the Anthropic SDK (fallback when CLI doesn't work).
+    Requires ANTHROPIC_API_KEY environment variable.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+
+    if not ANTHROPIC_AVAILABLE:
+        raise RuntimeError("Anthropic SDK not installed")
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    full_response = ""
+    full_thinking = ""
+
+    # Use streaming
+    with client.messages.stream(
+        model="claude-sonnet-4-20250514",
+        max_tokens=8192,
+        messages=[{"role": "user", "content": prompt}],
+    ) as stream:
+        for event in stream:
+            if hasattr(event, 'type'):
+                if event.type == "content_block_start":
+                    block = event.content_block
+                    if hasattr(block, 'type') and block.type == "thinking":
+                        await manager.send_event(websocket, "thinking_start", {
+                            "agent": "Claude",
+                        })
+
+                elif event.type == "content_block_delta":
+                    delta = event.delta
+                    if hasattr(delta, 'type'):
+                        if delta.type == "thinking_delta":
+                            text = delta.thinking
+                            full_thinking += text
+                            await manager.send_event(websocket, "thinking_delta", {
+                                "agent": "Claude",
+                                "delta": text,
+                            })
+                        elif delta.type == "text_delta":
+                            text = delta.text
+                            full_response += text
+                            await manager.send_event(websocket, "agent_delta", {
+                                "agent": "Claude",
+                                "agent_type": "assistant",
+                                "delta": text,
+                            })
+
+                elif event.type == "content_block_stop":
+                    if full_thinking:
+                        await manager.send_event(websocket, "thinking_complete", {
+                            "agent": "Claude",
+                            "thinking": full_thinking,
+                        })
+
+    return {"response": full_response, "thinking": full_thinking}
+
+
 async def stream_claude_response(
     prompt: str,
     swarm_name: Optional[str] = None,
@@ -553,15 +631,25 @@ async def stream_claude_response(
     # Set working directory to workspace if specified
     cwd = str(workspace) if workspace else None
 
+    # Build environment with OAuth token for subprocess authentication
+    env = os.environ.copy()
+    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if oauth_token:
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+        logger.info("Claude CLI using OAuth token from environment")
+    else:
+        logger.warning("CLAUDE_CODE_OAUTH_TOKEN not set - CLI may fail to authenticate")
+
     logger.info(f"Starting Claude CLI in {cwd or 'current dir'}")
 
-    # Start the process
+    # Start the process with explicit environment
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdin=asyncio.subprocess.DEVNULL,  # Don't use stdin
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=cwd,
+        env=env,  # Pass environment with token
     )
 
     return process
@@ -681,6 +769,15 @@ async def parse_claude_stream(
         if stderr:
             error_msg = stderr.decode().strip()
             logger.error(f"Claude CLI error: {error_msg}")
+
+            # Check for common auth-related errors
+            if "401" in error_msg or "authentication" in error_msg.lower():
+                raise RuntimeError(f"401 Authentication failed: {error_msg}")
+            elif "403" in error_msg:
+                raise RuntimeError(f"403 Access denied: {error_msg}")
+            elif "/login" in error_msg:
+                raise RuntimeError(f"Authentication required: {error_msg}")
+
             raise RuntimeError(f"Claude CLI error: {error_msg}")
 
     return {"response": full_response, "thinking": full_thinking}
@@ -721,13 +818,6 @@ async def websocket_chat(websocket: WebSocket):
                     if swarm:
                         workspace = swarm.workspace
 
-                # Send initial acknowledgment message
-                await manager.send_event(websocket, "agent_delta", {
-                    "agent": "Claude",
-                    "agent_type": "assistant",
-                    "delta": "Processing your request...\n\n",
-                })
-
                 # Build context-aware prompt
                 if swarm_name and workspace:
                     full_prompt = f"""You are working in the context of the "{swarm_name}" swarm.
@@ -737,29 +827,42 @@ User request: {message}"""
                 else:
                     full_prompt = message
 
-                # Start claude CLI process
-                logger.info(f"Starting Claude CLI for prompt: {full_prompt[:100]}...")
-                process = await stream_claude_response(
-                    prompt=full_prompt,
-                    swarm_name=swarm_name,
-                    workspace=workspace,
-                )
+                # Try Anthropic SDK first if API key is available (more reliable)
+                api_key = os.environ.get("ANTHROPIC_API_KEY")
+                result = None
 
-                # Stream and parse the response with timeout (30 seconds for initial response)
-                try:
-                    result = await asyncio.wait_for(
-                        parse_claude_stream(process, websocket, manager),
-                        timeout=30.0,  # 30 second timeout for initial test
+                if api_key and ANTHROPIC_AVAILABLE:
+                    logger.info("Using Anthropic SDK with API key")
+                    try:
+                        result = await stream_anthropic_response(full_prompt, websocket, manager)
+                    except Exception as e:
+                        logger.error(f"Anthropic SDK error: {e}")
+                        # Fall through to try CLI
+
+                # Try Claude CLI if SDK didn't work
+                if result is None:
+                    logger.info(f"Starting Claude CLI for prompt: {full_prompt[:100]}...")
+                    process = await stream_claude_response(
+                        prompt=full_prompt,
+                        swarm_name=swarm_name,
+                        workspace=workspace,
                     )
-                except asyncio.TimeoutError:
-                    process.kill()
-                    raise RuntimeError(
-                        "Claude CLI timed out. This usually means authentication is not set up for subprocess mode.\n\n"
-                        "**To fix this:**\n"
-                        "1. Run `claude setup-token` in your terminal to create a long-lived auth token\n"
-                        "2. Restart the backend server\n\n"
-                        "Alternatively, you can set an API key in the environment variable ANTHROPIC_API_KEY"
-                    )
+
+                    # Stream and parse the response with timeout (30 seconds for initial response)
+                    try:
+                        result = await asyncio.wait_for(
+                            parse_claude_stream(process, websocket, manager),
+                            timeout=30.0,  # 30 second timeout for initial test
+                        )
+                    except asyncio.TimeoutError:
+                        process.kill()
+                        raise RuntimeError(
+                            "Claude CLI timed out. This usually means authentication is not set up for subprocess mode.\n\n"
+                            "**To fix this:**\n"
+                            "1. Run `claude setup-token` in your terminal to create a long-lived auth token\n"
+                            "2. Restart the backend server\n\n"
+                            "Or set ANTHROPIC_API_KEY environment variable to use the API directly."
+                        )
 
                 # Send the complete response
                 final_content = result["response"]
@@ -781,16 +884,35 @@ User request: {message}"""
             except Exception as e:
                 logger.error(f"Chat error: {e}", exc_info=True)
                 error_msg = str(e)
-                # Make error message user-friendly
+
+                # Make error message user-friendly with clear fix instructions
                 if "timed out" in error_msg.lower():
-                    pass  # Already has detailed message
+                    error_msg = (
+                        "**Claude CLI timed out.**\n\n"
+                        "This usually means the OAuth token is missing or invalid.\n\n"
+                        "**To fix:**\n"
+                        "1. Run `claude setup-token` in your terminal\n"
+                        "2. Copy the token it generates\n"
+                        "3. Create `backend/.env` with: `CLAUDE_CODE_OAUTH_TOKEN=your_token`\n"
+                        "4. Restart the backend server"
+                    )
+                elif "401" in error_msg or "authentication" in error_msg.lower() or "invalid" in error_msg.lower():
+                    error_msg = (
+                        "**Authentication failed.**\n\n"
+                        "Your OAuth token is invalid or expired.\n\n"
+                        "**To fix:**\n"
+                        "1. Run `claude setup-token` in your terminal\n"
+                        "2. Copy the new token\n"
+                        "3. Update `backend/.env` with: `CLAUDE_CODE_OAUTH_TOKEN=your_new_token`\n"
+                        "4. Restart the backend server"
+                    )
                 elif "permission" in error_msg.lower() or "auth" in error_msg.lower():
                     error_msg = f"Authentication error: {error_msg}\n\nRun `claude setup-token` to set up authentication."
 
                 await manager.send_event(websocket, "agent_complete", {
                     "agent": "Claude",
                     "agent_type": "assistant",
-                    "content": f"**Error:** {error_msg}",
+                    "content": error_msg,
                 })
                 await manager.send_event(websocket, "chat_complete", {
                     "success": False,
