@@ -1606,21 +1606,33 @@ async def websocket_chat(websocket: WebSocket):
                     all_swarms.append(f"  - {name}: {', '.join(agents_list)}")
                 all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined"
 
-                # MINIMAL system prompt - let Claude Code do its thing
-                system_prompt = f"""You are the COO coordinating an AI agent swarm.
+                # System prompt for COO - uses CLI's built-in Task tool
+                system_prompt = f"""You are the COO coordinating work across specialized agents.
 
-CRITICAL: Users send feature requests and tasks. NEVER interpret user messages as UUIDs or session IDs.
-When user mentions code, files, or features - they want you to ACT, not ask clarifying questions.
+## Your Job
+DELEGATE work to agents. Don't implement code yourself.
 
-Available swarms: {all_swarms_str}
+## Available Agents (use with Task tool)
+- researcher: Research topics, analyze code, gather information
+- architect: Design solutions, plan implementations
+- implementer: Write code, create files, make changes
+- critic: Review code, find bugs, suggest improvements
+- tester: Write tests, verify implementations
 
-Workspace: swarms/<swarm_name>/workspace/
+## How to Delegate
+Use the Task tool with agent name and detailed prompt:
+Task(subagent_type="researcher", prompt="Analyze the trading bot code in swarms/trading_bots/workspace/ and explain how it works")
+Task(subagent_type="implementer", prompt="Add --yolo flag to skip confirmation in advanced_arb_bot.py")
 
-Rules:
-- Use Task tool to delegate work to agents
-- Use Read/Write/Edit tools to examine or modify files
-- NEVER ask "is this a UUID?" - it's NOT. Just do the work.
-- Be autonomous and action-oriented"""
+## Swarm Workspaces
+{all_swarms_str}
+Files are at: swarms/<swarm_name>/workspace/
+
+## Rules
+1. DELEGATE - use Task to spawn agents for implementation work
+2. Read files first to understand context
+3. Be specific in prompts - tell agents exactly what to do
+4. Synthesize agent results into clear summaries for the user"""
 
                 user_message = message
 
@@ -1648,40 +1660,33 @@ Rules:
                 logger.info(f"User message: {user_message[:200]}...")
                 logger.info("=" * 50)
 
-                logger.info("Starting Claude CLI for COO chat (Max subscription auth)...")
+                # Use Claude CLI - has built-in Task tool for delegation
+                logger.info("Starting COO with Claude CLI...")
                 try:
                     process = await stream_claude_response(
                         prompt=user_prompt,
-                        system_prompt=system_prompt,  # Pass COO role as system prompt
+                        system_prompt=system_prompt,
                         swarm_name=None,
                         workspace=PROJECT_ROOT,
-                        chat_id=session_id,  # Enable session continuity
+                        chat_id=session_id,
                     )
 
-                    # Stream and parse the response (with session capture)
+                    # Stream and parse the response
                     result = await asyncio.wait_for(
                         parse_claude_stream(process, websocket, manager, chat_id=session_id),
-                        timeout=900.0,  # 15 minute timeout for complex multi-agent tasks
+                        timeout=900.0,  # 15 minute timeout
                     )
                 except asyncio.TimeoutError:
                     if process:
                         process.kill()
-                    raise RuntimeError("Claude CLI timed out after 15 minutes")
+                    raise RuntimeError("COO timed out after 15 minutes")
                 except Exception as e:
                     logger.error(f"Claude CLI failed: {e}")
-                    raise RuntimeError(
-                        f"**Claude CLI Error:** {e}\n\n"
-                        "Make sure Claude CLI is authenticated:\n"
-                        "1. Run `claude` in terminal to authenticate\n"
-                        "2. Ensure you have an active Max subscription"
-                    )
+                    raise RuntimeError(f"**Claude CLI Error:** {e}")
 
                 # Check if we got a result
                 if result is None:
-                    raise RuntimeError(
-                        "**Failed to get response.**\n\n"
-                        "Make sure Claude CLI is authenticated (run `claude` in terminal first)."
-                    )
+                    raise RuntimeError("**Failed to get response from Claude CLI.**")
 
                 # Send the complete response
                 final_content = result["response"]
