@@ -540,26 +540,28 @@ async def stream_claude_response(
     Uses 'claude -p --output-format stream-json' which outputs JSON lines
     that we can parse and stream to the frontend.
     """
-    # Build the command
-    cmd = ["claude", "-p", "--output-format", "stream-json"]
+    # Build the command with prompt as argument (more reliable than stdin)
+    cmd = [
+        "claude",
+        "-p",  # Print mode (non-interactive)
+        "--output-format", "stream-json",
+        "--permission-mode", "default",
+        prompt,  # Pass prompt as argument
+    ]
 
     # Set working directory to workspace if specified
     cwd = str(workspace) if workspace else None
 
+    logger.info(f"Starting Claude CLI in {cwd or 'current dir'}")
+
     # Start the process
     process = await asyncio.create_subprocess_exec(
         *cmd,
-        stdin=asyncio.subprocess.PIPE,
+        stdin=asyncio.subprocess.DEVNULL,  # Don't use stdin
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=cwd,
     )
-
-    # Write the prompt to stdin
-    if process.stdin:
-        process.stdin.write(prompt.encode())
-        await process.stdin.drain()
-        process.stdin.close()
 
     return process
 
@@ -718,6 +720,13 @@ async def websocket_chat(websocket: WebSocket):
                     if swarm:
                         workspace = swarm.workspace
 
+                # Send initial acknowledgment message
+                await manager.send_event(websocket, "agent_delta", {
+                    "agent": "Claude",
+                    "agent_type": "assistant",
+                    "delta": "Processing your request...\n\n",
+                })
+
                 # Build context-aware prompt
                 if swarm_name and workspace:
                     full_prompt = f"""You are working in the context of the "{swarm_name}" swarm.
@@ -728,21 +737,33 @@ User request: {message}"""
                     full_prompt = message
 
                 # Start claude CLI process
+                logger.info(f"Starting Claude CLI for prompt: {full_prompt[:100]}...")
                 process = await stream_claude_response(
                     prompt=full_prompt,
                     swarm_name=swarm_name,
                     workspace=workspace,
                 )
 
-                # Stream and parse the response
-                result = await parse_claude_stream(process, websocket, manager)
+                # Stream and parse the response with timeout
+                try:
+                    result = await asyncio.wait_for(
+                        parse_claude_stream(process, websocket, manager),
+                        timeout=300.0,  # 5 minute timeout
+                    )
+                except asyncio.TimeoutError:
+                    process.kill()
+                    raise RuntimeError("Claude CLI timed out after 5 minutes")
 
                 # Send the complete response
+                final_content = result["response"]
+                if not final_content:
+                    final_content = "(No response received from Claude CLI)"
+
                 await manager.send_event(websocket, "agent_complete", {
                     "agent": "Claude",
                     "agent_type": "assistant",
-                    "content": result["response"],
-                    "thinking": result["thinking"],
+                    "content": final_content,
+                    "thinking": result.get("thinking", ""),
                 })
 
                 # Send completion
@@ -751,9 +772,14 @@ User request: {message}"""
                 })
 
             except Exception as e:
-                logger.error(f"Chat error: {e}")
-                await manager.send_event(websocket, "error", {
-                    "message": str(e),
+                logger.error(f"Chat error: {e}", exc_info=True)
+                await manager.send_event(websocket, "agent_complete", {
+                    "agent": "Claude",
+                    "agent_type": "assistant",
+                    "content": f"Error: {str(e)}",
+                })
+                await manager.send_event(websocket, "chat_complete", {
+                    "success": False,
                 })
 
     except WebSocketDisconnect:
