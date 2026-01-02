@@ -325,7 +325,7 @@ Please complete this task. You have access to tools: Read, Write, Bash, Glob, Gr
 
         stdout, stderr = await asyncio.wait_for(
             process.communicate(),
-            timeout=120.0  # 2 minute timeout for subagents
+            timeout=300.0  # 5 minute timeout for subagents
         )
 
         if process.returncode != 0:
