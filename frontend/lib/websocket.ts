@@ -6,6 +6,9 @@ export type WebSocketEventType =
   | 'agent_delta'
   | 'agent_chunk'
   | 'agent_complete'
+  | 'thinking_start'
+  | 'thinking_delta'
+  | 'thinking_complete'
   | 'chat_complete'
   | 'error'
 
@@ -15,6 +18,7 @@ export interface WebSocketEvent {
   agent_type?: string
   content?: string
   delta?: string
+  thinking?: string
   message?: string
   success?: boolean
 }
