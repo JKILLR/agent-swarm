@@ -1233,21 +1233,29 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 logger.info(f"Captured session ID {session_id[:8]}... for chat {chat_id}")
 
         if event_type == "assistant":
-            # Final assistant message - content was already streamed via deltas
-            # Just accumulate for the final response, don't re-send deltas
+            # Assistant message in agentic loop - may have text, thinking, or tool_use blocks
             message = event.get("message", {})
             content_blocks = message.get("content", [])
             for block in content_blocks:
                 if block.get("type") == "thinking":
                     text = block.get("thinking", "")
-                    # Only set if we didn't get it from streaming
-                    if not context.get("full_thinking"):
-                        context["full_thinking"] = text
+                    if text:
+                        context["full_thinking"] = context.get("full_thinking", "") + text
                 elif block.get("type") == "text":
                     text = block.get("text", "")
-                    # Only set if we didn't get it from streaming
-                    if not context.get("full_response"):
-                        context["full_response"] = text
+                    if text:
+                        logger.info(f">>> TEXT block in assistant message, length: {len(text)}")
+                        # Always send text content - this is the COO's response
+                        await manager.send_event(
+                            websocket,
+                            "agent_delta",
+                            {
+                                "agent": "Supreme Orchestrator",
+                                "agent_type": "orchestrator",
+                                "delta": text,
+                            },
+                        )
+                        context["full_response"] = context.get("full_response", "") + text
                 elif block.get("type") == "tool_use":
                     # FALLBACK: Detect tool_use from final assistant message
                     # This catches tools that weren't streamed via content_block_start
@@ -1386,9 +1394,12 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 context["agent_spawn_sent"] = False
 
         elif event_type == "result":
-            # Final result from CLI - only use if we didn't stream content
+            # Final result from CLI - this should contain the complete response
             text = event.get("result", "")
-            if text and not context.get("full_response"):
+            logger.info(f">>> RESULT event received, text length: {len(text) if text else 0}")
+            if text:
+                # Always send the final result - this is the complete response
+                # Previous streaming may have only captured partial content
                 context["full_response"] = text
                 await manager.send_event(
                     websocket,
@@ -1595,24 +1606,33 @@ async def websocket_chat(websocket: WebSocket):
                     all_swarms.append(f"  - {name}: {', '.join(agents_list)}")
                 all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined"
 
-                # MINIMAL system prompt - let Claude Code do its thing
-                system_prompt = f"""You are the COO coordinating an AI agent swarm.
+                # System prompt for COO - uses CLI's built-in Task tool
+                system_prompt = f"""You are the COO coordinating work across specialized agents.
 
-When the user asks you to have a team do work, use the Task tool to delegate immediately.
+## Your Job
+DELEGATE work to agents. Don't implement code yourself.
 
-Available swarms and their agents:
+## Available Agents (use with Task tool)
+- researcher: Research topics, analyze code, gather information
+- architect: Design solutions, plan implementations
+- implementer: Write code, create files, make changes
+- critic: Review code, find bugs, suggest improvements
+- tester: Write tests, verify implementations
+
+## How to Delegate
+Use the Task tool with agent name and detailed prompt:
+Task(subagent_type="researcher", prompt="Analyze the trading bot code in swarms/trading_bots/workspace/ and explain how it works")
+Task(subagent_type="implementer", prompt="Add --yolo flag to skip confirmation in advanced_arb_bot.py")
+
+## Swarm Workspaces
 {all_swarms_str}
+Files are at: swarms/<swarm_name>/workspace/
 
-Workspace Structure:
-- Each swarm has a workspace at: swarms/<swarm_name>/workspace/
-- Paths like "/polymarket-arbitrage" refer to directories in a swarm's workspace
-- To read files, use the Read tool with paths like: swarms/trading_bots/workspace/polymarket-arbitrage/
-
-Rules:
-- Use Task tool to spawn agents, don't just describe
-- Use Read tool to examine files when user asks about them
-- Be autonomous - paths are file paths, NOT session IDs
-- Get work done, don't ask clarifying questions"""
+## Rules
+1. DELEGATE - use Task to spawn agents for implementation work
+2. Read files first to understand context
+3. Be specific in prompts - tell agents exactly what to do
+4. Synthesize agent results into clear summaries for the user"""
 
                 user_message = message
 
@@ -1640,40 +1660,33 @@ Rules:
                 logger.info(f"User message: {user_message[:200]}...")
                 logger.info("=" * 50)
 
-                logger.info("Starting Claude CLI for COO chat (Max subscription auth)...")
+                # Use Claude CLI - has built-in Task tool for delegation
+                logger.info("Starting COO with Claude CLI...")
                 try:
                     process = await stream_claude_response(
                         prompt=user_prompt,
-                        system_prompt=system_prompt,  # Pass COO role as system prompt
+                        system_prompt=system_prompt,
                         swarm_name=None,
                         workspace=PROJECT_ROOT,
-                        chat_id=session_id,  # Enable session continuity
+                        chat_id=session_id,
                     )
 
-                    # Stream and parse the response (with session capture)
+                    # Stream and parse the response
                     result = await asyncio.wait_for(
                         parse_claude_stream(process, websocket, manager, chat_id=session_id),
-                        timeout=900.0,  # 15 minute timeout for complex multi-agent tasks
+                        timeout=900.0,  # 15 minute timeout
                     )
                 except asyncio.TimeoutError:
                     if process:
                         process.kill()
-                    raise RuntimeError("Claude CLI timed out after 15 minutes")
+                    raise RuntimeError("COO timed out after 15 minutes")
                 except Exception as e:
                     logger.error(f"Claude CLI failed: {e}")
-                    raise RuntimeError(
-                        f"**Claude CLI Error:** {e}\n\n"
-                        "Make sure Claude CLI is authenticated:\n"
-                        "1. Run `claude` in terminal to authenticate\n"
-                        "2. Ensure you have an active Max subscription"
-                    )
+                    raise RuntimeError(f"**Claude CLI Error:** {e}")
 
                 # Check if we got a result
                 if result is None:
-                    raise RuntimeError(
-                        "**Failed to get response.**\n\n"
-                        "Make sure Claude CLI is authenticated (run `claude` in terminal first)."
-                    )
+                    raise RuntimeError("**Failed to get response from Claude CLI.**")
 
                 # Send the complete response
                 final_content = result["response"]
