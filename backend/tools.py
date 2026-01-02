@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Callable, Awaitable
 import logging
 
+from memory import get_memory_manager
+
 logger = logging.getLogger(__name__)
 
 # Project root for file operations
@@ -465,16 +467,32 @@ class ToolExecutor:
             "agent_type": agent.role,
         })
 
+        # Load memory context for the agent
+        memory = get_memory_manager()
+        if agent.role in ["orchestrator", "coordinator"]:
+            memory_context = memory.load_swarm_orchestrator_context(swarm_name.lower().replace(" ", "_"))
+        elif agent.role in ["vp", "vp_operations"]:
+            memory_context = memory.load_vp_context()
+        else:
+            memory_context = memory.load_agent_context(swarm_name.lower().replace(" ", "_"), agent_name)
+
         # Build context for the subagent
         agent_prompt = f"""You are {agent_name} in the {swarm_name} swarm.
 
 Your role: {agent.role}
 Workspace: {swarm.workspace}
 
+---
+
+{memory_context}
+
+---
+
 ## Task from orchestrator:
 {prompt}
 
-Please complete this task. You have access to tools: Read, Write, Bash, Glob, Grep.
+Please complete this task. You have access to tools: Read, Write, Edit, Bash, Glob, Grep, GitCommit, GitStatus.
+Use tools to actually accomplish work - don't just describe what you would do.
 """
 
         if background:
