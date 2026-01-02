@@ -1262,8 +1262,18 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                     tool_name = block.get("name", "unknown")
                     tool_input = block.get("input", {})
                     logger.info(f">>> FALLBACK tool_use detected in assistant message: {tool_name}")
+
+                    # Track which agent is active (for attribution)
+                    current_agent = context.get("current_subagent", "COO")
+                    if tool_name == "Task":
+                        # Extract subagent name from Task input
+                        subagent = tool_input.get("subagent_type") or tool_input.get("agent", "")
+                        if subagent:
+                            context["current_subagent"] = subagent
+                            current_agent = subagent
+
                     # Only send if we didn't already send via streaming
-                    if not context.get(f"sent_tool_{tool_name}"):
+                    if not context.get(f"sent_tool_{tool_name}_{id(block)}"):
                         await manager.send_event(
                             websocket,
                             "tool_start",
@@ -1271,6 +1281,7 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                                 "tool": tool_name,
                                 "description": _get_tool_description(tool_name, tool_input),
                                 "input": tool_input,
+                                "agentName": current_agent,
                             },
                         )
                         await manager.send_event(
@@ -1280,9 +1291,10 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                                 "tool": tool_name,
                                 "success": True,
                                 "summary": f"Completed: {tool_name}",
+                                "agentName": current_agent,
                             },
                         )
-                        context[f"sent_tool_{tool_name}"] = True
+                        context[f"sent_tool_{tool_name}_{id(block)}"] = True
 
         elif event_type == "content_block_start":
             content_block = event.get("content_block", {})
@@ -1300,6 +1312,16 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 tool_input = content_block.get("input", {})
                 context["current_tool"] = tool_name
                 logger.info(f">>> SENDING tool_start event (stream): {tool_name}")
+
+                # Track which agent is active (for attribution)
+                current_agent = context.get("current_subagent", "COO")
+                if tool_name == "Task":
+                    # Extract subagent name from Task input
+                    subagent = tool_input.get("subagent_type") or tool_input.get("agent", "")
+                    if subagent:
+                        context["current_subagent"] = subagent
+                        current_agent = subagent
+
                 # Mark as sent to avoid duplicate from fallback
                 context[f"sent_tool_{tool_name}"] = True
                 # Send tool_start event for real-time visibility
@@ -1310,6 +1332,7 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                         "tool": tool_name,
                         "description": _get_tool_description(tool_name, tool_input),
                         "input": tool_input,
+                        "agentName": current_agent,
                     },
                 )
 
@@ -1379,6 +1402,7 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
             elif block_type == "tool_use":
                 # Tool completed
                 tool_name = context.get("current_tool", "unknown")
+                current_agent = context.get("current_subagent", "COO")
                 await manager.send_event(
                     websocket,
                     "tool_complete",
@@ -1386,6 +1410,7 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                         "tool": tool_name,
                         "success": True,
                         "summary": f"Completed: {tool_name}",
+                        "agentName": current_agent,
                     },
                 )
                 # Reset tool context

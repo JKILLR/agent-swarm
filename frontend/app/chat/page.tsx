@@ -158,7 +158,7 @@ export default function ChatPage() {
           break
 
         case 'tool_start':
-          // Add new tool activity
+          // Add new tool activity with agent attribution
           setToolActivities((prev) => [
             ...prev,
             {
@@ -167,6 +167,7 @@ export default function ChatPage() {
               description: event.description || '',
               status: 'running',
               timestamp: new Date(),
+              agentName: event.agentName,
             },
           ])
           // Update COO status to working when tools are used
@@ -194,6 +195,7 @@ export default function ChatPage() {
               status: event.success ? 'complete' : 'error',
               summary: event.summary,
               endTime: new Date(),
+              agentName: event.agentName || updated[actualIdx].agentName,
             }
             return updated
           })
