@@ -688,6 +688,15 @@ Use tools to actually accomplish work - don't just describe what you would do.
                 "content": result[:500] + "..." if len(result) > 500 else result,
             })
 
+            # Auto-update progress for successful task completion
+            await self._update_progress_on_completion(
+                swarm_name=swarm_name.lower().replace(" ", "_"),
+                agent_name=agent_name,
+                task_summary=prompt[:100],
+                result_summary=self._extract_completion_summary(result),
+                success=True
+            )
+
             return result
         except Exception as e:
             error_msg = f"Agent {agent_name} failed: {str(e)}"
@@ -696,6 +705,16 @@ Use tools to actually accomplish work - don't just describe what you would do.
                 "agent_type": agent.role,
                 "content": error_msg,
             })
+
+            # Record failed task in progress
+            await self._update_progress_on_completion(
+                swarm_name=swarm_name.lower().replace(" ", "_"),
+                agent_name=agent_name,
+                task_summary=prompt[:100],
+                result_summary=str(e)[:100],
+                success=False
+            )
+
             return error_msg
 
     async def _run_subagent(
@@ -1173,6 +1192,62 @@ Use tools to actually accomplish work - don't just describe what you would do.
         except Exception as e:
             logger.error(f"Web fetch error: {e}")
             return f"Error fetching URL: {str(e)}"
+
+    def _extract_completion_summary(self, result: str) -> str:
+        """Extract a concise summary from an agent's completion result."""
+        if not result:
+            return "Task completed"
+
+        # Remove common prefixes
+        result = result.strip()
+
+        # Look for completion indicators
+        completion_patterns = [
+            r"(?:successfully|completed|done|finished)[:\s]+(.{20,150})",
+            r"(?:created|added|fixed|updated|implemented)[:\s]+(.{20,150})",
+            r"(?:result|output|summary)[:\s]+(.{20,150})",
+        ]
+
+        for pattern in completion_patterns:
+            match = re.search(pattern, result, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()[:150]
+
+        # Fall back to first substantive line
+        lines = [l.strip() for l in result.split('\n') if l.strip() and not l.startswith('[')]
+        if lines:
+            # Skip lines that are just status indicators
+            for line in lines[:5]:
+                if len(line) > 20 and not line.startswith('**') and not line.startswith('#'):
+                    return line[:150]
+
+        return result[:150] if len(result) > 150 else result
+
+    async def _update_progress_on_completion(
+        self,
+        swarm_name: str,
+        agent_name: str,
+        task_summary: str,
+        result_summary: str,
+        success: bool
+    ):
+        """Update swarm progress file when an agent completes a task."""
+        try:
+            memory = get_memory_manager()
+
+            if success:
+                category = "Recently Completed"
+                update = f"[{agent_name}] {result_summary}"
+            else:
+                category = "Blockers"
+                update = f"[{agent_name}] Failed: {result_summary}"
+
+            memory.update_progress(swarm_name, update, category)
+            logger.info(f"Progress updated for {swarm_name}: {update[:50]}...")
+
+        except Exception as e:
+            # Don't fail the task if progress update fails
+            logger.warning(f"Failed to update progress for {swarm_name}: {e}")
 
     def _html_to_text(self, html: str) -> str:
         """Convert HTML to plain text."""
