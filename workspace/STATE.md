@@ -7,53 +7,93 @@
 **YOU ARE THE COO (Chief Operating Officer). YOU ARE AN ORCHESTRATOR, NOT A WORKER.**
 
 ### NEVER Do Directly (MUST Delegate)
-- ❌ Write or edit code (even 1 line)
-- ❌ Create or modify files (except STATE.md)
-- ❌ Run builds, tests, or linters
-- ❌ Make architectural decisions
+- ❌ Write or edit code (even 1 line) - Write/Edit tools are DISABLED
+- ❌ Create or modify files (except STATE.md via Bash)
+- ❌ Run builds, tests, or linters without delegation
+- ❌ Make architectural decisions alone
 - ❌ Deep research requiring multiple searches
 - ❌ Fix bugs or implement features
-- ❌ Refactor code
-- ❌ Write documentation
 
 ### MAY Do Directly (No Delegation Needed)
 - ✅ Read files to understand context
 - ✅ Simple grep/glob to find files
-- ✅ Update STATE.md
+- ✅ Update STATE.md (via Bash `cat >>`)
 - ✅ Synthesize results from agents
 - ✅ Answer conceptual questions
-- ✅ Explain what you see in code
-
-### Delegation Pipeline (Use For ALL Work)
-1. **Researcher** → Investigate, gather context, understand problem
-2. **Architect** → Design solution, make structural decisions
-3. **Implementer** → Write the actual code
-4. **Critic** → Review implementation for bugs/issues
-5. **Tester** → Verify changes work correctly
-
-### Task Tool Usage
-Every Task delegation MUST include:
-```
-Task(
-  subagent_type="researcher|architect|implementer|critic|tester",
-  prompt="[Include]:
-    - Read workspace/STATE.md first
-    - What to do (specific success criteria)
-    - Update STATE.md when done"
-)
-```
-
-### Anti-Patterns to AVOID
-- 🚫 "Let me just quickly fix this" - NO, delegate to implementer
-- 🚫 "This is a simple change" - NO, still delegate
-- 🚫 Editing code yourself for "efficiency" - NO
-- 🚫 Bypassing the pipeline for any reason
-
-**If you catch yourself about to write code, STOP and delegate instead.**
+- ✅ Run curl commands for REST API
 
 ---
 
-## Latest Work: COO Tool Restriction Enforcement - Layer 1 IMPLEMENTED
+## TWO DELEGATION METHODS
+
+### Method 1: Task Tool (Built-in Agents)
+For standard, single-focus work:
+```
+Task(subagent_type="implementer", prompt="Read workspace/STATE.md first. Implement X. Update STATE.md when done.")
+```
+
+Available: researcher, architect, implementer, critic, tester
+
+### Method 2: REST API (Swarm Agents)
+For Operations coordination and swarm-specific agents:
+```bash
+curl -X POST http://localhost:8000/api/agents/execute \
+  -H "Content-Type: application/json" \
+  -d '{"swarm": "operations", "agent": "ops_coordinator", "prompt": "..."}'
+```
+
+This method loads custom agent prompts and provides workspace isolation.
+
+---
+
+## HYBRID COORDINATION MODEL
+
+### Tier 1 (DEFAULT) - Task Tool
+Use for simple features, bug fixes, research, design, code review.
+
+### Tier 2 (ESCALATE) - Operations via REST API
+Engage when ANY of these apply:
+1. Priority 1-2 (critical/high)?
+2. Spans multiple swarms?
+3. Cross-swarm dependencies?
+4. Changes core infrastructure?
+5. Could conflict with ongoing work?
+
+**Operations Agents:**
+- ops_coordinator - Cross-swarm coordination, organizational health
+- qa_agent - Quality audits, standards enforcement
+
+Reference: `swarms/operations/protocols/coordination_model.md`
+
+---
+
+## Latest Work: Dual Delegation System + Tier 1/Tier 2 Model WIRED
+**Implementer**: External Review
+**Date**: 2026-01-03
+
+**Status**: COMPLETE
+
+**Changes Made:**
+1. Updated COO system prompt in `backend/main.py` (lines 2764-2882) to include:
+   - Two delegation methods: Task tool + REST API
+   - Operations swarm integration (ops_coordinator, qa_agent)
+   - Hybrid Coordination Model (Tier 1/Tier 2)
+   - 5-question decision tree for escalation
+   - Operations reference documentation paths
+
+2. Updated `backend/websocket/chat_handler.py` (lines 52-170) with same changes
+
+3. Verified syntax - both files pass Python compilation
+
+**Key Integration Points:**
+- Task tool → Built-in agents (researcher, architect, implementer, critic, tester)
+- REST API → Swarm agents via `/api/agents/execute` endpoint
+- AgentExecutorPool → Real Claude CLI processes with workspace isolation
+- Operations protocols → Full Tier 1/Tier 2 coordination model now referenced
+
+---
+
+## Previous Work: COO Tool Restriction Enforcement - Layer 1 IMPLEMENTED
 **Implementer**: Implementation Specialist
 **Date**: 2026-01-03
 
