@@ -211,9 +211,12 @@ export default function ChatPage() {
         case 'agent_spawn':
           // Add new agent activity when COO delegates
           setAgentActivities((prev) => {
-            // Mark COO as delegating
+            // Mark parent agent as delegating
+            const parentAgent = (event as { parentAgent?: string }).parentAgent || 'COO'
             const updated = prev.map(a =>
-              a.name.includes('COO') ? { ...a, status: 'delegating' as const } : a
+              a.name === parentAgent || (parentAgent === 'COO' && a.name.includes('COO'))
+                ? { ...a, status: 'delegating' as const }
+                : a
             )
             // Add the new agent
             return [
@@ -226,6 +229,32 @@ export default function ChatPage() {
                 startTime: new Date(),
               },
             ]
+          })
+          break
+
+        case 'agent_complete_subagent':
+          // Mark a sub-agent as complete
+          setAgentActivities((prev) => {
+            const agentName = event.agent || ''
+            return prev.map(a => {
+              if (a.name === agentName) {
+                return { ...a, status: 'complete' as const, endTime: new Date() }
+              }
+              // If this was a delegating agent's child completing, restore working status
+              if (a.status === 'delegating') {
+                // Check if there are still other active children
+                const otherActive = prev.some(other =>
+                  other.name !== agentName &&
+                  other.status !== 'complete' &&
+                  other.status !== 'error' &&
+                  !other.name.includes('COO')
+                )
+                if (!otherActive) {
+                  return { ...a, status: 'working' as const }
+                }
+              }
+              return a
+            })
           })
           break
 

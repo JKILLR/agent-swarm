@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckSquare, Square, Plus, X, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 
 interface Todo {
@@ -12,29 +12,28 @@ interface Todo {
 
 const STORAGE_KEY = 'ceo-todos'
 
+// Initialize todos from localStorage synchronously to avoid race conditions
+function getInitialTodos(): Todo[] {
+  if (typeof window === 'undefined') return []
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (saved) {
+    try {
+      return JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to parse saved todos:', e)
+    }
+  }
+  return []
+}
+
 export default function CeoTodoPanel() {
-  const [todos, setTodos] = useState<Todo[]>([])
+  const [todos, setTodos] = useState<Todo[]>(getInitialTodos)
   const [isOpen, setIsOpen] = useState(true)
   const [newTodo, setNewTodo] = useState('')
   const [isAdding, setIsAdding] = useState(false)
-  const hasLoaded = useRef(false)
-
-  // Load todos from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      try {
-        setTodos(JSON.parse(saved))
-      } catch (e) {
-        console.error('Failed to parse saved todos:', e)
-      }
-    }
-    hasLoaded.current = true
-  }, [])
 
   // Save todos to localStorage whenever they change
   useEffect(() => {
-    if (!hasLoaded.current) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
   }, [todos])
 

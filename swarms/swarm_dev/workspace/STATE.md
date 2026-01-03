@@ -1,5 +1,5 @@
 # Swarm Dev - STATE.md
-## Last Updated: 2026-01-02
+## Last Updated: 2026-01-03
 
 ---
 
@@ -14,6 +14,184 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 ---
 
 ## Progress Log
+
+### 2026-01-03: Quick Win - Structured Logging with Correlation IDs
+- **Implementer** added structured logging with request correlation IDs
+- **Problem**: Code review noted missing structured logging and no request correlation IDs, making debugging difficult
+- **Solution**:
+  - Added `request_id_var` context variable using `contextvars` for request-scoped correlation IDs
+  - Created `CorrelationIdFilter` class that injects request_id into log records
+  - Created `StructuredFormatter` class that outputs logs in key=value format:
+    `timestamp level=LEVEL request_id=ID logger=NAME message="MSG"`
+  - Added `CorrelationIdMiddleware` class for HTTP requests:
+    - Generates unique 8-char correlation ID per request
+    - Accepts incoming X-Request-ID header if provided
+    - Sets correlation ID in response header
+    - Logs request start and completion with status code
+  - Added correlation ID handling for WebSocket chat:
+    - Generates per-connection correlation ID on WebSocket connect
+    - Generates per-message correlation ID for each chat message
+    - Logs "WebSocket chat session started" and "Processing chat message"
+- **Files Modified**:
+  - `backend/main.py`:
+    - Added `contextvars` import (line 7)
+    - Added `Request` import from fastapi (line 22)
+    - Added `request_id_var` context variable (line 28)
+    - Added `CorrelationIdFilter` class (lines 74-79)
+    - Added `StructuredFormatter` class (lines 82-103)
+    - Added `setup_logging()` function (lines 106-123)
+    - Added `CorrelationIdMiddleware` class (lines 145-164)
+    - Added middleware registration (line 168)
+    - Added WebSocket correlation ID handling (lines 2599-2616)
+- **Log Format Example**:
+  ```
+  2026-01-03T14:30:00.123 level=INFO request_id=a1b2c3d4 logger=backend.main message="Request started: GET /api/status"
+  ```
+- **Benefits**:
+  - All logs from a single request share the same request_id
+  - WebSocket messages get unique correlation IDs
+  - Logs are machine-parseable (structured key=value format)
+  - Correlation ID returned in X-Request-ID response header
+- **Note**: Verify syntax with `python3 -m py_compile backend/main.py`
+- **Status**: COMPLETE
+
+### 2026-01-03: Quick Win - Fixed Mid-File Imports in main.py
+- **Implementer** resolved code quality issue from review
+- **Problem**: Several imports were placed mid-file instead of at the top:
+  - Line 85: `import sqlite3` (inside startup_event function)
+  - Line 463: `from shared.work_models import ...`
+  - Line 600: `from shared.agent_mailbox import MessageType, ...`
+  - Line 756: `from shared.escalation_protocol import EscalationLevel, ...`
+  - Lines 1703-1705: `import urllib.parse`, `urllib.request`, `re`
+- **Solution**:
+  - Moved all standard library imports (sqlite3, re, urllib.parse, urllib.request) to top
+  - Extended existing shared module imports to include additional symbols
+  - Removed all mid-file import statements
+- **Files Modified**:
+  - `backend/main.py` - Consolidated all imports at file top (lines 3-67)
+- **Import Organization**:
+  1. Standard library (lines 5-20): asyncio, base64, contextvars, json, logging, mimetypes, os, re, sqlite3, sys, urllib.parse, urllib.request, uuid, datetime, Path, Any
+  2. Third-party (lines 22-25): fastapi, pydantic, starlette
+  3. Local shared (lines 31-48): workspace_manager, agent_executor_pool, execution_context, work_ledger, work_models, agent_mailbox, escalation_protocol
+  4. Project modules (lines 55, 64-67): dotenv, memory, supreme.orchestrator, jobs, session_manager
+- **Status**: COMPLETE
+
+### 2026-01-03: Quick Win - Fixed Duplicate _get_tool_description Function
+- **Implementer** resolved DRY violation identified in code review
+- **Problem**: `_get_tool_description()` was duplicated in both:
+  - `backend/main.py:2024-2044`
+  - `shared/agent_executor_pool.py:597-625`
+- **Solution**:
+  - Created single canonical `get_tool_description()` function in `shared/agent_executor_pool.py` (line 608)
+  - Updated `AgentExecutorPool` class to call the module-level function
+  - Updated `backend/main.py` to import from shared module
+  - Removed duplicate function from `backend/main.py`
+- **Files Modified**:
+  - `shared/agent_executor_pool.py` - Added `get_tool_description()`, removed class method
+  - `backend/main.py` - Added import, removed local function, updated usages
+- **Note**: `backend/tools.py` also has a `_get_tool_description` but uses different parameter names (`path` vs `file_path`) and different tools - intentionally left as-is
+- **Status**: COMPLETE
+
+### 2026-01-03: Brainstorm Review - Innovation & Improvement Ideas
+- **Brainstorm Agent** performed comprehensive innovation review
+- **Review Document**: `workspace/REVIEW_BRAINSTORM_2026-01-03.md`
+- **Key Findings**:
+  1. **Missing Features**: Agent memory continuity, intelligent task decomposition, real-time collaboration protocol, agent skill registry, rollback/recovery system
+  2. **Communication Improvements**: Unified message bus, structured handoff templates, agent-to-agent direct queries, broadcast with acknowledgment, context-aware routing
+  3. **Automation Opportunities**: Auto-spawn on work detection, stale work recovery scheduling, auto-generated test suites, pre-commit review automation
+  4. **Self-Improvement Ideas**: Agent performance metrics, prompt evolution system, pattern library, self-critique loop, emergent specialization
+  5. **Innovative Solutions**: Hierarchical consensus voting, shadow agent execution, predictive context loading, agent chain templates, adversarial review mode
+- **Top 5 Prioritized Ideas by Impact/Effort**:
+  1. **Auto-Spawn on Work Detection** (9.5/10) - Closes autonomy loop, uses existing Work Ledger
+  2. **Unified Message Bus** (8.5/10) - Solves root communication fragmentation
+  3. **Stale Work Recovery Scheduling** (8.0/10) - Already implemented, just needs cron
+  4. **Agent Performance Metrics** (7.5/10) - Enables data-driven improvement
+  5. **Agent Chain Templates** (7.0/10) - Automates common workflows
+- **Quick Wins Identified**:
+  - Schedule `recover_orphaned_work()` to run every 5 minutes
+  - Add unified `/api/activity` endpoint merging Mailbox + Escalation + Work Ledger
+  - Add Work Ledger integration to Task tool detection
+- **Long-Term Vision**: Fully autonomous self-development with human approval at key gates
+
+### 2026-01-03: COO Delegation Failure Analysis - CRITICAL ISSUES
+- **Critic** performed comprehensive review of COO delegation behavior
+- **Review Document**: `workspace/REVIEW_DELEGATION_FAILURES.md`
+- **Result**: NEEDS_CHANGES (3 critical, 3 high priority issues)
+- **Critical Findings**:
+  1. **CRITICAL: Task Tool Does Not Spawn Real Agents** - When COO uses `Task(subagent_type=...)`, no actual sub-agent process is spawned. The backend only sends UI notifications but Claude's built-in Task tool runs internally with COO's context.
+  2. **CRITICAL: No Connection Between WebSocket and AgentExecutorPool** - Main chat flow uses `stream_claude_response()` which bypasses the pool entirely. No workspace isolation, no concurrency limits, no agent configuration.
+  3. **CRITICAL: Agent .md Files Not Used for Delegation** - The carefully crafted agent definitions (prompts, tools, permissions) in `swarms/*/agents/*.md` are NEVER read or applied to delegated tasks.
+- **High Priority Findings**:
+  4. **HIGH: Agent Stack is Cosmetic Only** - `context["agent_stack"]` tracks agent names for UI attribution but doesn't change prompts, workspaces, or permissions.
+  5. **HIGH: Task Results Not Captured** - Delegation completion always reports `success: True` with no actual result extraction.
+  6. **HIGH: Work Ledger/Mailbox Not Integrated** - These systems were built but are orphaned - not connected to Task flow.
+- **Root Cause**: The Task tool is Claude CLI's built-in feature that creates internal sub-conversations. The backend has no control over these - it only parses the stream. Real delegation would require intercepting Task and spawning separate agent processes.
+- **Evidence**: Backend logs show only ONE Claude CLI process per chat, even when COO "delegates" to multiple agents.
+- **Recommendations**:
+  1. Intercept Task tool, spawn real agents via AgentExecutorPool
+  2. Route WebSocket chat through pool for proper isolation
+  3. Load agent .md files when spawning sub-agents
+  4. Integrate Work Ledger and Mailbox with Task execution
+
+### 2026-01-03: Code Quality Review Complete - NEEDS_CHANGES
+- **Critic** performed comprehensive backend code quality review
+- **Review Document**: `workspace/REVIEW_CODE_QUALITY_2026-01-03.md`
+- **Result**: NEEDS_CHANGES (1 critical bug, 3 high priority issues)
+- **Critical Finding**:
+  1. CRITICAL: Missing `_get_tool_description` method in `AgentExecutorPool` (line 422) - WILL CRASH at runtime
+- **High Priority Findings**:
+  2. HIGH: Unused `_running` dict in AgentExecutorPool - cancellation via task reference broken
+  3. HIGH: Race condition in `get_workspace_manager()` singleton - not thread-safe
+  4. HIGH: Race condition in `get_executor_pool()` singleton - not thread-safe
+- **Medium Priority**: Fire-and-forget tasks, hard-coded defaults, mid-file imports, bare exceptions
+- **Positive Observations**: Good error handling in safe wrappers, thread-safe escalation protocol, atomic file writes
+- **Required Actions**:
+  1. Add `_get_tool_description` method to AgentExecutorPool class
+  2. Add thread-safe locking to singleton getters (workspace_manager, executor_pool)
+  3. Populate `_running` dict for proper task tracking
+
+### 2026-01-03: Review Workflow Audit Complete
+- **Researcher** performed comprehensive audit of review workflow
+- **Audit Document**: `workspace/REVIEW_WORKFLOW_AUDIT_2026-01-03.md`
+- **Overall Assessment**: PARTIALLY IMPLEMENTED - Advisory reviews exist, but no blocking gates
+- **Key Findings**:
+  1. **CRITICAL**: Review workflow in swarm.yaml (`required: true`) is NOT ENFORCED in backend code
+  2. **CRITICAL**: No "ready for implementation" gate - designs can be built without approval
+  3. **CRITICAL**: No "implementation approved" gate - code can merge without review
+  4. **HIGH**: Critic reviews are effective when used, but nothing ensures they happen
+  5. **HIGH**: Reviews are advisory only - orchestrator can ignore them
+  6. **MEDIUM**: No automated test gate before merge
+- **What Works**:
+  - Reviewer/Critic agents well-defined with clear checklists
+  - STATE.md captures review outcomes when reviews happen
+  - Historical evidence shows reviews catch real issues (4 critical fixes from 2026-01-02)
+- **What's Missing**:
+  - No technical enforcement in backend/main.py or backend/jobs.py
+  - No state machine for work items (DESIGNED -> IMPLEMENTED -> REVIEWED -> APPROVED)
+  - Backend ignores `review_workflow` config entirely
+- **Recommendations**:
+  1. Add review status tracking to work_ledger.py
+  2. Create shared/review_gates.py with state machine
+  3. Modify backend/jobs.py to enforce review workflow
+  4. Update orchestrator prompt with explicit gate checks
+- **Next**: Architect to design review gate enforcement system
+
+### 2026-01-03: Architecture Review Complete
+- **Architect** performed thorough architecture review
+- **Review Document**: `workspace/REVIEW_ARCHITECTURE_2026-01-03.md`
+- **Key Findings**:
+  1. **CRITICAL**: Main WebSocket chat flow bypasses AgentExecutorPool - runs without isolation
+  2. **NOT CONNECTED**: Work Ledger (`shared/work_ledger.py`) - built but not integrated
+  3. **NOT CONNECTED**: Agent Mailbox (`shared/agent_mailbox.py`) - built but not integrated
+  4. **NOT CONNECTED**: Escalation Protocol - built but no REST/WebSocket endpoints
+  5. **ORPHANED**: `shared/agent_executor.py` - superseded by AgentExecutorPool, should be removed
+  6. **DUAL PATHS**: Three execution mechanisms exist, causing inconsistency
+- **Recommendations**:
+  1. Unify execution through AgentExecutorPool for all agent execution
+  2. Wire escalation protocol to WebSocket events and REST endpoints
+  3. Integrate Work Ledger with job system for crash resilience
+  4. Integrate Agent Mailbox for structured agent-to-agent communication
+  5. Remove or archive orphaned agent_executor.py
 
 ### 2026-01-02: Escalation Protocol Implementation Complete
 - **Implementer** created `shared/escalation_protocol.py`
@@ -256,6 +434,54 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 - CEO only engaged for major decisions (preserves human time)
 - Must add escalation awareness to agent system prompts
 
+### ADR-005: Unified Execution Architecture (2026-01-03)
+
+**Context**: Architecture review revealed three parallel execution mechanisms creating inconsistency:
+1. `stream_claude_response()` - used by WebSocket chat (COO)
+2. `AgentExecutorPool.execute()` - used by REST API and jobs
+3. `AgentExecutor.execute()` - not used (orphaned)
+
+The main WebSocket chat flow bypasses workspace isolation and executor pool features.
+
+**Decision**: Unify all agent execution through AgentExecutorPool:
+- Deprecate/remove `shared/agent_executor.py`
+- Modify WebSocket flow to use pool (with streaming wrapper if needed)
+- All execution gets workspace isolation, event streaming, resource limits
+
+**Rationale**:
+- Consistent behavior across all execution paths
+- Security: all agents get proper workspace isolation
+- Observability: all agents emit consistent events
+- Resource management: all agents respect concurrency limits
+
+**Consequences**:
+- May need WebSocket-aware wrapper for pool
+- COO execution will be subject to concurrency limits
+- Better crash recovery possible when all work tracked
+- Single point of execution simplifies debugging
+
+### ADR-006: Component Integration Strategy (2026-01-03)
+
+**Context**: Three components built but not wired into main flows:
+1. Work Ledger - crash-resilient work tracking
+2. Agent Mailbox - structured agent communication
+3. Escalation Protocol - issue escalation
+
+**Decision**: Integrate in phases:
+1. **Escalation Protocol first** (already planned) - add REST endpoints and WebSocket events
+2. **Work Ledger second** - integrate with Jobs system for crash resilience
+3. **Agent Mailbox third** - integrate with Task tool for handoffs
+
+**Rationale**:
+- Escalations are most immediately useful (already in progress)
+- Work Ledger enables crash recovery without data loss
+- Mailbox enables more structured agent coordination
+
+**Consequences**:
+- Each integration adds overhead but improves reliability
+- Agents need updated system prompts for each feature
+- STATE.md becomes less critical once Work Ledger/Mailbox work
+
 ---
 
 ## Key Files
@@ -311,12 +537,23 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 
 ## Known Issues
 
+### Delegation System (from 2026-01-03 Delegation Failure Review)
+12. **CRITICAL**: Task tool does NOT spawn real agents - only sends UI notifications, same Claude session pretends to be different agents
+13. **CRITICAL**: Agent .md files (prompts, tools, permissions) are NEVER loaded for delegated tasks
+14. **CRITICAL**: WebSocket chat bypasses AgentExecutorPool entirely - no isolation, no config
+
+### Previous Issues
 1. Query() keyword args bug may still exist - needs verification
 2. Parallel agent spawning needs testing
 3. Wake messaging needs validation
 4. **NEW** (from Phase 0.1.2 review): Race condition in singleton init - endpoints may fail if called before startup completes
 5. **NEW** (from Phase 0.1.2 review): Broken relative import in jobs.py fallback path
 6. **NEW** (from Phase 0.1.2 review): `allowed_tools` permission model is informational only - not enforced
+7. **SUPERSEDED by #12-14** (from Architecture Review): Main WebSocket chat bypasses AgentExecutorPool - no isolation for COO
+8. **NEW** (from Architecture Review 2026-01-03): Three orphaned/disconnected components: Work Ledger, Mailbox, Escalation Protocol
+9. **NEW** (from Architecture Review 2026-01-03): `shared/agent_executor.py` is dead code - superseded by pool
+10. **FIXED** (from Code Quality Review 2026-01-03): Missing `_get_tool_description` method in AgentExecutorPool:422 - Created shared `get_tool_description()` function
+11. **HIGH** (from Code Quality Review 2026-01-03): Singleton getters (workspace_manager, executor_pool) not thread-safe
 
 ---
 
@@ -381,6 +618,22 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 13. [ ] **Critic**: Review escalation_protocol.py implementation
 14. [ ] **Implementer**: Add escalation WebSocket events to backend/main.py
 15. [ ] **Architect**: Update agent system prompts with escalation protocol guidance
+
+### Architecture Review Findings (2026-01-03) - Priority Actions
+16. [ ] **Implementer**: Unify WebSocket chat execution through AgentExecutorPool
+    - Modify `stream_claude_response()` to use pool or create WebSocket-aware wrapper
+    - Ensures workspace isolation for COO execution
+17. [ ] **Implementer**: Wire escalation protocol to REST API
+    - Add endpoints: GET/POST `/api/escalations`, GET/PUT `/api/escalations/{id}`
+    - Add WebSocket event broadcasting for escalation changes
+18. [ ] **Implementer**: Archive orphaned code
+    - Move `shared/agent_executor.py` to `shared/_deprecated/` or remove
+19. [ ] **Implementer**: Integrate Work Ledger with Jobs system
+    - Create WorkItem when Job is created
+    - Update WorkItem status as Job progresses
+20. [ ] **Implementer**: Integrate Agent Mailbox for handoffs
+    - Use for Task tool completion results
+    - Add to agent system prompts
 
 ---
 

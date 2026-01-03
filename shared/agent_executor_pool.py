@@ -29,25 +29,30 @@ class AgentExecutorPool:
     - Process lifecycle tracking
     - Event streaming
     - Cancellation support
+    - Event broadcasting to external listeners
 
     Attributes:
         max_concurrent: Maximum number of concurrent agent processes
         workspace_manager: Manager for workspace isolation
+        on_event: Optional callback for broadcasting events to external listeners
     """
 
     def __init__(
         self,
         max_concurrent: int = 5,
         workspace_manager: WorkspaceManager | None = None,
+        on_event: Callable[[dict], None] | None = None,
     ):
         """Initialize the executor pool.
 
         Args:
             max_concurrent: Maximum concurrent agent executions
             workspace_manager: Optional workspace manager for path resolution
+            on_event: Optional callback for broadcasting events (e.g., to WebSocket)
         """
         self.max_concurrent = max_concurrent
         self.workspace_manager = workspace_manager
+        self.on_event = on_event  # External event broadcast callback
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._running: dict[str, asyncio.Task] = {}
         self._processes: dict[str, asyncio.subprocess.Process] = {}
@@ -55,6 +60,22 @@ class AgentExecutorPool:
         logger.info(
             f"AgentExecutorPool initialized with max_concurrent={max_concurrent}"
         )
+
+    def set_event_callback(self, callback: Callable[[dict], None] | None):
+        """Set the event broadcast callback.
+
+        Args:
+            callback: Function to call with each event dict
+        """
+        self.on_event = callback
+
+    def _broadcast_event(self, event: dict):
+        """Broadcast an event to the external listener if configured."""
+        if self.on_event:
+            try:
+                self.on_event(event)
+            except Exception as e:
+                logger.debug(f"Error broadcasting event: {e}")
 
     async def execute(
         self,
@@ -95,6 +116,7 @@ class AgentExecutorPool:
         }
         if on_event:
             on_event(start_event)
+        self._broadcast_event(start_event)  # Also broadcast to external listeners
         yield start_event
 
         async with self._semaphore:
@@ -104,6 +126,11 @@ class AgentExecutorPool:
                 ):
                     if on_event:
                         on_event(event)
+                    # Broadcast tool and progress events to external listeners
+                    event_type = event.get("type", "")
+                    if event_type in ("tool_start", "tool_complete", "thinking_start",
+                                       "thinking_complete", "agent_execution_progress"):
+                        self._broadcast_event(event)
                     yield event
 
                 # Emit completion event
@@ -116,6 +143,7 @@ class AgentExecutorPool:
                 }
                 if on_event:
                     on_event(complete_event)
+                self._broadcast_event(complete_event)
                 yield complete_event
 
             except asyncio.CancelledError:
@@ -129,6 +157,7 @@ class AgentExecutorPool:
                 }
                 if on_event:
                     on_event(cancel_event)
+                self._broadcast_event(cancel_event)
                 yield cancel_event
                 raise
 
@@ -144,6 +173,7 @@ class AgentExecutorPool:
                 }
                 if on_event:
                     on_event(error_event)
+                self._broadcast_event(error_event)
                 yield error_event
 
             finally:
@@ -388,12 +418,15 @@ class AgentExecutorPool:
                                 elif current_block_type == "tool_use":
                                     tool_name = content_block.get("name", "unknown")
                                     tool_input = content_block.get("input", {})
+                                    # Generate a description for the tool activity panel
+                                    description = get_tool_description(tool_name, tool_input)
                                     yield {
                                         "type": "tool_start",
                                         "execution_id": execution_id,
                                         "agent": context.agent_name,
                                         "tool": tool_name,
                                         "input": tool_input,
+                                        "description": description,
                                     }
 
                             elif event_type == "content_block_delta":
@@ -572,8 +605,45 @@ class AgentExecutorPool:
         return self.max_concurrent - self.active_count
 
 
-# Module-level singleton
+def get_tool_description(tool_name: str, tool_input: dict) -> str:
+    """Generate human-readable description for a tool call.
+
+    This is a shared utility function for generating consistent tool descriptions
+    across the codebase (used by both main.py websocket handler and AgentExecutorPool).
+
+    Args:
+        tool_name: Name of the tool being used
+        tool_input: Dictionary of tool input parameters
+
+    Returns:
+        Human-readable description of the tool action
+    """
+    descriptions = {
+        "Read": lambda i: f"Reading {i.get('file_path', 'file')[:60]}",
+        "Write": lambda i: f"Writing to {i.get('file_path', 'file')[:60]}",
+        "Edit": lambda i: f"Editing {i.get('file_path', 'file')[:60]}",
+        "Bash": lambda i: f"Running: {i.get('command', '')[:50]}{'...' if len(i.get('command', '')) > 50 else ''}",
+        "Glob": lambda i: f"Searching for {i.get('pattern', 'files')}",
+        "Grep": lambda i: f"Searching for '{i.get('pattern', '')[:40]}'",
+        "Task": lambda i: f"Delegating to {i.get('subagent_type', i.get('agent', 'agent'))}: {i.get('description', i.get('prompt', ''))[:50]}...",
+        "WebSearch": lambda i: f"Searching web: {i.get('query', '')[:50]}",
+        "WebFetch": lambda i: f"Fetching {i.get('url', 'URL')[:50]}",
+    }
+
+    if tool_name in descriptions:
+        try:
+            return descriptions[tool_name](tool_input)
+        except Exception:
+            pass
+
+    return f"Using {tool_name}"
+
+
+# Module-level singleton with thread-safe initialization
+import threading
+
 _pool: AgentExecutorPool | None = None
+_pool_lock = threading.Lock()
 
 
 def get_executor_pool(
@@ -581,6 +651,8 @@ def get_executor_pool(
     workspace_manager: WorkspaceManager | None = None,
 ) -> AgentExecutorPool:
     """Get or create the global executor pool.
+
+    Thread-safe singleton pattern with double-checked locking.
 
     Args:
         max_concurrent: Maximum concurrent executions (used on first call)
@@ -592,9 +664,12 @@ def get_executor_pool(
     global _pool
 
     if _pool is None:
-        _pool = AgentExecutorPool(
-            max_concurrent=max_concurrent,
-            workspace_manager=workspace_manager,
-        )
+        with _pool_lock:
+            # Double-check after acquiring lock
+            if _pool is None:
+                _pool = AgentExecutorPool(
+                    max_concurrent=max_concurrent,
+                    workspace_manager=workspace_manager,
+                )
 
     return _pool

@@ -15,6 +15,7 @@ export type WebSocketEventType =
   | 'agent_delta'
   | 'agent_chunk'
   | 'agent_complete'
+  | 'agent_complete_subagent'
   | 'thinking_start'
   | 'thinking_delta'
   | 'thinking_complete'
@@ -22,6 +23,7 @@ export type WebSocketEventType =
   | 'tool_start'
   | 'tool_complete'
   | 'agent_spawn'
+  | 'executor_pool_status'
   | 'error'
 
 export interface WebSocketEvent {
@@ -38,6 +40,15 @@ export interface WebSocketEvent {
   description?: string
   summary?: string
   input?: Record<string, string>
+  // Agent attribution for tools
+  agentName?: string
+  parentAgent?: string
+  // File modification info
+  filePath?: string
+  fileOperation?: 'read' | 'write' | 'edit'
+  // Executor pool status
+  activeCount?: number
+  availableSlots?: number
 }
 
 export type EventHandler = (event: WebSocketEvent) => void

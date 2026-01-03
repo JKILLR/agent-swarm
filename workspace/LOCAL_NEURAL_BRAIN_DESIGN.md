@@ -2,7 +2,7 @@
 
 **Research Conducted By**: Research Specialist
 **Date**: 2026-01-03
-**Status**: DESIGN COMPLETE - Ready for Implementation
+**Status**: DESIGN COMPLETE - Implementation Priority #4
 
 ---
 
@@ -572,12 +572,16 @@ The MYND app (already in workspace) provides an excellent reference implementati
 2. **Create data extraction script** - Phase 1
 3. **Set up training environment** - Download Qwen2.5-3B
 
-### Questions for CEO
+### Questions for CEO — ANSWERED (2026-01-03)
 
-1. Priority level for this feature (vs other work)?
-2. Acceptable latency for "handled locally" responses?
-3. Privacy constraints on training data?
-4. Model size preference (3B vs 7B)?
+| Question | Answer |
+|----------|--------|
+| Priority level for this feature? | **#4** (lower priority) |
+| Model size preference (3B vs 7B)? | **3B** (hardware constraints) |
+| Privacy constraints on training data? | **Not yet defined** - will explore options |
+| Acceptable latency for local responses? | **Not yet defined** - will explore options |
+
+**Status**: Design complete. Implementation deferred per priority ranking.
 
 ---
 

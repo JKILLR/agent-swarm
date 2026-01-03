@@ -105,6 +105,41 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
         }))
       }
 
+      if (event.type === 'agent_spawn') {
+        // When an agent is spawned via Task tool
+        const agentName = event.agent || ''
+        const description = event.description || ''
+        const parentAgent = event.parentAgent || 'COO'
+
+        // Agent spawn events use just the agent type name (e.g., "implementer", "researcher")
+        const key = `subagent/${agentName}`
+        setActivities((prev) => ({
+          ...prev,
+          [key]: {
+            agent: agentName,
+            swarm: 'subagent',
+            status: 'active',
+            currentTask: description,
+            lastActive: new Date(),
+          },
+        }))
+      }
+
+      if (event.type === 'agent_complete_subagent') {
+        // When a subagent completes
+        const agentName = event.agent || ''
+        const key = `subagent/${agentName}`
+        setActivities((prev) => ({
+          ...prev,
+          [key]: {
+            agent: agentName,
+            swarm: 'subagent',
+            status: 'idle',
+            lastActive: new Date(),
+          },
+        }))
+      }
+
       if (event.type === 'tool_start' && event.tool === 'Task') {
         // When a Task tool starts, we're spawning an agent
         const description = event.description || ''

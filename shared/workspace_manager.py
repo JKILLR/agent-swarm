@@ -289,12 +289,17 @@ class WorkspaceManager:
             logger.info(f"Created STATE.md for swarm: {swarm_name}")
 
 
-# Module-level singleton
+# Module-level singleton with thread-safe initialization
+import threading
+
 _workspace_manager: WorkspaceManager | None = None
+_workspace_manager_lock = threading.Lock()
 
 
 def get_workspace_manager(project_root: Path | None = None) -> WorkspaceManager:
     """Get or create the global workspace manager.
+
+    Thread-safe singleton pattern with double-checked locking.
 
     Args:
         project_root: Optional project root (required for first call)
@@ -308,10 +313,13 @@ def get_workspace_manager(project_root: Path | None = None) -> WorkspaceManager:
     global _workspace_manager
 
     if _workspace_manager is None:
-        if project_root is None:
-            raise ValueError(
-                "project_root must be provided on first call to get_workspace_manager"
-            )
-        _workspace_manager = WorkspaceManager(project_root)
+        with _workspace_manager_lock:
+            # Double-check after acquiring lock
+            if _workspace_manager is None:
+                if project_root is None:
+                    raise ValueError(
+                        "project_root must be provided on first call to get_workspace_manager"
+                    )
+                _workspace_manager = WorkspaceManager(project_root)
 
     return _workspace_manager

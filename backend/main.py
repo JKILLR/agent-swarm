@@ -4,24 +4,49 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextvars
 import json
 import logging
 import mimetypes
 import os
+import re
+import sqlite3
 import sys
+import urllib.parse
+import urllib.request
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+
+# Request correlation ID context variable - accessible throughout the request lifecycle
+request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
 
 # Import workspace manager and executor pool for agent isolation
 from shared.workspace_manager import get_workspace_manager
-from shared.agent_executor_pool import get_executor_pool
+from shared.agent_executor_pool import get_executor_pool, get_tool_description
 from shared.execution_context import AgentExecutionContext
+from shared.work_ledger import get_work_ledger
+from shared.work_models import WorkType, WorkPriority, WorkStatus
+from shared.agent_mailbox import (
+    get_mailbox_manager,
+    MessageType,
+    MessagePriority,
+    MessageStatus,
+)
+from shared.escalation_protocol import (
+    get_escalation_manager,
+    EscalationLevel,
+    EscalationReason,
+    EscalationPriority,
+    EscalationStatus,
+)
+from shared.auto_spawn import enable_auto_spawn
 
 # Add parent directory to path for imports
 BACKEND_DIR = Path(__file__).parent
@@ -42,19 +67,64 @@ from supreme.orchestrator import SupremeOrchestrator
 from jobs import get_job_queue, get_job_manager, JobStatus
 from session_manager import get_session_manager
 
-# Configure logging - both console and file for COO diagnostics
+# Configure logging - structured format with correlation IDs
 LOG_FILE = PROJECT_ROOT / "logs" / "backend.log"
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.StreamHandler(),  # Console
-        logging.FileHandler(LOG_FILE, mode='a'),  # File for COO to read
-    ]
-)
-logger = logging.getLogger(__name__)
+
+class CorrelationIdFilter(logging.Filter):
+    """Logging filter that adds request_id to log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = request_id_var.get("-")
+        return True
+
+
+class StructuredFormatter(logging.Formatter):
+    """Formatter that outputs structured key=value log lines."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        request_id = getattr(record, "request_id", "-")
+        timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+        message = record.getMessage().replace('"', '\\"')
+
+        log_parts = [
+            timestamp,
+            f"level={record.levelname}",
+            f"request_id={request_id}",
+            f"logger={record.name}",
+            f'message="{message}"',
+        ]
+
+        if record.exc_info:
+            exc_text = self.formatException(record.exc_info)
+            exc_escaped = exc_text.replace('"', '\\"').replace("\n", "\\n")
+            log_parts.append(f'exception="{exc_escaped}"')
+
+        return " ".join(log_parts)
+
+
+def setup_logging() -> logging.Logger:
+    """Configure structured logging with correlation ID support."""
+    correlation_filter = CorrelationIdFilter()
+
+    console_handler = logging.StreamHandler()
+    console_handler.addFilter(correlation_filter)
+    console_handler.setFormatter(StructuredFormatter())
+
+    file_handler = logging.FileHandler(LOG_FILE, mode="a")
+    file_handler.addFilter(correlation_filter)
+    file_handler.setFormatter(StructuredFormatter())
+
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[console_handler, file_handler],
+    )
+
+    return logging.getLogger(__name__)
+
+
+logger = setup_logging()
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -72,6 +142,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Middleware that generates and propagates request correlation IDs."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Check for existing correlation ID in header, or generate new one
+        correlation_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())[:8]
+
+        # Set in context variable for logging
+        request_id_var.set(correlation_id)
+
+        # Log the incoming request
+        logger.info(f"Request started: {request.method} {request.url.path}")
+
+        # Process request and add correlation ID to response
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = correlation_id
+
+        logger.info(f"Request completed: {request.method} {request.url.path} status={response.status_code}")
+
+        return response
+
+
+# Add correlation ID middleware
+app.add_middleware(CorrelationIdMiddleware)
+
 # Global orchestrator instance
 orchestrator: SupremeOrchestrator | None = None
 
@@ -79,7 +175,6 @@ orchestrator: SupremeOrchestrator | None = None
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup."""
-    import sqlite3
     logger.info("Starting Agent Swarm backend...")
 
     # Initialize coordination database for hooks
@@ -131,7 +226,45 @@ async def startup_event():
     # Initialize workspace manager and executor pool
     workspace_manager = get_workspace_manager(PROJECT_ROOT)
     executor_pool = get_executor_pool(max_concurrent=5, workspace_manager=workspace_manager)
+
+    # Set up executor pool event broadcasting
+    def on_executor_event(event: dict):
+        """Broadcast executor pool events to WebSocket subscribers."""
+        asyncio.create_task(_broadcast_executor_event_safe(event))
+
+    executor_pool.set_event_callback(on_executor_event)
     logger.info("Workspace manager and executor pool initialized")
+
+    # Initialize Work Ledger for persistent work tracking
+    ledger_dir = PROJECT_ROOT / "workspace" / "ledger"
+    work_ledger = get_work_ledger(ledger_dir)
+    logger.info(f"Work ledger initialized at {ledger_dir}")
+
+    # Initialize Mailbox system for agent communication
+    mailboxes_dir = PROJECT_ROOT / "workspace" / "mailboxes"
+    mailbox_manager = get_mailbox_manager(mailboxes_dir)
+    logger.info(f"Mailbox manager initialized at {mailboxes_dir}")
+
+    # Initialize Escalation Protocol
+    escalation_logs_dir = PROJECT_ROOT / "logs" / "escalations"
+    escalation_manager = get_escalation_manager(escalation_logs_dir)
+    logger.info(f"Escalation manager initialized at {escalation_logs_dir}")
+
+    # Enable auto-spawn: When new work items are created, automatically spawn agents
+    enable_auto_spawn()
+    logger.info("Auto-spawn enabled for work ledger")
+
+    # Recover orphaned work from previous session crashes
+    # This picks up any work items that were IN_PROGRESS when the server stopped
+    try:
+        recovered_count = work_ledger.recover_orphaned_work(
+            timeout_minutes=30,  # Work stale after 30 minutes
+            actor="startup_recovery"
+        )
+        if recovered_count > 0:
+            logger.info(f"Recovered {recovered_count} orphaned work items from previous session")
+    except Exception as e:
+        logger.warning(f"Failed to recover orphaned work: {e}")
 
 
 async def _broadcast_job_update_safe(job):
@@ -140,6 +273,14 @@ async def _broadcast_job_update_safe(job):
         await broadcast_job_update(job)
     except Exception as e:
         logger.error(f"Failed to broadcast job update: {e}")
+
+
+async def _broadcast_executor_event_safe(event: dict):
+    """Safely broadcast executor pool events to subscribers."""
+    try:
+        await broadcast_executor_pool_event(event)
+    except Exception as e:
+        logger.error(f"Failed to broadcast executor event: {e}")
 
 
 def get_orchestrator() -> SupremeOrchestrator:
@@ -424,6 +565,542 @@ async def cancel_job(job_id: str) -> dict:
 
 
 # ============================================================
+# WORK LEDGER ENDPOINTS (persistent work tracking)
+# ============================================================
+
+
+class WorkCreateRequest(BaseModel):
+    """Request to create a work item."""
+    title: str
+    description: str
+    work_type: str = "task"
+    priority: str = "medium"
+    parent_id: str | None = None
+    swarm_name: str | None = None
+    context: dict | None = None
+
+
+@app.get("/api/work")
+async def list_work_items(
+    status: str | None = None,
+    swarm: str | None = None,
+    limit: int = 50,
+) -> list[dict]:
+    """List work items with optional filters."""
+    ledger = get_work_ledger()
+
+    if status == "pending":
+        items = ledger.get_pending(swarm_name=swarm)
+    elif status == "in_progress":
+        items = ledger.get_in_progress()
+    elif status == "blocked":
+        items = ledger.get_blocked()
+    elif status == "ready":
+        items = ledger.get_ready_to_start(swarm_name=swarm)
+    elif swarm:
+        items = ledger.get_by_swarm(swarm)
+    else:
+        # Return recent items across all statuses
+        items = []
+        items.extend(ledger.get_in_progress())
+        items.extend(ledger.get_pending())
+        items.extend(ledger.get_blocked())
+
+    return [item.to_dict() for item in items[:limit]]
+
+
+@app.post("/api/work")
+async def create_work_item(request: WorkCreateRequest) -> dict:
+    """Create a new work item."""
+    ledger = get_work_ledger()
+
+    # Map string to enum
+    work_type = WorkType(request.work_type)
+    priority = WorkPriority(request.priority)
+
+    item = ledger.create_work(
+        title=request.title,
+        description=request.description,
+        work_type=work_type,
+        priority=priority,
+        parent_id=request.parent_id,
+        swarm_name=request.swarm_name,
+        context=request.context,
+    )
+
+    return {"success": True, "work_id": item.id, "work": item.to_dict()}
+
+
+@app.get("/api/work/{work_id}")
+async def get_work_item(work_id: str) -> dict:
+    """Get a specific work item."""
+    ledger = get_work_ledger()
+    item = ledger.get_work(work_id)
+
+    if not item:
+        raise HTTPException(status_code=404, detail=f"Work item {work_id} not found")
+
+    return item.to_dict()
+
+
+@app.post("/api/work/{work_id}/claim")
+async def claim_work_item(work_id: str, owner: str) -> dict:
+    """Claim a work item for processing."""
+    ledger = get_work_ledger()
+    item = ledger.claim_work(work_id, owner)
+
+    if not item:
+        raise HTTPException(status_code=400, detail=f"Could not claim work item {work_id}")
+
+    return {"success": True, "work": item.to_dict()}
+
+
+@app.post("/api/work/{work_id}/complete")
+async def complete_work_item(work_id: str, owner: str, result: dict | None = None) -> dict:
+    """Mark a work item as completed."""
+    ledger = get_work_ledger()
+    item = ledger.complete_work(work_id, owner, result)
+
+    if not item:
+        raise HTTPException(status_code=400, detail=f"Could not complete work item {work_id}")
+
+    return {"success": True, "work": item.to_dict()}
+
+
+@app.post("/api/work/{work_id}/fail")
+async def fail_work_item(work_id: str, owner: str, error: str) -> dict:
+    """Mark a work item as failed."""
+    ledger = get_work_ledger()
+    item = ledger.fail_work(work_id, owner, error)
+
+    if not item:
+        raise HTTPException(status_code=400, detail=f"Could not fail work item {work_id}")
+
+    return {"success": True, "work": item.to_dict()}
+
+
+@app.get("/api/work/{work_id}/progress")
+async def get_work_progress(work_id: str) -> dict:
+    """Get progress summary for a work item including children."""
+    ledger = get_work_ledger()
+    return ledger.get_progress(work_id)
+
+
+@app.post("/api/work/recover")
+async def recover_orphaned_work(timeout_minutes: int = 60) -> dict:
+    """Recover orphaned work items that were abandoned."""
+    ledger = get_work_ledger()
+    recovered = ledger.recover_orphaned_work(timeout_minutes)
+
+    return {
+        "success": True,
+        "recovered_count": len(recovered),
+        "recovered": [item.to_dict() for item in recovered],
+    }
+
+
+# ============================================================
+# MAILBOX ENDPOINTS (agent communication)
+# ============================================================
+
+
+class MessageSendRequest(BaseModel):
+    """Request to send a message."""
+    from_agent: str
+    to_agent: str
+    subject: str
+    body: str
+    message_type: str = "request"
+    priority: str = "normal"
+    swarm_name: str | None = None
+    payload: dict | None = None
+    reply_to: str | None = None
+    tags: list[str] | None = None
+
+
+class HandoffRequest(BaseModel):
+    """Request to send a handoff."""
+    from_agent: str
+    to_agent: str
+    subject: str
+    work_completed: str
+    current_state: str
+    next_steps: list[str]
+    files_modified: list[str] | None = None
+    blockers: list[str] | None = None
+    swarm_name: str | None = None
+    priority: str = "normal"
+
+
+@app.get("/api/mailbox/{agent_name}")
+async def check_mailbox(
+    agent_name: str,
+    unread_only: bool = True,
+    message_type: str | None = None,
+) -> list[dict]:
+    """Check an agent's mailbox for messages."""
+    mailbox = get_mailbox_manager()
+
+    message_types = None
+    if message_type:
+        message_types = [MessageType(message_type)]
+
+    messages = mailbox.check_mailbox(
+        agent_name=agent_name,
+        unread_only=unread_only,
+        message_types=message_types,
+    )
+
+    return [msg.to_dict() for msg in messages]
+
+
+@app.get("/api/mailbox/{agent_name}/count")
+async def get_mailbox_count(agent_name: str) -> dict:
+    """Get count of pending messages by priority."""
+    mailbox = get_mailbox_manager()
+    return mailbox.get_pending_count(agent_name)
+
+
+@app.post("/api/mailbox/send")
+async def send_message(request: MessageSendRequest) -> dict:
+    """Send a message to an agent's mailbox."""
+    mailbox = get_mailbox_manager()
+
+    message = mailbox.send(
+        from_agent=request.from_agent,
+        to_agent=request.to_agent,
+        subject=request.subject,
+        body=request.body,
+        message_type=MessageType(request.message_type),
+        priority=MessagePriority[request.priority.upper()],
+        swarm_name=request.swarm_name,
+        payload=request.payload,
+        reply_to=request.reply_to,
+        tags=request.tags,
+    )
+
+    return {"success": True, "message_id": message.id, "message": message.to_dict()}
+
+
+@app.post("/api/mailbox/handoff")
+async def send_handoff(request: HandoffRequest) -> dict:
+    """Send a structured handoff to another agent."""
+    from shared.agent_mailbox import HandoffContext
+
+    mailbox = get_mailbox_manager()
+
+    context = HandoffContext(
+        work_completed=request.work_completed,
+        current_state=request.current_state,
+        next_steps=request.next_steps,
+        files_modified=request.files_modified or [],
+        blockers=request.blockers or [],
+    )
+
+    message = mailbox.handoff(
+        from_agent=request.from_agent,
+        to_agent=request.to_agent,
+        subject=request.subject,
+        handoff_context=context,
+        priority=MessagePriority[request.priority.upper()],
+        swarm_name=request.swarm_name,
+    )
+
+    return {"success": True, "message_id": message.id, "message": message.to_dict()}
+
+
+@app.post("/api/mailbox/message/{message_id}/read")
+async def read_message(message_id: str) -> dict:
+    """Mark a message as read."""
+    mailbox = get_mailbox_manager()
+    message = mailbox.read_message(message_id)
+
+    if not message:
+        raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
+
+    return {"success": True, "message": message.to_dict()}
+
+
+@app.post("/api/mailbox/message/{message_id}/complete")
+async def complete_message(message_id: str, archive: bool = True) -> dict:
+    """Mark a message as completed."""
+    mailbox = get_mailbox_manager()
+    message = mailbox.mark_completed(message_id, archive=archive)
+
+    if not message:
+        raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
+
+    return {"success": True, "message": message.to_dict()}
+
+
+@app.post("/api/mailbox/message/{message_id}/reply")
+async def reply_to_message(message_id: str, from_agent: str, body: str, payload: dict | None = None) -> dict:
+    """Reply to a message."""
+    mailbox = get_mailbox_manager()
+    message = mailbox.reply(message_id, from_agent, body, payload)
+
+    if not message:
+        raise HTTPException(status_code=404, detail=f"Original message {message_id} not found")
+
+    return {"success": True, "message": message.to_dict()}
+
+
+@app.get("/api/mailbox/thread/{thread_id}")
+async def get_message_thread(thread_id: str) -> list[dict]:
+    """Get all messages in a conversation thread."""
+    mailbox = get_mailbox_manager()
+    messages = mailbox.get_thread(thread_id)
+    return [msg.to_dict() for msg in messages]
+
+
+# ============================================================
+# ESCALATION PROTOCOL ENDPOINTS
+# ============================================================
+
+
+class EscalationCreateRequest(BaseModel):
+    """Request to create an escalation."""
+    from_level: str  # "agent" or "coo"
+    to_level: str    # "coo" or "ceo"
+    reason: str
+    title: str
+    description: str
+    created_by: str
+    priority: str = "medium"
+    swarm_name: str | None = None
+    blocked_tasks: list[str] | None = None
+    related_files: list[str] | None = None
+    context: dict | None = None
+
+
+@app.get("/api/escalations")
+async def list_escalations(
+    status: str | None = None,
+    level: str | None = None,
+    swarm: str | None = None,
+) -> list[dict]:
+    """List escalations with optional filters."""
+    manager = get_escalation_manager()
+
+    if status == "pending":
+        target_level = EscalationLevel(level) if level else None
+        items = manager.get_pending(level=target_level)
+    elif swarm:
+        items = manager.get_by_swarm(swarm)
+    elif status == "blocking":
+        items = manager.get_blocked_work()
+    else:
+        # Return all pending by default
+        items = manager.get_pending()
+
+    return [item.to_dict() for item in items]
+
+
+@app.post("/api/escalations")
+async def create_escalation(request: EscalationCreateRequest) -> dict:
+    """Create a new escalation."""
+    manager = get_escalation_manager()
+
+    try:
+        escalation = manager.create_escalation(
+            from_level=EscalationLevel(request.from_level),
+            to_level=EscalationLevel(request.to_level),
+            reason=EscalationReason(request.reason),
+            title=request.title,
+            description=request.description,
+            created_by=request.created_by,
+            priority=EscalationPriority(request.priority),
+            swarm_name=request.swarm_name,
+            blocked_tasks=request.blocked_tasks,
+            related_files=request.related_files,
+            context=request.context,
+        )
+
+        return {"success": True, "escalation_id": escalation.id, "escalation": escalation.to_dict()}
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/escalations/{escalation_id}")
+async def get_escalation(escalation_id: str) -> dict:
+    """Get a specific escalation."""
+    manager = get_escalation_manager()
+
+    # Access internal dict since there's no get_by_id method
+    if escalation_id not in manager._escalations:
+        raise HTTPException(status_code=404, detail=f"Escalation {escalation_id} not found")
+
+    return manager._escalations[escalation_id].to_dict()
+
+
+@app.post("/api/escalations/{escalation_id}/resolve")
+async def resolve_escalation(
+    escalation_id: str,
+    resolution: str,
+    resolved_by: str,
+) -> dict:
+    """Resolve an escalation."""
+    manager = get_escalation_manager()
+    escalation = manager.resolve_escalation(escalation_id, resolution, resolved_by)
+
+    if not escalation:
+        raise HTTPException(status_code=404, detail=f"Escalation {escalation_id} not found")
+
+    return {"success": True, "escalation": escalation.to_dict()}
+
+
+@app.post("/api/escalations/{escalation_id}/status")
+async def update_escalation_status(escalation_id: str, status: str) -> dict:
+    """Update an escalation's status."""
+    manager = get_escalation_manager()
+    escalation = manager.update_status(escalation_id, EscalationStatus(status))
+
+    if not escalation:
+        raise HTTPException(status_code=404, detail=f"Escalation {escalation_id} not found")
+
+    return {"success": True, "escalation": escalation.to_dict()}
+
+
+@app.get("/api/escalations/pending/coo")
+async def get_coo_pending_escalations() -> list[dict]:
+    """Get pending escalations for COO."""
+    manager = get_escalation_manager()
+    items = manager.get_pending(level=EscalationLevel.COO)
+    return [item.to_dict() for item in items]
+
+
+@app.get("/api/escalations/pending/ceo")
+async def get_ceo_pending_escalations() -> list[dict]:
+    """Get pending escalations for CEO (human)."""
+    manager = get_escalation_manager()
+    items = manager.get_pending(level=EscalationLevel.CEO)
+    return [item.to_dict() for item in items]
+
+
+# ============================================================
+# REVIEW WORKFLOW ENDPOINTS
+# ============================================================
+
+
+@app.get("/api/swarms/{swarm_name}/workflow/{work_id}")
+async def get_workflow_status(swarm_name: str, work_id: str) -> dict:
+    """Get workflow status for a piece of work."""
+    orch = get_orchestrator()
+
+    if swarm_name not in orch.swarms:
+        raise HTTPException(status_code=404, detail=f"Swarm '{swarm_name}' not found")
+
+    swarm = orch.swarms[swarm_name]
+    return swarm.get_workflow_status(work_id)
+
+
+@app.post("/api/swarms/{swarm_name}/workflow/{work_id}/complete-step")
+async def complete_workflow_step(
+    swarm_name: str,
+    work_id: str,
+    step_name: str,
+    agent_name: str | None = None,
+    result: dict | None = None,
+) -> dict:
+    """Mark a workflow step as completed."""
+    orch = get_orchestrator()
+
+    if swarm_name not in orch.swarms:
+        raise HTTPException(status_code=404, detail=f"Swarm '{swarm_name}' not found")
+
+    swarm = orch.swarms[swarm_name]
+
+    try:
+        status = swarm.complete_workflow_step(work_id, step_name, result, agent_name)
+        return {"success": True, "workflow_status": status}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/swarms/{swarm_name}/workflow/{work_id}/can-complete")
+async def can_complete_work(swarm_name: str, work_id: str) -> dict:
+    """Check if work can be marked as complete (all required steps done)."""
+    orch = get_orchestrator()
+
+    if swarm_name not in orch.swarms:
+        raise HTTPException(status_code=404, detail=f"Swarm '{swarm_name}' not found")
+
+    swarm = orch.swarms[swarm_name]
+    can_proceed, blocking_reason = swarm.can_complete_work(work_id)
+
+    return {
+        "can_complete": can_proceed,
+        "blocking_reason": blocking_reason,
+    }
+
+
+@app.get("/api/swarms/{swarm_name}/workflow/{work_id}/next-step")
+async def get_next_required_step(swarm_name: str, work_id: str) -> dict:
+    """Get the next required step for a piece of work."""
+    orch = get_orchestrator()
+
+    if swarm_name not in orch.swarms:
+        raise HTTPException(status_code=404, detail=f"Swarm '{swarm_name}' not found")
+
+    swarm = orch.swarms[swarm_name]
+    next_step = swarm.get_next_required_step(work_id)
+
+    if next_step:
+        return {
+            "has_next": True,
+            "step": next_step.step,
+            "agent": next_step.agent,
+            "required": next_step.required,
+        }
+    return {
+        "has_next": False,
+        "step": None,
+        "agent": None,
+        "required": None,
+    }
+
+
+@app.post("/api/swarms/{swarm_name}/workflow/{work_id}/reset")
+async def reset_workflow(swarm_name: str, work_id: str) -> dict:
+    """Reset workflow tracking for a piece of work."""
+    orch = get_orchestrator()
+
+    if swarm_name not in orch.swarms:
+        raise HTTPException(status_code=404, detail=f"Swarm '{swarm_name}' not found")
+
+    swarm = orch.swarms[swarm_name]
+    swarm.reset_workflow(work_id)
+
+    return {"success": True, "message": f"Workflow reset for {work_id}"}
+
+
+@app.get("/api/swarms/{swarm_name}/workflow-config")
+async def get_workflow_config(swarm_name: str) -> dict:
+    """Get the review workflow configuration for a swarm."""
+    orch = get_orchestrator()
+
+    if swarm_name not in orch.swarms:
+        raise HTTPException(status_code=404, detail=f"Swarm '{swarm_name}' not found")
+
+    swarm = orch.swarms[swarm_name]
+    workflow = swarm.config.review_workflow
+
+    return {
+        "swarm": swarm_name,
+        "has_workflow": len(workflow) > 0,
+        "steps": [
+            {"step": s.step, "agent": s.agent, "required": s.required}
+            for s in workflow
+        ],
+        "required_steps": [
+            {"step": s.step, "agent": s.agent}
+            for s in workflow if s.required
+        ],
+    }
+
+
+# ============================================================
 # AGENT EXECUTION ENDPOINTS (executor pool integration)
 # ============================================================
 
@@ -531,6 +1208,140 @@ async def get_pool_status() -> dict:
             "max_concurrent": 5,
             "initialized": False,
         }
+
+
+# WebSocket subscribers for executor pool events
+executor_pool_subscribers: list[WebSocket] = []
+
+
+async def broadcast_executor_pool_event(event: dict):
+    """Broadcast executor pool events to all subscribers and main chat connections."""
+    # Send to dedicated executor pool subscribers
+    for ws in executor_pool_subscribers[:]:
+        try:
+            await ws.send_json(event)
+        except Exception:
+            try:
+                executor_pool_subscribers.remove(ws)
+            except ValueError:
+                pass
+
+    # Also send to main chat WebSocket connections for parallel agent tracking
+    # Map executor pool event types to chat WebSocket event types
+    event_type = event.get("type", "")
+    if event_type == "agent_execution_start":
+        # Send as agent_spawn for consistency with existing frontend
+        chat_event = {
+            "type": "agent_spawn",
+            "agent": event.get("agent", "Unknown Agent"),
+            "description": f"Executing in {event.get('swarm', 'workspace')}",
+            "parentAgent": "COO",
+            "executionId": event.get("execution_id", ""),
+        }
+        for ws in manager.active_connections[:]:
+            try:
+                await ws.send_json(chat_event)
+            except Exception:
+                pass
+    elif event_type == "agent_execution_complete":
+        # Send as agent_complete_subagent for consistency
+        chat_event = {
+            "type": "agent_complete_subagent",
+            "agent": event.get("agent", "Unknown Agent"),
+            "success": event.get("success", False),
+            "executionId": event.get("execution_id", ""),
+        }
+        for ws in manager.active_connections[:]:
+            try:
+                await ws.send_json(chat_event)
+            except Exception:
+                pass
+    elif event_type in ("tool_start", "tool_complete"):
+        # Pass through tool events with agent attribution
+        chat_event = {
+            "type": event_type,
+            "tool": event.get("tool", "unknown"),
+            "description": event.get("description", ""),
+            "agentName": event.get("agent", "Unknown Agent"),
+            "success": event.get("success", True),
+        }
+        for ws in manager.active_connections[:]:
+            try:
+                await ws.send_json(chat_event)
+            except Exception:
+                pass
+
+
+@app.websocket("/ws/executor-pool")
+async def websocket_executor_pool(websocket: WebSocket):
+    """WebSocket endpoint for executor pool events.
+
+    Clients receive real-time updates when:
+    - Agents start executing
+    - Agents complete (success or failure)
+    - Tool usage by agents
+    - Progress updates
+    """
+    await websocket.accept()
+    executor_pool_subscribers.append(websocket)
+    logger.info(f"Executor pool WebSocket connected. Total subscribers: {len(executor_pool_subscribers)}")
+
+    try:
+        # Send initial status
+        try:
+            pool = get_executor_pool()
+            await websocket.send_json({
+                "type": "executor_pool_status",
+                "activeCount": pool.active_count,
+                "availableSlots": pool.available_slots,
+                "maxConcurrent": pool.max_concurrent,
+            })
+        except ValueError:
+            await websocket.send_json({
+                "type": "executor_pool_status",
+                "activeCount": 0,
+                "availableSlots": 5,
+                "maxConcurrent": 5,
+                "initialized": False,
+            })
+
+        # Keep connection alive and handle any client messages
+        while True:
+            try:
+                data = await websocket.receive_json()
+                action = data.get("action")
+
+                if action == "get_status":
+                    try:
+                        pool = get_executor_pool()
+                        await websocket.send_json({
+                            "type": "executor_pool_status",
+                            "activeCount": pool.active_count,
+                            "availableSlots": pool.available_slots,
+                            "maxConcurrent": pool.max_concurrent,
+                        })
+                    except ValueError:
+                        await websocket.send_json({
+                            "type": "executor_pool_status",
+                            "activeCount": 0,
+                            "availableSlots": 5,
+                            "maxConcurrent": 5,
+                            "initialized": False,
+                        })
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.debug(f"Executor pool WebSocket message error: {e}")
+                break
+
+    except WebSocketDisconnect:
+        pass
+    finally:
+        try:
+            executor_pool_subscribers.remove(websocket)
+        except ValueError:
+            pass
+        logger.info(f"Executor pool WebSocket disconnected. Total subscribers: {len(executor_pool_subscribers)}")
 
 
 @app.get("/api/swarms")
@@ -989,9 +1800,7 @@ async def add_chat_message(
 # ============================================================
 # WEB SEARCH & FETCH ENDPOINTS (for agent access via curl)
 # ============================================================
-import urllib.parse
-import urllib.request
-import re
+
 
 class SearchRequest(BaseModel):
     query: str
@@ -1153,6 +1962,7 @@ async def stream_claude_response(
     workspace: Path | None = None,
     chat_id: str | None = None,
     system_prompt: str | None = None,
+    disallowed_tools: list[str] | None = None,
 ) -> asyncio.subprocess.Process:
     """
     Start a claude CLI process and return it for streaming.
@@ -1164,6 +1974,7 @@ async def stream_claude_response(
         prompt: The user message/request
         system_prompt: Custom system prompt (COO role, context, etc.)
         chat_id: Session ID for continuity
+        disallowed_tools: List of tool names to disable (e.g., ["Write", "Edit"] for COO)
     """
     # Build the command with prompt as argument (more reliable than stdin)
     cmd = [
@@ -1175,6 +1986,10 @@ async def stream_claude_response(
         "--permission-mode",
         "acceptEdits",  # Allow file writes without interactive approval
     ]
+
+    # Add tool restrictions (e.g., COO cannot use Write/Edit)
+    if disallowed_tools:
+        cmd.extend(["--disallowedTools", ",".join(disallowed_tools)])
 
     # Add custom system prompt for COO role (append to keep Claude's tool knowledge)
     if system_prompt:
@@ -1310,32 +2125,37 @@ async def parse_claude_stream(
     return {"response": context["full_response"], "thinking": context["full_thinking"]}
 
 
-def _get_tool_description(tool_name: str, tool_input: dict) -> str:
-    """Generate human-readable description for a tool call."""
-    descriptions = {
-        "Read": lambda i: f"Reading {i.get('file_path', 'file')[:50]}",
-        "Write": lambda i: f"Writing to {i.get('file_path', 'file')[:50]}",
-        "Edit": lambda i: f"Editing {i.get('file_path', 'file')[:50]}",
-        "Bash": lambda i: f"Running: {i.get('command', '')[:40]}{'...' if len(i.get('command', '')) > 40 else ''}",
-        "Glob": lambda i: f"Searching for {i.get('pattern', 'files')}",
-        "Grep": lambda i: f"Searching for '{i.get('pattern', '')[:30]}'",
-        "Task": lambda i: f"Delegating to {i.get('agent', 'agent')}: {i.get('prompt', '')[:40]}...",
-        "WebSearch": lambda i: f"Searching web: {i.get('query', '')[:40]}",
-        "WebFetch": lambda i: f"Fetching {i.get('url', 'URL')[:40]}",
-    }
+def _get_file_info(tool_name: str, tool_input: dict) -> tuple[str | None, str | None]:
+    """Extract file path and operation type from tool input."""
+    file_path = tool_input.get('file_path')
 
-    if tool_name in descriptions:
-        try:
-            return descriptions[tool_name](tool_input)
-        except Exception:
-            pass
-
-    return f"Using {tool_name}"
+    if tool_name == 'Read':
+        return file_path, 'read'
+    elif tool_name == 'Write':
+        return file_path, 'write'
+    elif tool_name == 'Edit':
+        return file_path, 'edit'
+    return None, None
 
 
 async def _process_cli_event(event: dict, websocket: WebSocket, manager, context: dict, session_mgr=None, chat_id: str = None):
-    """Process a single CLI event and forward to WebSocket."""
+    """Process a single CLI event and forward to WebSocket.
+
+    Agent Tracking Logic:
+    - context["agent_stack"] tracks the hierarchy of active agents (COO at bottom, sub-agents on top)
+    - When Task tool starts, we push the sub-agent name onto the stack
+    - When Task tool completes, we pop it off
+    - All tool events are attributed to the current top-of-stack agent
+    """
     event_type = event.get("type", "")
+
+    # Initialize agent tracking stack if needed
+    if "agent_stack" not in context:
+        context["agent_stack"] = ["COO"]  # COO is always the base
+
+    def get_current_agent():
+        """Get the currently active agent (top of stack)."""
+        return context["agent_stack"][-1] if context["agent_stack"] else "COO"
 
     try:
         # Capture session ID from Claude output for session continuity
@@ -1345,8 +2165,9 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 context["session_id"] = session_id
                 asyncio.create_task(session_mgr.register_session(chat_id, session_id))
 
-        if event_type == "assistant":
+        if event_type == "assistant" and not event.get("parent_tool_use_id"):
             # Assistant message in agentic loop - may have text, thinking, or tool_use blocks
+            # Skip if this is a subagent message (has parent_tool_use_id) - handled separately
             message = event.get("message", {})
             content_blocks = message.get("content", [])
             for block in content_blocks:
@@ -1369,26 +2190,45 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                         context["full_response"] = context.get("full_response", "") + text
                 elif block.get("type") == "tool_use":
                     # Fallback: detect tool_use from final assistant message
+                    # This handles cases where streaming events didn't fire
                     tool_name = block.get("name", "unknown")
                     tool_input = block.get("input", {})
+                    tool_use_id = block.get("id", "")
 
-                    # Track which agent is active (for attribution)
-                    current_agent = context.get("current_subagent", "COO")
-                    if tool_name == "Task":
-                        # Extract subagent name from Task input
+                    # Get current agent from stack
+                    current_agent = get_current_agent()
+
+                    # Only handle Task agent spawning if we didn't already do it via streaming
+                    if tool_name == "Task" and tool_use_id not in context.get("pending_tasks", {}):
                         subagent = tool_input.get("subagent_type") or tool_input.get("agent", "")
+                        description = tool_input.get("description", tool_input.get("prompt", ""))[:100]
                         if subagent:
-                            context["current_subagent"] = subagent
-                            current_agent = subagent
+                            # Push to agent stack
+                            context["agent_stack"].append(subagent)
+                            # Track for cleanup
+                            if "pending_tasks" not in context:
+                                context["pending_tasks"] = {}
+                            context["pending_tasks"][tool_use_id] = subagent
+                            # Send agent_spawn event
+                            await manager.send_event(
+                                websocket,
+                                "agent_spawn",
+                                {
+                                    "agent": subagent,
+                                    "description": description,
+                                    "parentAgent": current_agent,
+                                },
+                            )
+                            current_agent = subagent  # Use subagent for this tool
 
-                    # Only send if we didn't already send via streaming
+                    # Only send tool events if we didn't already send via streaming
                     if not context.get(f"sent_tool_{tool_name}_{id(block)}"):
                         await manager.send_event(
                             websocket,
                             "tool_start",
                             {
                                 "tool": tool_name,
-                                "description": _get_tool_description(tool_name, tool_input),
+                                "description": get_tool_description(tool_name, tool_input),
                                 "input": tool_input,
                                 "agentName": current_agent,
                             },
@@ -1418,31 +2258,32 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 )
             elif block_type == "tool_use":
                 tool_name = content_block.get("name", "unknown")
-                tool_input = content_block.get("input", {})
+                tool_use_id = content_block.get("id", "")
                 context["current_tool"] = tool_name
+                context["current_tool_use_id"] = tool_use_id
+                # Reset streamed input accumulator
+                context["current_tool_input_json"] = ""
+                context["agent_spawn_sent"] = False
 
-                # Track which agent is active (for attribution)
-                current_agent = context.get("current_subagent", "COO")
-                if tool_name == "Task":
-                    # Extract subagent name from Task input
-                    subagent = tool_input.get("subagent_type") or tool_input.get("agent", "")
-                    if subagent:
-                        context["current_subagent"] = subagent
-                        current_agent = subagent
+                # NOTE: tool_input is typically empty at content_block_start because
+                # the input is streamed via input_json_delta events. Agent spawning
+                # for Task tools is handled in input_json_delta when we have the full input.
+
+                # Get current agent from stack for initial tool_start event
+                current_agent = get_current_agent()
 
                 # Mark as sent to avoid duplicate from fallback
                 context[f"sent_tool_{tool_name}"] = True
-                # Send tool_start event for real-time visibility
-                await manager.send_event(
-                    websocket,
-                    "tool_start",
-                    {
-                        "tool": tool_name,
-                        "description": _get_tool_description(tool_name, tool_input),
-                        "input": tool_input,
-                        "agentName": current_agent,
-                    },
-                )
+
+                # Send initial tool_start event (description will be updated when input available)
+                tool_event = {
+                    "tool": tool_name,
+                    "description": f"Starting {tool_name}...",
+                    "input": {},
+                    "agentName": current_agent,
+                }
+
+                await manager.send_event(websocket, "tool_start", tool_event)
 
         elif event_type == "content_block_delta":
             delta = event.get("delta", {})
@@ -1477,22 +2318,61 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 context["current_tool_input_json"] = context.get("current_tool_input_json", "") + partial_json
 
                 # Try to parse and detect agent spawning for Task tool
-                if context.get("current_tool") == "Task":
+                if context.get("current_tool") == "Task" and not context.get("agent_spawn_sent"):
                     try:
-                        import json
                         partial_input = json.loads(context["current_tool_input_json"])
-                        agent_name = partial_input.get("agent", "")
-                        if agent_name and not context.get("agent_spawn_sent"):
+                        # Check both subagent_type (standard) and agent (legacy) fields
+                        agent_name = partial_input.get("subagent_type") or partial_input.get("agent", "")
+                        if agent_name:
+                            # Use 'description' field if available, otherwise truncate 'prompt'
+                            desc = partial_input.get("description", "") or partial_input.get("prompt", "")[:100]
+
+                            # Get current agent BEFORE pushing to stack
+                            parent_agent = get_current_agent()
+
+                            # Push to agent stack for proper tool attribution
+                            context["agent_stack"].append(agent_name)
+
+                            # Track in pending_tasks for cleanup on completion
+                            tool_use_id = context.get("current_tool_use_id", "")
+                            if "pending_tasks" not in context:
+                                context["pending_tasks"] = {}
+                            context["pending_tasks"][tool_use_id] = agent_name
+
                             # Send agent_spawn event
                             await manager.send_event(
                                 websocket,
                                 "agent_spawn",
                                 {
                                     "agent": agent_name,
-                                    "description": partial_input.get("prompt", "")[:100],
+                                    "description": desc,
+                                    "parentAgent": parent_agent,
                                 },
                             )
                             context["agent_spawn_sent"] = True
+
+                            # Track delegation in Work Ledger for persistence across sessions
+                            try:
+                                ledger = get_work_ledger()
+                                work_item = ledger.create_work(
+                                    title=f"Delegation: {desc[:80]}",
+                                    work_type=WorkType.TASK,
+                                    priority=WorkPriority.HIGH,
+                                    description=partial_input.get("prompt", desc),
+                                    created_by=parent_agent or "COO",
+                                    swarm_name="swarm_dev",  # TODO: get from context
+                                    context={
+                                        "tool_use_id": tool_use_id,
+                                        "subagent_type": agent_name,
+                                        "parent_agent": parent_agent,
+                                    },
+                                )
+                                # Claim it immediately since we're executing it
+                                ledger.claim_work(work_item.id, agent_name)
+                                context["delegation_work_id"] = work_item.id
+                                logger.info(f"Tracked delegation in Work Ledger: {work_item.id}")
+                            except Exception as e:
+                                logger.warning(f"Failed to track delegation in Work Ledger: {e}")
                     except json.JSONDecodeError:
                         pass  # JSON not complete yet
 
@@ -1510,7 +2390,9 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
             elif block_type == "tool_use":
                 # Tool completed
                 tool_name = context.get("current_tool", "unknown")
-                current_agent = context.get("current_subagent", "COO")
+                tool_use_id = context.get("current_tool_use_id", "")
+                current_agent = get_current_agent()
+
                 await manager.send_event(
                     websocket,
                     "tool_complete",
@@ -1521,8 +2403,39 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                         "agentName": current_agent,
                     },
                 )
+
+                # If this was a Task tool, pop the agent from stack and send agent_complete
+                if tool_name == "Task" and tool_use_id in context.get("pending_tasks", {}):
+                    completed_agent = context["pending_tasks"].pop(tool_use_id)
+                    if context["agent_stack"] and context["agent_stack"][-1] == completed_agent:
+                        context["agent_stack"].pop()
+                    # Send agent completion event
+                    await manager.send_event(
+                        websocket,
+                        "agent_complete_subagent",
+                        {
+                            "agent": completed_agent,
+                            "success": True,
+                        },
+                    )
+
+                    # Mark work item as completed in Work Ledger
+                    if context.get("delegation_work_id"):
+                        try:
+                            ledger = get_work_ledger()
+                            ledger.complete_work(
+                                context["delegation_work_id"],
+                                completed_agent,
+                                result={"status": "completed", "agent": completed_agent}
+                            )
+                            logger.info(f"Marked delegation {context['delegation_work_id']} as complete")
+                            context["delegation_work_id"] = None
+                        except Exception as e:
+                            logger.warning(f"Failed to mark delegation complete: {e}")
+
                 # Reset tool context
                 context["current_tool"] = None
+                context["current_tool_use_id"] = ""
                 context["current_tool_input_json"] = ""
                 context["agent_spawn_sent"] = False
 
@@ -1557,6 +2470,90 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
                 },
             )
             context["current_tool"] = None
+
+        elif event_type == "user":
+            # User message containing tool results - this includes subagent activity!
+            # When parent_tool_use_id is set, this is a subagent's tool result
+            parent_tool_id = event.get("parent_tool_use_id")
+            tool_use_result = event.get("tool_use_result")
+            message = event.get("message", {})
+            content_list = message.get("content", [])
+
+            if parent_tool_id and parent_tool_id in context.get("pending_tasks", {}):
+                # This is a subagent's tool result!
+                subagent_name = context["pending_tasks"][parent_tool_id]
+
+                for content_item in content_list:
+                    if content_item.get("type") == "tool_result":
+                        tool_use_id = content_item.get("tool_use_id", "")
+                        result_content = content_item.get("content", "")
+                        is_error = content_item.get("is_error", False)
+
+                        # Look up what tool this was from our tracking
+                        tool_info = context.get("subagent_tools", {}).get(tool_use_id, {})
+                        tool_name = tool_info.get("name", "Tool")
+
+                        # Send tool_complete for subagent
+                        await manager.send_event(
+                            websocket,
+                            "tool_complete",
+                            {
+                                "tool": tool_name,
+                                "success": not is_error,
+                                "summary": result_content[:100] if isinstance(result_content, str) else "Completed",
+                                "agentName": subagent_name,
+                            },
+                        )
+
+            # Also handle nested assistant messages from subagents
+            # (when the subagent makes tool calls, we see them here)
+
+        elif event_type == "assistant" and event.get("parent_tool_use_id"):
+            # This is a subagent's assistant message!
+            parent_tool_id = event.get("parent_tool_use_id")
+            if parent_tool_id in context.get("pending_tasks", {}):
+                subagent_name = context["pending_tasks"][parent_tool_id]
+                message = event.get("message", {})
+                content_blocks = message.get("content", [])
+
+                for block in content_blocks:
+                    if block.get("type") == "tool_use":
+                        tool_name = block.get("name", "unknown")
+                        tool_input = block.get("input", {})
+                        tool_use_id = block.get("id", "")
+
+                        # Track this tool for later completion
+                        if "subagent_tools" not in context:
+                            context["subagent_tools"] = {}
+                        context["subagent_tools"][tool_use_id] = {
+                            "name": tool_name,
+                            "agent": subagent_name,
+                        }
+
+                        # Emit tool_start for the subagent
+                        await manager.send_event(
+                            websocket,
+                            "tool_start",
+                            {
+                                "tool": tool_name,
+                                "description": get_tool_description(tool_name, tool_input),
+                                "input": tool_input,
+                                "agentName": subagent_name,
+                            },
+                        )
+                    elif block.get("type") == "text":
+                        text = block.get("text", "")
+                        if text:
+                            # Subagent is producing text output - emit as agent_delta
+                            await manager.send_event(
+                                websocket,
+                                "agent_delta",
+                                {
+                                    "agent": subagent_name,
+                                    "agent_type": "subagent",
+                                    "delta": text,
+                                },
+                            )
 
     except Exception as e:
         logger.error(f"Error processing CLI event: {e}")
@@ -1659,6 +2656,11 @@ async def websocket_chat(websocket: WebSocket):
     orch = get_orchestrator()
     history = get_chat_history()
 
+    # Generate a connection-level correlation ID for the WebSocket session
+    ws_correlation_id = str(uuid.uuid4())[:8]
+    request_id_var.set(ws_correlation_id)
+    logger.info("WebSocket chat session started")
+
     try:
         while True:
             # Receive message from client
@@ -1667,6 +2669,11 @@ async def websocket_chat(websocket: WebSocket):
             _swarm_name = data.get("swarm")  # Reserved for future swarm-specific routing
             session_id = data.get("session_id")
             attachments = data.get("attachments", [])
+
+            # Generate a new correlation ID for each message in the WebSocket session
+            msg_correlation_id = str(uuid.uuid4())[:8]
+            request_id_var.set(msg_correlation_id)
+            logger.info(f"Processing chat message: {message[:100]}...")
 
             if not message:
                 continue
@@ -1753,39 +2760,63 @@ async def websocket_chat(websocket: WebSocket):
                 all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined"
 
                 # System prompt for COO - uses CLI's built-in Task tool
-                system_prompt = f"""You are the Supreme Orchestrator (COO) - a fully autonomous AI with complete capabilities.
+                # NOTE: Write and Edit tools are DISABLED via --disallowedTools flag
+                system_prompt = f"""You are the Supreme Orchestrator (COO) - a fully autonomous AI orchestrator.
+
+## TOOL RESTRICTIONS - HARD ENFORCED
+
+**The Write and Edit tools are DISABLED for you.** Attempting to use them will fail.
+
+You MUST delegate ALL file modifications to specialized agents using the Task tool.
 
 ## Your Capabilities
-You have FULL access to all tools and can do anything directly:
-- **Read/Write/Edit** any file in the workspace
-- **Bash** for running commands, git, tests, builds
-- **Glob/Grep** for searching files and code
+
+You CAN use:
+- **Read** - Read any file to understand context
+- **Glob/Grep** - Search files and code
+- **Bash** - Run read-only commands (git status, ls, cat, tests, etc.)
+- **Task** - Delegate work to specialized agents (YOUR PRIMARY TOOL)
 - **Web Search**: `curl -s "http://localhost:8000/api/search?q=QUERY" | jq`
 - **Web Fetch**: `curl -s "http://localhost:8000/api/fetch?url=URL" | jq .content`
-- **Task** tool to delegate to specialized agents when beneficial
 
-## When to Do vs Delegate
-**Do it yourself when:**
-- Quick tasks (reading files, small edits, simple searches)
-- You need to understand something before delegating
-- The user wants a direct answer or explanation
+You CANNOT use (BLOCKED):
+- **Write** - DISABLED (delegate to implementer)
+- **Edit** - DISABLED (delegate to implementer)
 
-**Delegate when:**
-- Large implementation tasks
-- Deep research requiring multiple iterations
-- Parallel work streams (spawn multiple agents)
-- Specialized expertise needed (critic for review, tester for tests)
+## SINGLE EXCEPTION: STATE.md
 
-## Available Agents (via Task tool)
-- **researcher**: Deep research, documentation analysis, web searches
-- **architect**: System design, planning, architectural decisions
-- **implementer**: Code implementation, file creation, refactoring
-- **critic**: Code review, bug finding, quality assessment
-- **tester**: Test creation, verification, validation
-
-## Delegation Example
+You MAY update STATE.md files directly via Bash:
+```bash
+cat >> workspace/STATE.md << 'EOF'
+### Progress Entry
+...
+EOF
 ```
-Task(subagent_type="researcher", prompt="Research atomic semantics in NLP. Use web search via curl to localhost:8000/api/search. Write findings to workspace/research_atomic_semantics.md")
+
+## Delegation Pipeline
+
+For ALL work that modifies files:
+1. **researcher** - Investigate and gather context
+2. **architect** - Design the solution
+3. **implementer** - Write the code
+4. **critic** - Review for bugs/issues
+5. **tester** - Verify changes work
+
+## Delegation Examples
+
+**Implement a feature:**
+```
+Task(subagent_type="implementer", prompt="Read workspace/STATE.md first. Implement feature X in file Y. Update STATE.md when done.")
+```
+
+**Design a solution:**
+```
+Task(subagent_type="architect", prompt="Read workspace/STATE.md first. Design the solution for problem X. Create design doc at workspace/DESIGN_X.md. Update STATE.md when done.")
+```
+
+**Review code:**
+```
+Task(subagent_type="critic", prompt="Read workspace/STATE.md first. Review the implementation in file X for bugs and issues. Update STATE.md with findings.")
 ```
 
 ## Swarm Workspaces
@@ -1804,12 +2835,11 @@ Backend logs: logs/backend.log
 
 ## Your Approach
 1. Understand what the user wants
-2. Decide: do it yourself or delegate?
-3. For complex work: break into tasks, delegate in parallel when possible
-4. Synthesize results and report back clearly
-5. Update STATE.md with progress
+2. Break work into tasks and delegate to appropriate agents
+3. Synthesize results and report back clearly
+4. Update STATE.md with progress (via Bash)
 
-Be proactive, thorough, and autonomous. You have full capability - use it."""
+Remember: You are a CONDUCTOR, not a MUSICIAN. Conduct the orchestra, don't play the instruments."""
 
                 user_message = message
 
@@ -1828,7 +2858,7 @@ Be proactive, thorough, and autonomous. You have full capability - use it."""
                 result = None
                 process = None
 
-                # Use Claude CLI
+                # Use Claude CLI with Write/Edit tools DISABLED for COO
                 try:
                     process = await stream_claude_response(
                         prompt=user_prompt,
@@ -1836,6 +2866,7 @@ Be proactive, thorough, and autonomous. You have full capability - use it."""
                         swarm_name=None,
                         workspace=PROJECT_ROOT,
                         chat_id=session_id,
+                        disallowed_tools=["Write", "Edit"],  # COO CANNOT write/edit files
                     )
 
                     # Stream and parse the response

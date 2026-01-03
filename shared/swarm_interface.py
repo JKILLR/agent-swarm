@@ -6,6 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,14 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class ReviewStep:
+    """A step in the review workflow."""
+    step: str
+    agent: str
+    required: bool = False
+
+
+@dataclass
 class SwarmConfig:
     """Configuration for a swarm parsed from swarm.yaml."""
 
@@ -31,6 +40,7 @@ class SwarmConfig:
     workspace_path: str = "./workspace"
     settings: dict[str, Any] = field(default_factory=dict)
     priorities: list[str] = field(default_factory=list)
+    review_workflow: list[ReviewStep] = field(default_factory=list)
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> SwarmConfig:
@@ -45,6 +55,17 @@ class SwarmConfig:
         with open(yaml_path) as f:
             data = yaml.safe_load(f) or {}
 
+        # Parse review workflow
+        workflow_data = data.get("review_workflow", [])
+        review_workflow = []
+        for step_data in workflow_data:
+            if isinstance(step_data, dict):
+                review_workflow.append(ReviewStep(
+                    step=step_data.get("step", ""),
+                    agent=step_data.get("agent", ""),
+                    required=step_data.get("required", False),
+                ))
+
         return cls(
             name=data.get("name", yaml_path.parent.name),
             description=data.get("description", ""),
@@ -54,6 +75,7 @@ class SwarmConfig:
             workspace_path=data.get("workspace", "./workspace"),
             settings=data.get("settings", {}),
             priorities=data.get("priorities", []),
+            review_workflow=review_workflow,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -67,7 +89,19 @@ class SwarmConfig:
             "workspace": self.workspace_path,
             "settings": self.settings,
             "priorities": self.priorities,
+            "review_workflow": [
+                {"step": s.step, "agent": s.agent, "required": s.required}
+                for s in self.review_workflow
+            ],
         }
+
+    def get_required_review_steps(self) -> list[ReviewStep]:
+        """Get all required review steps."""
+        return [step for step in self.review_workflow if step.required]
+
+    def has_review_workflow(self) -> bool:
+        """Check if this swarm has a review workflow configured."""
+        return len(self.review_workflow) > 0
 
     def save(self, yaml_path: Path) -> None:
         """Save configuration to YAML file."""
@@ -543,6 +577,174 @@ Please acknowledge this directive and outline how you will proceed."""
     def complete_task(self, task_id: str) -> None:
         """Mark a task as complete."""
         self._current_tasks = [t for t in self._current_tasks if t.get("id") != task_id]
+
+    # ============================================================
+    # REVIEW WORKFLOW ENFORCEMENT
+    # ============================================================
+
+    def get_workflow_status(self, work_id: str) -> dict[str, Any]:
+        """Get the workflow status for a piece of work.
+
+        Args:
+            work_id: ID of the work item
+
+        Returns:
+            Dictionary with workflow status:
+            - current_step: Current step name
+            - completed_steps: List of completed step names
+            - pending_steps: List of pending step names (required and optional)
+            - required_pending: List of required steps not yet completed
+            - can_proceed: Whether work can proceed to completion
+            - blocking_reason: If can_proceed is False, explains why
+        """
+        # Check if we have a workflow tracker for this work
+        if not hasattr(self, '_workflow_trackers'):
+            self._workflow_trackers: dict[str, dict[str, Any]] = {}
+
+        if work_id not in self._workflow_trackers:
+            # Initialize tracker for this work
+            self._workflow_trackers[work_id] = {
+                "current_step_index": 0,
+                "completed_steps": [],
+                "step_results": {},
+            }
+
+        tracker = self._workflow_trackers[work_id]
+        workflow = self.config.review_workflow
+
+        if not workflow:
+            return {
+                "current_step": None,
+                "completed_steps": [],
+                "pending_steps": [],
+                "required_pending": [],
+                "can_proceed": True,
+                "blocking_reason": None,
+            }
+
+        completed_steps = tracker["completed_steps"]
+        pending_steps = [s.step for s in workflow if s.step not in completed_steps]
+        required_pending = [s.step for s in workflow if s.required and s.step not in completed_steps]
+
+        current_idx = tracker["current_step_index"]
+        current_step = workflow[current_idx].step if current_idx < len(workflow) else None
+
+        can_proceed = len(required_pending) == 0
+        blocking_reason = None
+        if not can_proceed:
+            blocking_reason = f"Required review steps not completed: {', '.join(required_pending)}"
+
+        return {
+            "current_step": current_step,
+            "completed_steps": completed_steps,
+            "pending_steps": pending_steps,
+            "required_pending": required_pending,
+            "can_proceed": can_proceed,
+            "blocking_reason": blocking_reason,
+        }
+
+    def complete_workflow_step(
+        self,
+        work_id: str,
+        step_name: str,
+        result: dict[str, Any] | None = None,
+        agent_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Mark a workflow step as completed.
+
+        Args:
+            work_id: ID of the work item
+            step_name: Name of the step to mark complete
+            result: Optional result data from the step
+            agent_name: Agent that completed the step
+
+        Returns:
+            Updated workflow status
+
+        Raises:
+            ValueError: If step not found in workflow
+        """
+        if not hasattr(self, '_workflow_trackers'):
+            self._workflow_trackers = {}
+
+        workflow = self.config.review_workflow
+        step_names = [s.step for s in workflow]
+
+        if step_name not in step_names:
+            raise ValueError(f"Step '{step_name}' not found in workflow. Valid steps: {step_names}")
+
+        if work_id not in self._workflow_trackers:
+            self._workflow_trackers[work_id] = {
+                "current_step_index": 0,
+                "completed_steps": [],
+                "step_results": {},
+            }
+
+        tracker = self._workflow_trackers[work_id]
+
+        if step_name not in tracker["completed_steps"]:
+            tracker["completed_steps"].append(step_name)
+
+        tracker["step_results"][step_name] = {
+            "result": result,
+            "agent": agent_name,
+            "completed_at": datetime.now().isoformat(),
+        }
+
+        # Advance current step index if this was the current step
+        step_idx = step_names.index(step_name)
+        if step_idx == tracker["current_step_index"]:
+            tracker["current_step_index"] = min(step_idx + 1, len(workflow))
+
+        logger.info(f"Workflow step '{step_name}' completed for work {work_id}")
+
+        return self.get_workflow_status(work_id)
+
+    def can_complete_work(self, work_id: str) -> tuple[bool, str | None]:
+        """Check if work can be marked as complete.
+
+        Enforces that all required review steps must be completed
+        before work can be finalized.
+
+        Args:
+            work_id: ID of the work item
+
+        Returns:
+            Tuple of (can_complete, blocking_reason)
+        """
+        status = self.get_workflow_status(work_id)
+        return status["can_proceed"], status["blocking_reason"]
+
+    def get_next_required_step(self, work_id: str) -> ReviewStep | None:
+        """Get the next required step that needs to be completed.
+
+        Args:
+            work_id: ID of the work item
+
+        Returns:
+            Next required ReviewStep or None if all required steps are done
+        """
+        if not hasattr(self, '_workflow_trackers'):
+            self._workflow_trackers = {}
+
+        tracker = self._workflow_trackers.get(work_id, {"completed_steps": []})
+        completed = set(tracker["completed_steps"])
+
+        for step in self.config.review_workflow:
+            if step.required and step.step not in completed:
+                return step
+
+        return None
+
+    def reset_workflow(self, work_id: str) -> None:
+        """Reset workflow tracking for a piece of work.
+
+        Args:
+            work_id: ID of the work item
+        """
+        if hasattr(self, '_workflow_trackers') and work_id in self._workflow_trackers:
+            del self._workflow_trackers[work_id]
+            logger.info(f"Workflow reset for work {work_id}")
 
     def __repr__(self) -> str:
         return f"Swarm(name={self.name!r}, agents={len(self.agents)}, status={self.config.status!r})"
