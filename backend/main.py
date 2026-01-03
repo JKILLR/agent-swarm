@@ -942,11 +942,9 @@ async def stream_claude_response(
     # Set working directory to workspace if specified
     cwd = str(workspace) if workspace else None
 
-    # Build environment - keep API key for now since Max subscription OAuth has issues
-    # TODO: Remove this once Max subscription OAuth is working
-    # To use Max subscription instead of API credits, uncomment the line below:
-    # env.pop("ANTHROPIC_API_KEY", None)  # Force CLI to use Max subscription
+    # Build environment - remove API key so CLI uses Max subscription
     env = os.environ.copy()
+    env.pop("ANTHROPIC_API_KEY", None)  # Force CLI to use Max subscription
 
     logger.info(f"Starting Claude CLI in {cwd or 'current dir'}")
 
