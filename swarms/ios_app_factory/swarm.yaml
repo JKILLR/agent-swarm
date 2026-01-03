@@ -1,0 +1,101 @@
+name: ios_app_factory
+description: AI-powered iOS app studio. Researches niches, designs apps, and generates production-ready SwiftUI code.
+version: 1.0.0
+status: active
+
+workspace: workspace
+
+agents:
+  # Orchestrator - manages the app pipeline
+  - name: app_director
+    role: orchestrator
+    prompt_file: agents/app_director.md
+    max_turns: 30
+
+  # Market & Niche Research
+  - name: market_researcher
+    role: researcher
+    prompt_file: agents/market_researcher.md
+    max_turns: 25
+
+  # App Architecture & Design
+  - name: app_architect
+    role: architect
+    prompt_file: agents/app_architect.md
+    max_turns: 25
+
+  # SwiftUI Implementation
+  - name: swift_developer
+    role: implementer
+    prompt_file: agents/swift_developer.md
+    max_turns: 40
+
+  # App Store Optimization
+  - name: aso_specialist
+    role: specialist
+    prompt_file: agents/aso_specialist.md
+    max_turns: 20
+
+  # Code Review & Quality
+  - name: code_reviewer
+    role: critic
+    prompt_file: agents/code_reviewer.md
+    max_turns: 20
+
+settings:
+  max_concurrent_tasks: 2
+  timeout: 900
+  parallel_execution: true
+
+# App development pipeline
+pipeline:
+  stages:
+    - name: ideation
+      agent: market_researcher
+      outputs: [niche_analysis, app_concept]
+
+    - name: design
+      agent: app_architect
+      inputs: [app_concept]
+      outputs: [app_spec, ui_wireframes, data_model]
+
+    - name: implementation
+      agent: swift_developer
+      inputs: [app_spec, ui_wireframes, data_model]
+      outputs: [swiftui_code, project_structure]
+
+    - name: review
+      agent: code_reviewer
+      inputs: [swiftui_code]
+      outputs: [review_report, fixes]
+
+    - name: aso
+      agent: aso_specialist
+      inputs: [app_concept, app_spec]
+      outputs: [app_name, keywords, description, screenshots_spec]
+
+# App categories to focus on
+focus_categories:
+  - Utilities
+  - Productivity
+  - Health & Fitness
+  - Finance (Personal)
+  - Lifestyle
+
+# Monetization strategies
+monetization_options:
+  - freemium           # Free with premium features
+  - subscription       # Monthly/yearly subscription
+  - one_time_purchase  # Paid upfront
+  - ads_supported      # Free with ads
+
+# Current priorities
+priorities:
+  - priority: 1
+    task: "Set up iOS App Factory infrastructure"
+    status: in_progress
+
+  - priority: 2
+    task: "Research first app niche"
+    status: not_started
+    notes: "Waiting for infrastructure setup"
