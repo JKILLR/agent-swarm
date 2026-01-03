@@ -1574,12 +1574,12 @@ If something isn't working or the user asks about system status:
                     # Stream and parse the response
                     result = await asyncio.wait_for(
                         parse_claude_stream(process, websocket, manager, chat_id=session_id),
-                        timeout=900.0,  # 15 minute timeout
+                        timeout=3600.0,  # 1 hour timeout
                     )
                 except asyncio.TimeoutError:
                     if process:
                         process.kill()
-                    raise RuntimeError("COO timed out after 15 minutes")
+                    raise RuntimeError("COO timed out after 1 hour")
                 except Exception as e:
                     logger.error(f"Claude CLI failed: {e}")
                     raise RuntimeError(f"**Claude CLI Error:** {e}")
