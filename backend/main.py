@@ -942,7 +942,7 @@ async def stream_claude_response(
     # Set working directory to workspace if specified
     cwd = str(workspace) if workspace else None
 
-    # Build environment - REMOVE API key so CLI uses Max subscription instead
+    # Build environment - remove API key so CLI uses Max subscription
     env = os.environ.copy()
     env.pop("ANTHROPIC_API_KEY", None)  # Force CLI to use Max subscription
 
@@ -1574,12 +1574,12 @@ If something isn't working or the user asks about system status:
                     # Stream and parse the response
                     result = await asyncio.wait_for(
                         parse_claude_stream(process, websocket, manager, chat_id=session_id),
-                        timeout=900.0,  # 15 minute timeout
+                        timeout=3600.0,  # 1 hour timeout
                     )
                 except asyncio.TimeoutError:
                     if process:
                         process.kill()
-                    raise RuntimeError("COO timed out after 15 minutes")
+                    raise RuntimeError("COO timed out after 1 hour")
                 except Exception as e:
                     logger.error(f"Claude CLI failed: {e}")
                     raise RuntimeError(f"**Claude CLI Error:** {e}")
