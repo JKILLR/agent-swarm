@@ -62,7 +62,7 @@ trap cleanup SIGINT SIGTERM
 # Start backend
 echo -e "${GREEN}Starting backend on http://localhost:8000${NC}"
 cd "$SCRIPT_DIR/backend"
-$PYTHON -m uvicorn main:app --reload --port 8000 &
+$PYTHON -m uvicorn main:app --reload --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
 # Wait a bit for backend to start
@@ -71,7 +71,7 @@ sleep 2
 # Start frontend
 echo -e "${GREEN}Starting frontend on http://localhost:3000${NC}"
 cd "$SCRIPT_DIR/frontend"
-npm run dev &
+npm run dev -- -H 0.0.0.0 &
 FRONTEND_PID=$!
 
 echo ""
