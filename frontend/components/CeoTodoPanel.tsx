@@ -12,30 +12,33 @@ interface Todo {
 
 const STORAGE_KEY = 'ceo-todos'
 
-// Initialize todos from localStorage synchronously to avoid race conditions
-function getInitialTodos(): Todo[] {
-  if (typeof window === 'undefined') return []
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved) {
-    try {
-      return JSON.parse(saved)
-    } catch (e) {
-      console.error('Failed to parse saved todos:', e)
-    }
-  }
-  return []
-}
-
 export default function CeoTodoPanel() {
-  const [todos, setTodos] = useState<Todo[]>(getInitialTodos)
+  // Initialize with empty array to avoid hydration mismatch
+  const [todos, setTodos] = useState<Todo[]>([])
   const [isOpen, setIsOpen] = useState(true)
   const [newTodo, setNewTodo] = useState('')
   const [isAdding, setIsAdding] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
 
-  // Save todos to localStorage whenever they change
+  // Load todos from localStorage after hydration (client-side only)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
-  }, [todos])
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      try {
+        setTodos(JSON.parse(saved))
+      } catch (e) {
+        console.error('Failed to parse saved todos:', e)
+      }
+    }
+    setIsHydrated(true)
+  }, [])
+
+  // Save todos to localStorage whenever they change (after initial load)
+  useEffect(() => {
+    if (isHydrated) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
+    }
+  }, [todos, isHydrated])
 
   const addTodo = () => {
     if (!newTodo.trim()) return
