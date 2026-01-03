@@ -1,4 +1,15 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+// Auto-detect API URL based on current host
+function getApiBase(): string {
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  }
+  const protocol = window.location.protocol
+  const host = window.location.hostname
+  const port = '8000'
+  return process.env.NEXT_PUBLIC_API_URL || `${protocol}//${host}:${port}`
+}
+
+const API_BASE = getApiBase()
 
 export interface Swarm {
   name: string

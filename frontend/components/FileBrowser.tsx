@@ -18,7 +18,18 @@ import {
   Eye,
 } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Auto-detect API URL based on current host
+function getApiUrl(): string {
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  }
+  const protocol = window.location.protocol;
+  const host = window.location.hostname;
+  const port = '8000';
+  return process.env.NEXT_PUBLIC_API_URL || `${protocol}//${host}:${port}`;
+}
+
+const API_URL = getApiUrl();
 
 interface FileInfo {
   name: string;
@@ -60,7 +71,7 @@ function getFileIcon(file: FileInfo) {
 
   switch (file.category) {
     case 'image':
-      return <FileImage className="w-5 h-5 text-purple-400" />;
+      return <FileImage className="w-5 h-5 text-violet-400" />;
     case 'text':
       const ext = file.name.split('.').pop()?.toLowerCase();
       if (['py', 'js', 'ts', 'tsx', 'jsx', 'json', 'yaml', 'yml', 'sh'].includes(ext || '')) {
@@ -247,8 +258,8 @@ export default function FileBrowser({ swarmName }: FileBrowserProps) {
               {files?.files.map((file) => (
                 <div
                   key={file.path}
-                  className={`flex items-center justify-between p-3 hover:bg-zinc-800/50 cursor-pointer group ${
-                    selectedFile?.path === file.path ? 'bg-zinc-800' : ''
+                  className={`flex items-center justify-between p-3 hover:bg-violet-500/5 cursor-pointer group transition-all duration-200 ${
+                    selectedFile?.path === file.path ? 'bg-violet-500/10 border-l-2 border-l-violet-500' : 'border-l-2 border-l-transparent'
                   }`}
                   onClick={() => viewFile(file)}
                 >
@@ -416,8 +427,8 @@ function UploadModal({ swarmName, currentPath, onClose, onSuccess }: ModalProps)
         )}
 
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragOver ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-700'
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+            dragOver ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-700'
           }`}
           onDragOver={(e) => {
             e.preventDefault();
@@ -531,7 +542,7 @@ function NewFileModal({ swarmName, currentPath, onClose, onSuccess }: ModalProps
               value={filename}
               onChange={(e) => setFilename(e.target.value)}
               placeholder="example.txt"
-              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:border-blue-500 text-white"
+              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:border-violet-500 text-white transition-colors"
             />
           </div>
 
@@ -541,7 +552,7 @@ function NewFileModal({ swarmName, currentPath, onClose, onSuccess }: ModalProps
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={8}
-              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:border-blue-500 text-white font-mono text-sm resize-none"
+              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:border-violet-500 text-white font-mono text-sm resize-none transition-colors"
               placeholder="File content..."
             />
           </div>
@@ -558,7 +569,7 @@ function NewFileModal({ swarmName, currentPath, onClose, onSuccess }: ModalProps
           <button
             onClick={handleCreate}
             disabled={creating}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors disabled:opacity-50"
           >
             {creating ? 'Creating...' : 'Create File'}
           </button>

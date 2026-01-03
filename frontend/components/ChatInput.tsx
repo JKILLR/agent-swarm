@@ -183,28 +183,28 @@ export default function ChatInput({
     <div className="space-y-2">
       {/* Attachments Preview */}
       {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 p-2 bg-zinc-900 rounded-lg border border-zinc-800">
+        <div className="flex flex-wrap gap-2 p-2 bg-zinc-900/50 rounded-lg border border-zinc-800/50">
           {attachments.map((attachment) => (
             <div
               key={attachment.id}
-              className="flex items-center gap-2 px-3 py-2 bg-zinc-800 rounded-lg group"
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-zinc-800/50 rounded-lg group"
             >
               {attachment.type === 'image' && attachment.mimeType ? (
                 <img
                   src={`data:${attachment.mimeType};base64,${attachment.content}`}
                   alt={attachment.name}
-                  className="w-10 h-10 object-cover rounded"
+                  className="w-8 h-8 md:w-10 md:h-10 object-cover rounded"
                 />
               ) : (
-                <div className="w-10 h-10 flex items-center justify-center bg-zinc-700 rounded">
+                <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-zinc-700/50 rounded">
                   {getAttachmentIcon(attachment.type)}
                 </div>
               )}
               <div className="flex flex-col min-w-0">
-                <span className="text-sm text-white truncate max-w-[150px]">
+                <span className="text-xs md:text-sm text-zinc-300 truncate max-w-[100px] md:max-w-[150px]">
                   {attachment.name}
                 </span>
-                <span className="text-xs text-zinc-500">
+                <span className="text-xs text-zinc-600">
                   {attachment.type === 'text'
                     ? `${attachment.size} chars`
                     : formatFileSize(attachment.size)
@@ -213,7 +213,7 @@ export default function ChatInput({
               </div>
               <button
                 onClick={() => removeAttachment(attachment.id)}
-                className="p-1 text-zinc-500 hover:text-white hover:bg-zinc-700 rounded transition-colors"
+                className="p-1.5 md:p-1 text-zinc-500 hover:text-white active:text-white hover:bg-zinc-700/50 active:bg-zinc-600/50 rounded transition-colors touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -222,9 +222,10 @@ export default function ChatInput({
         </div>
       )}
 
-      {/* Input Area */}
-      <form onSubmit={handleSubmit} className="flex items-end gap-2">
-        <div className="flex-1 bg-zinc-800 rounded-lg border border-zinc-700 focus-within:border-zinc-600 transition-colors">
+      {/* Input Area - Terminal style */}
+      <form onSubmit={handleSubmit} className="flex items-end gap-1.5 md:gap-2">
+        <div className="flex-1 bg-[#0d0d0d] rounded-lg border border-zinc-800/50 focus-within:border-violet-500/50 transition-all duration-200 flex items-center purple-glow-focus">
+          <span className="pl-3 text-orange-500 font-medium select-none">&gt;</span>
           <textarea
             ref={textareaRef}
             value={message}
@@ -235,9 +236,10 @@ export default function ChatInput({
             disabled={disabled}
             rows={1}
             className={cn(
-              'w-full px-4 py-3 bg-transparent text-white placeholder-zinc-500 resize-none focus:outline-none text-sm',
+              'flex-1 px-2 md:px-3 py-3 bg-transparent text-zinc-100 placeholder-zinc-600 resize-none focus:outline-none text-base md:text-sm font-mono',
               disabled && 'opacity-50 cursor-not-allowed'
             )}
+            style={{ fontSize: '16px' }} // Prevents iOS zoom on focus
           />
         </div>
 
@@ -255,10 +257,10 @@ export default function ChatInput({
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
           className={cn(
-            'p-3 rounded-lg transition-colors',
+            'p-3 rounded-lg transition-all duration-200 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center border border-zinc-800/50',
             disabled
-              ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-              : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+              ? 'bg-[#0d0d0d] text-zinc-700 cursor-not-allowed'
+              : 'bg-[#0d0d0d] text-zinc-500 hover:text-violet-400 hover:border-violet-500/50 hover:shadow-[0_0_12px_rgba(139,92,246,0.15)] active:bg-zinc-900'
           )}
           title="Attach files"
         >
@@ -270,10 +272,10 @@ export default function ChatInput({
           type="submit"
           disabled={disabled || (!message.trim() && attachments.length === 0)}
           className={cn(
-            'p-3 rounded-lg transition-colors',
+            'p-3 rounded-lg transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center',
             disabled || (!message.trim() && attachments.length === 0)
-              ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+              ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800/50'
+              : 'bg-orange-600 text-white hover:bg-orange-500 active:bg-orange-700 border border-orange-600'
           )}
         >
           {disabled ? (
@@ -284,8 +286,8 @@ export default function ChatInput({
         </button>
       </form>
 
-      {/* Hint */}
-      <p className="text-xs text-zinc-600 px-1">
+      {/* Hint - hidden on mobile to save space */}
+      <p className="hidden md:block text-xs text-zinc-600 px-1">
         Paste images or large text directly. Press Enter to send, Shift+Enter for new line.
       </p>
     </div>

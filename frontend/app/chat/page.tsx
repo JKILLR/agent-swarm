@@ -13,8 +13,9 @@ import {
 import ChatInput, { type Attachment } from '@/components/ChatInput'
 import ChatMessage from '@/components/ChatMessage'
 import AgentResponse from '@/components/AgentResponse'
-import ActivityPanel, { type AgentActivity, type ToolActivity } from '@/components/ActivityPanel'
-import { Bot, WifiOff, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useAgentActivity } from '@/lib/AgentActivityContext'
+import { useMobileLayout } from '@/components/MobileLayout'
+import { Terminal, WifiOff, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 interface Message {
   id: string
@@ -36,9 +37,15 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([])
   const [showSidebar, setShowSidebar] = useState(true)
-  const [showActivityPanel, setShowActivityPanel] = useState(true)
-  const [agentActivities, setAgentActivities] = useState<AgentActivity[]>([])
-  const [toolActivities, setToolActivities] = useState<ToolActivity[]>([])
+  const [showMobileHistory, setShowMobileHistory] = useState(false)
+  // Use global context for activity state (persists across navigation)
+  const {
+    panelAgentActivities: agentActivities,
+    panelToolActivities: toolActivities,
+    setPanelAgentActivities: setAgentActivities,
+    setPanelToolActivities: setToolActivities,
+  } = useAgentActivity()
+  const { isMobile } = useMobileLayout()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef(getChatWebSocket())
   const pendingMessageRef = useRef<{ content: string; agent?: string; thinking?: string } | null>(null)
@@ -404,7 +411,7 @@ export default function ChatPage() {
     return () => {
       ws.off('*', handleEvent)
     }
-  }, [saveMessage])
+  }, [saveMessage, setAgentActivities, setToolActivities])
 
   const handleSend = useCallback(async (content: string, attachments: Attachment[]) => {
     // Add user message with attachments
@@ -465,17 +472,17 @@ export default function ChatPage() {
   }, [handleSend])
 
   return (
-    <div className="flex h-full">
-      {/* Session Sidebar */}
-      <div className={`${showSidebar ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden border-r border-zinc-800 flex flex-col bg-zinc-900/50`}>
-        <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
-          <span className="text-sm font-medium text-zinc-400">History</span>
+    <div className="flex h-full relative bg-[#0d0d0d]">
+      {/* Session Sidebar - Hidden on mobile, use bottom sheet instead */}
+      <div className={`hidden md:flex ${showSidebar ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden border-r border-zinc-800/50 flex-col bg-[#0d0d0d]`}>
+        <div className="p-3 border-b border-zinc-800/50 flex items-center justify-between">
+          <span className="text-sm font-medium text-zinc-500">History</span>
           <button
             onClick={createNewSession}
-            className="p-1.5 hover:bg-zinc-800 rounded transition-colors"
+            className="p-1.5 hover:bg-zinc-800/50 rounded transition-colors"
             title="New chat"
           >
-            <Plus className="w-4 h-4 text-zinc-400" />
+            <Plus className="w-4 h-4 text-orange-500" />
           </button>
         </div>
         <div className="flex-1 overflow-auto">
@@ -483,13 +490,13 @@ export default function ChatPage() {
             <button
               key={session.id}
               onClick={() => loadSession(session.id)}
-              className={`w-full px-3 py-2 text-left hover:bg-zinc-800/50 transition-colors group flex items-center gap-2 ${
-                sessionId === session.id ? 'bg-zinc-800' : ''
+              className={`w-full px-3 py-2 text-left hover:bg-zinc-800/30 transition-colors group flex items-center gap-2 ${
+                sessionId === session.id ? 'bg-zinc-800/50 border-l-2 border-l-orange-500' : 'border-l-2 border-l-transparent'
               }`}
             >
-              <MessageSquare className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+              <MessageSquare className="w-4 h-4 text-zinc-600 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-zinc-300 truncate">{session.title}</p>
+                <p className="text-sm text-zinc-400 truncate">{session.title}</p>
                 <p className="text-xs text-zinc-600">{session.message_count} messages</p>
               </div>
               <button
@@ -507,71 +514,143 @@ export default function ChatPage() {
         </div>
       </div>
 
+      {/* Mobile History Bottom Sheet */}
+      {isMobile && showMobileHistory && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 z-40 bg-black/80"
+            onClick={() => setShowMobileHistory(false)}
+          />
+          {/* Bottom Sheet */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d0d] rounded-t-2xl border-t border-zinc-800/50 max-h-[70vh] flex flex-col animate-slide-up">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800/50">
+              <span className="font-medium text-zinc-300">Chat History</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={createNewSession}
+                  className="p-2 hover:bg-zinc-800/50 rounded-lg transition-colors touch-manipulation"
+                  title="New chat"
+                >
+                  <Plus className="w-5 h-5 text-orange-500" />
+                </button>
+                <button
+                  onClick={() => setShowMobileHistory(false)}
+                  className="p-2 hover:bg-zinc-800/50 rounded-lg transition-colors touch-manipulation"
+                >
+                  <X className="w-5 h-5 text-zinc-500" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-2">
+              {sessions.map((session) => (
+                <button
+                  key={session.id}
+                  onClick={() => {
+                    loadSession(session.id)
+                    setShowMobileHistory(false)
+                  }}
+                  className={`w-full px-4 py-3 text-left hover:bg-zinc-800/30 active:bg-zinc-800/50 transition-colors flex items-center gap-3 rounded-lg touch-manipulation min-h-[56px] ${
+                    sessionId === session.id ? 'bg-zinc-800/50 border-l-2 border-l-orange-500' : 'border-l-2 border-l-transparent'
+                  }`}
+                >
+                  <MessageSquare className="w-5 h-5 text-zinc-600 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-zinc-400 truncate">{session.title}</p>
+                    <p className="text-xs text-zinc-600">{session.message_count} messages</p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      handleDeleteSession(session.id, e)
+                    }}
+                    className="p-2 hover:bg-zinc-700 rounded-lg transition-colors touch-manipulation"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4 text-zinc-500" />
+                  </button>
+                </button>
+              ))}
+              {sessions.length === 0 && (
+                <p className="text-sm text-zinc-600 p-4 text-center">No chat history yet</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#0d0d0d]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 border-b border-zinc-800/50">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Desktop sidebar toggle */}
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className="p-1 hover:bg-zinc-800 rounded transition-colors"
+              className="hidden md:block p-1 hover:bg-zinc-800/50 rounded transition-colors"
               title={showSidebar ? 'Hide history' : 'Show history'}
             >
               {showSidebar ? (
-                <ChevronLeft className="w-5 h-5 text-zinc-400" />
+                <ChevronLeft className="w-5 h-5 text-zinc-500" />
               ) : (
-                <ChevronRight className="w-5 h-5 text-zinc-400" />
+                <ChevronRight className="w-5 h-5 text-zinc-500" />
               )}
             </button>
-            <Bot className="w-6 h-6 text-purple-500" />
+            {/* Mobile history toggle */}
+            <button
+              onClick={() => setShowMobileHistory(true)}
+              className="md:hidden p-2 -ml-1 hover:bg-zinc-800/50 active:bg-zinc-800 rounded-lg transition-colors touch-manipulation"
+              title="Chat history"
+            >
+              <MessageSquare className="w-5 h-5 text-zinc-500" />
+            </button>
+            <Terminal className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
             <div>
-              <h1 className="font-semibold text-white">Chat with COO</h1>
-              <p className="text-xs text-zinc-500">Supreme Orchestrator - Chief Operating Officer</p>
+              <h1 className="font-medium text-white text-sm md:text-base">Chat with COO</h1>
+              <p className="text-xs text-zinc-600 hidden md:block">Supreme Orchestrator - Chief Operating Officer</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             {isConnected ? (
-              <span className="flex items-center gap-1 text-xs text-green-400">
-                <span className="w-2 h-2 rounded-full bg-green-400" />
-                Connected
+              <span className="flex items-center gap-1.5 text-xs text-green-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+                <span className="hidden sm:inline">Connected</span>
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-xs text-red-400">
+              <span className="flex items-center gap-1.5 text-xs text-red-500">
                 <WifiOff className="w-3 h-3" />
-                Disconnected
+                <span className="hidden sm:inline">Disconnected</span>
               </span>
             )}
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-auto p-6 space-y-6 relative">
+        <div className="flex-1 overflow-auto p-3 md:p-6 space-y-4 md:space-y-6 relative">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <Bot className="w-16 h-16 text-purple-700 mb-4" />
-              <h2 className="text-xl font-semibold text-zinc-400 mb-2">
+            <div className="flex flex-col items-center justify-center h-full text-center px-4">
+              <Terminal className="w-12 h-12 md:w-16 md:h-16 text-orange-500/50 mb-4" />
+              <h2 className="text-lg md:text-xl font-medium text-zinc-400 mb-2">
                 Chat with the COO
               </h2>
-              <p className="text-sm text-zinc-500 max-w-md">
+              <p className="text-sm text-zinc-600 max-w-md">
                 You are connected to the Supreme Orchestrator (COO). Ask about your swarms,
-                request research, or coordinate tasks. The COO will route your request to
-                the appropriate team or agent.
+                request research, or coordinate tasks.
               </p>
-              <div className="mt-6 space-y-2 text-left">
+              <div className="mt-6 space-y-2 text-left w-full max-w-md">
                 <p className="text-xs text-zinc-600">Try asking:</p>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <button
                     onClick={() => handleQuickSend('What is the current status of the ASA project?')}
-                    className="block text-sm text-zinc-400 hover:text-blue-400 transition-colors"
+                    className="block w-full text-left text-sm text-zinc-500 hover:text-violet-400 active:text-violet-300 transition-all duration-200 p-3 md:p-2 bg-zinc-900/50 md:bg-transparent rounded-lg md:rounded-none touch-manipulation border border-zinc-800/50 md:border-0 hover:bg-violet-500/5 hover:border-violet-500/30"
                   >
-                    → What is the current status of the ASA project?
+                    <span className="text-orange-500 mr-2">&gt;</span>What is the current status of the ASA project?
                   </button>
                   <button
                     onClick={() => handleQuickSend('Research sparse attention implementations for ASA')}
-                    className="block text-sm text-zinc-400 hover:text-blue-400 transition-colors"
+                    className="block w-full text-left text-sm text-zinc-500 hover:text-violet-400 active:text-violet-300 transition-all duration-200 p-3 md:p-2 bg-zinc-900/50 md:bg-transparent rounded-lg md:rounded-none touch-manipulation border border-zinc-800/50 md:border-0 hover:bg-violet-500/5 hover:border-violet-500/30"
                   >
-                    → Research sparse attention implementations for ASA
+                    <span className="text-orange-500 mr-2">&gt;</span>Research sparse attention implementations for ASA
                   </button>
                 </div>
               </div>
@@ -599,26 +678,11 @@ export default function ChatPage() {
             ))
           )}
 
-          {/* Activity Panel - shows agent and tool activity */}
-          {(isLoading || agentActivities.length > 0 || toolActivities.length > 0) && (
-            <div className="sticky bottom-0 pt-4">
-              <ActivityPanel
-                agents={agentActivities}
-                tools={toolActivities}
-                isProcessing={isLoading}
-                onClear={() => {
-                  setAgentActivities([])
-                  setToolActivities([])
-                }}
-              />
-            </div>
-          )}
-
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="p-4 border-t border-zinc-800">
+        {/* Input - Full width on mobile with safe area padding */}
+        <div className="p-2 md:p-4 border-t border-zinc-800/50 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-4 bg-[#0d0d0d]">
           <ChatInput
             onSend={handleSend}
             disabled={isLoading || !isConnected}

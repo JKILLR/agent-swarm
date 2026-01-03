@@ -1,4 +1,13 @@
-const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
+// Auto-detect WebSocket URL based on current host
+function getWsBase(): string {
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname
+  const port = '8000'
+  return process.env.NEXT_PUBLIC_WS_URL || `${protocol}//${host}:${port}`
+}
 
 export type WebSocketEventType =
   | 'chat_start'
@@ -43,7 +52,7 @@ export class ChatWebSocket {
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        this.ws = new WebSocket(`${WS_BASE}/ws/chat`)
+        this.ws = new WebSocket(`${getWsBase()}/ws/chat`)
 
         this.ws.onopen = () => {
           console.log('WebSocket connected')

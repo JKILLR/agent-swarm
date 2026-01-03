@@ -15,6 +15,28 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 
 ## Progress Log
 
+### 2026-01-02: Escalation Protocol Implementation Complete
+- **Implementer** created `shared/escalation_protocol.py`
+  - Implemented all enums: EscalationLevel, EscalationReason, EscalationStatus, EscalationPriority
+  - Implemented Escalation dataclass with to_dict(), from_dict(), to_markdown()
+  - Implemented EscalationManager class with create, resolve, update, get methods
+  - Implemented convenience functions: escalate_to_coo(), escalate_to_ceo(), get_escalation_manager()
+  - Singleton pattern with disk persistence to `logs/escalations/`
+- **Implementer** created `logs/escalations/` directory with .gitkeep
+- **Implementer** added Escalations section to STATE.md with quick reference table format
+- **Note**: Run `python3 -m py_compile shared/escalation_protocol.py` to verify syntax
+
+### 2026-01-02: Escalation Protocol Design Complete
+- **Architect** completed design document: `DESIGN_ESCALATION_PROTOCOL.md`
+- Key decisions made:
+  - Three-tier hierarchy: CEO (human) -> COO (orchestrator) -> Swarm Agents
+  - Agent-to-COO escalation reasons: BLOCKED, CLARIFICATION, CONFLICT, SECURITY, ARCHITECTURE, SCOPE_EXCEEDED
+  - COO-to-CEO escalation reasons: ARCHITECTURE_MAJOR, SECURITY_CRITICAL, PRIORITY_CONFLICT, COST, PERMISSION, BLOCKED_CRITICAL
+  - Blocked work protocol: continue with unblocked tasks, mark blocked with [BLOCKED: ESC-ID]
+- Implementation: `shared/escalation_protocol.py` with EscalationManager, convenience functions
+- STATE.md format: Dedicated Escalations section with pending/resolved subsections
+- **Next**: Implementer to build `shared/escalation_protocol.py` - DONE
+
 ### 2026-01-02: Phase 0.1.2 - Critical Issues Fixed ✅
 - **Implementer** fixed all critical and high priority issues from reviews:
   1. ✅ Fixed singleton initialization - added `PROJECT_ROOT` to all `get_workspace_manager()` calls
@@ -211,6 +233,29 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 - No API fallback if CLI unavailable
 - Must be careful not to log credentials
 
+### ADR-004: Escalation Protocol (2026-01-02)
+
+**Context**: Agents need a formal way to escalate issues they cannot resolve themselves. The system has a three-tier hierarchy (CEO/human -> COO/orchestrator -> Agents) and escalations must flow upward appropriately.
+
+**Decision**: Create `EscalationManager` class and protocol that:
+- Defines `EscalationLevel` enum: AGENT, COO, CEO
+- Defines `EscalationReason` enum: BLOCKED, CLARIFICATION, CONFLICT, SECURITY, etc.
+- Provides `Escalation` dataclass with full lifecycle tracking
+- Implements blocked work protocol: continue with unblocked tasks
+- Logs escalations to `logs/escalations/` and STATE.md
+
+**Rationale**:
+- Agents should not block waiting for escalation resolution
+- Clear decision trees prevent inappropriate escalations
+- Persistent logging enables audit and pattern analysis
+- STATE.md integration keeps context visible to all agents
+
+**Consequences**:
+- Agents must check for pending escalations on startup
+- COO becomes bottleneck for all agent escalations (by design)
+- CEO only engaged for major decisions (preserves human time)
+- Must add escalation awareness to agent system prompts
+
 ---
 
 ## Key Files
@@ -234,6 +279,33 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 | File | Purpose |
 |------|---------|
 | `backend/main.py` | Added executor pool integration and new API endpoints |
+
+### Created (Phase 0.1.3 - Escalation Protocol)
+| File | Purpose |
+|------|---------|
+| `shared/escalation_protocol.py` | Escalation management and lifecycle |
+| `logs/escalations/.gitkeep` | Escalation log directory |
+
+### Design Documents
+| File | Purpose |
+|------|---------|
+| `DESIGN_ESCALATION_PROTOCOL.md` | Design document for escalation system |
+
+---
+
+## Escalations
+
+| ID | Status | Priority | Title | Assigned To |
+|----|--------|----------|-------|-------------|
+| - | - | - | *No pending escalations* | - |
+
+### Pending
+
+*None*
+
+### Resolved
+
+*None*
 
 ---
 
@@ -295,6 +367,20 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
    - WorkspaceManager path validation
    - API endpoint functionality
 10. **All**: End-to-end validation - test actual agent execution
+
+### Completed (Escalation Protocol Implementation) [x]
+11. [x] **Implementer**: Create `shared/escalation_protocol.py`
+    - EscalationLevel, EscalationReason, EscalationStatus, EscalationPriority enums
+    - Escalation dataclass with to_dict(), from_dict(), to_markdown()
+    - EscalationManager class with create, resolve, update, get methods
+    - Convenience functions: escalate_to_coo(), escalate_to_ceo()
+    - Singleton pattern with get_escalation_manager()
+12. [x] **Implementer**: Create `logs/escalations/` directory structure
+
+### Next (Escalation Protocol Integration)
+13. [ ] **Critic**: Review escalation_protocol.py implementation
+14. [ ] **Implementer**: Add escalation WebSocket events to backend/main.py
+15. [ ] **Architect**: Update agent system prompts with escalation protocol guidance
 
 ---
 

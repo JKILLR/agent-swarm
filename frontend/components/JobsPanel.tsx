@@ -23,8 +23,29 @@ interface JobsPanelProps {
   expanded?: boolean
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
+// Auto-detect API/WS URLs based on current host
+function getApiBase(): string {
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  }
+  const protocol = window.location.protocol
+  const host = window.location.hostname
+  const port = '8000'
+  return process.env.NEXT_PUBLIC_API_URL || `${protocol}//${host}:${port}`
+}
+
+function getWsBase(): string {
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname
+  const port = '8000'
+  return process.env.NEXT_PUBLIC_WS_URL || `${protocol}//${host}:${port}`
+}
+
+const API_BASE = getApiBase()
+const WS_BASE = getWsBase()
 
 export default function JobsPanel({ expanded: defaultExpanded = false }: JobsPanelProps) {
   const [jobs, setJobs] = useState<Job[]>([])
@@ -110,7 +131,7 @@ export default function JobsPanel({ expanded: defaultExpanded = false }: JobsPan
       case 'pending':
         return <Clock className="w-3 h-3 text-zinc-500" />
       case 'running':
-        return <Loader2 className="w-3 h-3 text-blue-500 animate-spin" />
+        return <Loader2 className="w-3 h-3 text-violet-500 animate-spin" />
       case 'completed':
         return <CheckCircle className="w-3 h-3 text-green-500" />
       case 'failed':
@@ -125,7 +146,7 @@ export default function JobsPanel({ expanded: defaultExpanded = false }: JobsPan
       case 'pending':
         return 'text-zinc-400'
       case 'running':
-        return 'text-blue-400'
+        return 'text-violet-400'
       case 'completed':
         return 'text-green-400'
       case 'failed':
@@ -152,7 +173,7 @@ export default function JobsPanel({ expanded: defaultExpanded = false }: JobsPan
           <span className="text-sm font-medium text-zinc-400">Background Jobs</span>
         </div>
         {runningJobs.length > 0 && (
-          <span className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded-full">
+          <span className="px-2 py-0.5 text-xs bg-violet-500/20 text-violet-400 rounded-full">
             {runningJobs.length} running
           </span>
         )}
@@ -195,7 +216,7 @@ export default function JobsPanel({ expanded: defaultExpanded = false }: JobsPan
                       {job.status === 'running' && (
                         <div className="h-1 bg-zinc-700 rounded overflow-hidden">
                           <div
-                            className="h-full bg-blue-500 transition-all"
+                            className="h-full bg-violet-500 transition-all"
                             style={{ width: `${job.progress}%` }}
                           />
                         </div>

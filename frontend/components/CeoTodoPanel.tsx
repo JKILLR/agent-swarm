@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CheckSquare, Square, Plus, X, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 
 interface Todo {
@@ -17,6 +17,7 @@ export default function CeoTodoPanel() {
   const [isOpen, setIsOpen] = useState(true)
   const [newTodo, setNewTodo] = useState('')
   const [isAdding, setIsAdding] = useState(false)
+  const hasLoaded = useRef(false)
 
   // Load todos from localStorage on mount
   useEffect(() => {
@@ -28,10 +29,12 @@ export default function CeoTodoPanel() {
         console.error('Failed to parse saved todos:', e)
       }
     }
+    hasLoaded.current = true
   }, [])
 
   // Save todos to localStorage whenever they change
   useEffect(() => {
+    if (!hasLoaded.current) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
   }, [todos])
 

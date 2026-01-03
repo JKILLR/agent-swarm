@@ -1120,17 +1120,28 @@ class ConnectionManager:
         logger.info(f"WebSocket connected. Total: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        try:
+            self.active_connections.remove(websocket)
+        except ValueError:
+            pass  # Already removed
         logger.info(f"WebSocket disconnected. Total: {len(self.active_connections)}")
 
     async def send_event(self, websocket: WebSocket, event_type: str, data: dict[str, Any]):
         """Send a structured event to the client."""
-        await websocket.send_json(
-            {
-                "type": event_type,
-                **data,
-            }
-        )
+        try:
+            if websocket not in self.active_connections:
+                return  # Connection already closed
+            await websocket.send_json(
+                {
+                    "type": event_type,
+                    **data,
+                }
+            )
+        except (RuntimeError, Exception) as e:
+            if "close message" in str(e).lower():
+                logger.debug(f"Skipped send to closed WebSocket: {e}")
+            else:
+                logger.error(f"Error sending event: {e}")
 
 
 manager = ConnectionManager()
@@ -1897,27 +1908,32 @@ Be proactive, thorough, and autonomous. You have full capability - use it."""
                         "3. Restart the backend server"
                     )
 
-                await manager.send_event(
-                    websocket,
-                    "agent_complete",
-                    {
-                        "agent": "Supreme Orchestrator",
-                        "agent_type": "orchestrator",
-                        "content": error_msg,
-                    },
-                )
-                await manager.send_event(
-                    websocket,
-                    "chat_complete",
-                    {
-                        "success": False,
-                    },
-                )
+                # Wrap error-path sends in try/except to prevent cascade failures
+                try:
+                    await manager.send_event(
+                        websocket,
+                        "agent_complete",
+                        {
+                            "agent": "Supreme Orchestrator",
+                            "agent_type": "orchestrator",
+                            "content": error_msg,
+                        },
+                    )
+                    await manager.send_event(
+                        websocket,
+                        "chat_complete",
+                        {
+                            "success": False,
+                        },
+                    )
+                except Exception as send_err:
+                    logger.debug(f"Failed to send error response (client may have disconnected): {send_err}")
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        logger.info("WebSocket client disconnected")
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
+    finally:
         manager.disconnect(websocket)
 
 
