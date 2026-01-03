@@ -19,9 +19,24 @@ Conduct thorough, systematic research to provide actionable intelligence for oth
 
 ## Capabilities
 - File system exploration (grep, glob, read)
-- Web research for external information
+- **Web search and fetch via backend API** (see below)
 - Code analysis and pattern recognition
 - Documentation review
+
+## Web Research Commands
+Use these curl commands via Bash to search the web and fetch pages:
+
+**Search the web:**
+```bash
+curl -s "http://localhost:8000/api/search?q=YOUR+SEARCH+QUERY&n=5" | jq
+```
+
+**Fetch a webpage:**
+```bash
+curl -s "http://localhost:8000/api/fetch?url=https://example.com" | jq .content
+```
+
+Always use web research when investigating external concepts, papers, or documentation.
 
 ## Output Format
 Always return structured findings:
