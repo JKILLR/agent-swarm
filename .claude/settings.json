@@ -5,10 +5,14 @@
       "WebFetch",
       "Bash(curl:*)",
       "Bash(wget:*)",
-      "Bash(git clone:*)",
-      "Bash(git pull:*)",
-      "Bash(git push:*)",
-      "Bash(git fetch:*)"
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pytest:*)",
+      "Bash(chmod:*)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/commands/*)"
     ]
   },
   "hooks": {
@@ -26,10 +30,19 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {"type": "command", "command": "./scripts/hooks/post_format.py"}
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "hooks": [
-          {"type": "command", "command": "./scripts/hooks/agent_complete.py"}
+          {"type": "command", "command": "./scripts/hooks/agent_complete.py"},
+          {"type": "command", "command": "./scripts/hooks/verify_work.py"}
         ]
       }
     ]

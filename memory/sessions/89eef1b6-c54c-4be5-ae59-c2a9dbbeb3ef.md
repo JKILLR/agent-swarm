@@ -1,17 +1,16 @@
 # Session 89eef1b6-c54c-4be5-ae59-c2a9dbbeb3ef
 
-**User**: why didn't you delegate that and go through the proper process?? figure out how to make this a hard rule!
+**User**: ok let's focus on the swarm dev and operations priorities. asa research can wait for now
 
-**COO Response**: The syntax verification needs your approval. But the implementation is complete!
+**COO Response**: ## Focused Priorities
 
----
+### **Swarm Dev** (System Development)
 
-## Summary: COO Delegation Enforcement Now Implemented
-
-### What Was Done
-
-1. **Architect designed a 4-layer enforcement system** → `/swarms/swarm_dev/workspace/DESIGN_COO_ENFORCEMENT.md`
-
-2. **Implementer added hard enforcement via `--disallowedTools` flag**:
-   - `backend/main.py` - Added `disallowed_tools` parameter to `stream_claude_response()`, passes `["Write", "Edit"]` for COO
-   - `backend/websocket/ch...
+| Priority | Task | Status |
+|----------|------|--------|
+| CRITICAL | Unify WebSocket chat through AgentExecutorPool | Pending |
+| HIGH | Critic review of escalation_protocol.py | Pending |
+| HIGH | Add escalation REST endpoints + WebSocket events | Pending |
+| HIGH | Wire escalation protocol to REST API | Pending |
+| MEDIUM | Update agent prompts with escalation guidance | Pending |
+| LOW | Archive orphaned agent_executor.py | Pend...

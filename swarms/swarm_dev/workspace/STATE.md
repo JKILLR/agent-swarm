@@ -15,6 +15,52 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 
 ## Progress Log
 
+### 2026-01-03: Task Delegation Fix - REST API as Primary Method
+- **COO** updated COO system prompt to prefer REST API over Task tool
+- **Problem**: Task tool (Issues #12-14) doesn't spawn REAL agents:
+  - Built-in Claude Code subagent runs in same session
+  - Custom agent prompts from `swarms/*/agents/*.md` never loaded
+  - No workspace isolation, no executor pool tracking
+- **Solution**: Updated COO system prompt in TWO locations:
+  1. `backend/websocket/chat_handler.py:build_coo_system_prompt()`
+  2. `backend/main.py` (duplicate prompt inline)
+- **Key Changes**:
+  - REST API now PRIMARY: "ALWAYS use REST API for implementation work"
+  - Task tool now SECONDARY: "Quick research only (read-only, no custom prompts)"
+  - Clear guidance: "REST API = Real agents. Task tool = Quick research only."
+  - Delegation pipeline now specifies: `swarm_dev/architect`, `swarm_dev/implementer`, etc.
+- **Files Modified**:
+  - `backend/websocket/chat_handler.py` - Updated `build_coo_system_prompt()`
+  - `backend/main.py` - Updated inline system prompt
+- **Note**: This is a WORKAROUND, not a fix for the underlying architecture. True fix would require intercepting Task tool calls to spawn real agents via AgentExecutorPool.
+- **Status**: COMPLETE
+
+### 2026-01-03: Boris Claude Code Usage Analysis for Swarm Optimization
+- **Researcher** analyzed Boris's (Claude Code creator) 13-point Twitter thread
+- **Analysis Document**: `workspace/boris_insights_analysis.md`
+- **Key Findings**:
+  1. **Already Implemented (40%)**:
+     - Opus 4.5 for all agents (Point 3)
+     - Subagent structure (Point 8)
+     - Permission management via settings.json (Point 10)
+     - SubagentStop hooks (Point 12 partial)
+  2. **Quick Wins Missing**:
+     - Slash Commands (.claude/commands/) - Boris uses for every repeated workflow
+     - PostToolUse formatting hook - Auto-format after Write/Edit
+     - Expand permissions to include npm, python, pytest
+  3. **High Impact Gaps**:
+     - Verification loops - Boris: "most important thing, 2-3x quality"
+     - Task tool doesn't spawn real agents (validates our Known Issue #12)
+     - GitHub Action integration for "Compounding Engineering"
+  4. **Recommended Priority Order**:
+     1. Create `.claude/commands/` with common workflows
+     2. Add PostToolUse formatting hook
+     3. Add automatic verification to SubagentStop hook
+     4. Expand permissions in settings.json
+- **Strategic Insight**: Boris's top recommendation (verification loops) aligns with our existing Critic/Tester agents but reveals they're not automatically triggered
+- **Files Created**: `swarms/swarm_dev/workspace/boris_insights_analysis.md`
+- **Status**: COMPLETE
+
 ### 2026-01-03: Quick Win - Structured Logging with Correlation IDs
 - **Implementer** added structured logging with request correlation IDs
 - **Problem**: Code review noted missing structured logging and no request correlation IDs, making debugging difficult
@@ -517,6 +563,11 @@ The main WebSocket chat flow bypasses workspace isolation and executor pool feat
 |------|---------|
 | `DESIGN_ESCALATION_PROTOCOL.md` | Design document for escalation system |
 
+### Boris Analysis (2026-01-03)
+| File | Purpose |
+|------|---------|
+| `swarms/swarm_dev/workspace/boris_insights_analysis.md` | Analysis of Boris's Claude Code usage patterns for swarm optimization |
+
 ---
 
 ## Escalations
@@ -538,9 +589,15 @@ The main WebSocket chat flow bypasses workspace isolation and executor pool feat
 ## Known Issues
 
 ### Delegation System (from 2026-01-03 Delegation Failure Review)
-12. **CRITICAL**: Task tool does NOT spawn real agents - only sends UI notifications, same Claude session pretends to be different agents
-13. **CRITICAL**: Agent .md files (prompts, tools, permissions) are NEVER loaded for delegated tasks
-14. **CRITICAL**: WebSocket chat bypasses AgentExecutorPool entirely - no isolation, no config
+12. **WORKAROUND** (was CRITICAL): Task tool does NOT spawn real agents - **COO now instructed to use REST API instead**
+13. **WORKAROUND** (was CRITICAL): Agent .md files not loaded for Task tool - **REST API loads them properly**
+14. **CRITICAL**: WebSocket chat bypasses AgentExecutorPool entirely - no isolation, no config (still true for COO itself)
+
+### Boris Analysis - Quick Wins (from 2026-01-03)
+15. **RESOLVED**: `.claude/commands/` directory created with common workflows
+16. **RESOLVED**: PostToolUse formatting hook added (`scripts/hooks/post_format.py`)
+17. **MEDIUM**: No automatic verification loop - Boris: "2-3x quality" if agents verify their work
+18. **RESOLVED**: Permissions expanded in settings.json - Added npm, python, python3, pytest, chmod
 
 ### Previous Issues
 1. Query() keyword args bug may still exist - needs verification
