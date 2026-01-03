@@ -1,0 +1,11 @@
+# Audit Reports Directory
+
+This directory contains QA audit reports for all managed swarms.
+
+## Naming Convention
+`{swarm_name}_{YYYY-MM-DD}.md`
+
+## Examples
+- `asa_research_2026-01-08.md`
+- `trading_bots_2026-01-15.md`
+- `swarm_dev_2026-01-22.md`

@@ -12,12 +12,22 @@ import asyncio
 import json
 import logging
 import sqlite3
+import sys
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+# Add project root to path for imports
+BACKEND_DIR = Path(__file__).parent
+PROJECT_ROOT = BACKEND_DIR.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from shared.workspace_manager import get_workspace_manager
+from shared.agent_executor_pool import get_executor_pool
+from shared.execution_context import AgentExecutionContext
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +262,7 @@ class JobManager:
         self.queue = queue
         self.max_concurrent = max_concurrent
         self.on_job_update = on_job_update
+        self.use_pool = True  # Use AgentExecutorPool for better isolation
 
         # Track running tasks
         self._running_tasks: dict[str, asyncio.Task] = {}
@@ -410,7 +421,12 @@ class JobManager:
 
     async def _execute_chat_job(self, job: Job) -> str:
         """Execute a chat job using Claude CLI."""
-        from .main import stream_claude_response, PROJECT_ROOT
+        # Use pool if enabled
+        if self.use_pool:
+            return await self._execute_with_pool(job)
+
+        # Original implementation below (fallback)
+        from main import stream_claude_response
 
         job.current_activity = "Initializing Claude..."
         self.queue.update_job(job)
@@ -519,6 +535,63 @@ class JobManager:
         self.queue.update_job(job)
 
         return await self._execute_chat_job(job)
+
+    async def _execute_with_pool(self, job: Job) -> str:
+        """Execute a job using the AgentExecutorPool for better isolation."""
+        workspace_manager = get_workspace_manager(PROJECT_ROOT)
+        pool = get_executor_pool(workspace_manager=workspace_manager)
+
+        # Determine workspace and agent type
+        swarm_name = job.swarm or "swarm_dev"  # Default to swarm_dev for COO tasks
+        agent_type = "orchestrator" if job.type == "chat" else "implementer"
+
+        workspace = workspace_manager.get_workspace(swarm_name)
+        permissions = workspace_manager.get_agent_permissions(agent_type, swarm_name)
+
+        # Build execution context
+        context = AgentExecutionContext(
+            agent_name=f"job_{job.id[:8]}",
+            agent_type=agent_type,
+            swarm_name=swarm_name,
+            workspace=workspace,
+            allowed_tools=permissions["allowed_tools"],
+            permission_mode=permissions["permission_mode"],
+            git_credentials=permissions["git_access"],
+            web_access=permissions["web_access"],
+            job_id=job.id,
+        )
+
+        job.current_activity = "Executing with pool..."
+        self.queue.update_job(job)
+
+        full_response = ""
+
+        async for event in pool.execute(context, job.prompt):
+            event_type = event.get("type", "")
+
+            # Update job progress based on events
+            if event_type == "tool_start":
+                tool_name = event.get("tool", "tool")
+                job.current_activity = f"Using {tool_name}..."
+                job.activities.append({
+                    "tool": tool_name,
+                    "time": datetime.now().isoformat(),
+                })
+                self.queue.update_job(job)
+                if self.on_job_update:
+                    self.on_job_update(job)
+
+            elif event_type == "agent_delta":
+                full_response += event.get("delta", "")
+
+            elif event_type == "content":
+                full_response += event.get("content", "")
+
+            elif event_type == "agent_execution_complete":
+                if not event.get("success"):
+                    raise RuntimeError(event.get("result_summary", "Agent execution failed"))
+
+        return full_response
 
     def get_status(self) -> dict:
         """Get job manager status."""

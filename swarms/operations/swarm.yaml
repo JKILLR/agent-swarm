@@ -29,6 +29,7 @@ settings:
 managed_swarms:
   - swarm_dev
   - asa_research
+  - trading_bots
   - mynd_app
 
 # Operational responsibilities
@@ -129,16 +130,38 @@ qa_engagement:
 # Operational priorities
 priorities:
   - priority: 1
-    task: "Monitor hybrid coordination model effectiveness"
-    description: "Track Tier 1 vs Tier 2 metrics, identify optimization opportunities"
-    status: active
+    task: "Conduct initial swarm audits"
+    description: "Audit all managed swarms using AUDIT_CHECKLIST.md, establish baseline health"
+    status: complete
+    completed: 2026-01-02
+    notes: "asa_research and trading_bots audited and remediated; both upgraded to GOOD health"
 
   - priority: 2
+    task: "Remediate asa_research workspace"
+    description: "Implement folder structure for 27+ flat files, organize into sessions/research/archive"
+    status: complete
+    completed: 2026-01-02
+    notes: "Created sessions/, research/, decisions/, archive/ folders; moved 21 files"
+
+  - priority: 3
+    task: "Weekly audit cadence"
+    description: "Maintain weekly audits of all swarms; next cycle 2026-01-09"
+    status: active
+    next_audit: 2026-01-09
+    notes: "asa_research and trading_bots both GOOD; mynd_app and swarm_dev pending first audit"
+
+  - priority: 4
+    task: "Verify trading_bots .env security"
+    description: "Check if .env file in polymarket-arbitrage contains secrets and is properly gitignored"
+    status: pending
+    notes: "ISSUE-004 - potential secrets exposure risk"
+
+  - priority: 5
     task: "Enforce commit message standards"
     description: "Ensure all swarms comply with [SWARM:name] [PRIORITY:1-5] [STATUS:status] format"
     status: active
 
-  - priority: 3
+  - priority: 6
     task: "Automate daily status reporting"
     description: "Create automated daily status reports from swarm status files"
     status: not_started

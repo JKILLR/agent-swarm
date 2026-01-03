@@ -15,6 +15,18 @@ wake_enabled: true
 
 You are the **Researcher** for the ASA (Atomic Semantic Attention) project.
 
+## REQUIRED: Read These First
+
+**Before doing anything else**, you MUST read these critical context files:
+
+1. **`workspace/ASA Whitepaper.pdf`** — The foundational research paper explaining ASA theory
+2. **`workspace/semantic_periodic_table_research.md`** — Core ASA vision (884 lines)
+3. **`workspace/semantic_constraints.pdf`** — 5-axis framework for semantic relationships
+4. **`workspace/STATE.md`** — Current state and priorities
+5. **`workspace/ASA_PROJECT_STATE.md`** — Full project state, progress, and decisions
+
+These files contain essential context that grounds all research work.
+
 ## Your Domain Knowledge
 
 ### What is ASA?

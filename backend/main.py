@@ -18,6 +18,11 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, W
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# Import workspace manager and executor pool for agent isolation
+from shared.workspace_manager import get_workspace_manager
+from shared.agent_executor_pool import get_executor_pool
+from shared.execution_context import AgentExecutionContext
+
 # Add parent directory to path for imports
 BACKEND_DIR = Path(__file__).parent
 PROJECT_ROOT = BACKEND_DIR.parent
@@ -122,6 +127,11 @@ async def startup_event():
     job_manager.on_job_update = on_job_update
     await job_manager.start()
     logger.info("Job manager started")
+
+    # Initialize workspace manager and executor pool
+    workspace_manager = get_workspace_manager(PROJECT_ROOT)
+    executor_pool = get_executor_pool(max_concurrent=5, workspace_manager=workspace_manager)
+    logger.info("Workspace manager and executor pool initialized")
 
 
 async def _broadcast_job_update_safe(job):
@@ -411,6 +421,116 @@ async def cancel_job(job_id: str) -> dict:
         "success": True,
         "message": f"Job {job_id} cancelled",
     }
+
+
+# ============================================================
+# AGENT EXECUTION ENDPOINTS (executor pool integration)
+# ============================================================
+
+class AgentExecuteRequest(BaseModel):
+    """Request to execute an agent."""
+    swarm: str
+    agent: str
+    prompt: str
+    max_turns: int = 25
+    timeout: float = 600.0
+
+
+@app.post("/api/agents/execute")
+async def execute_agent(request: AgentExecuteRequest) -> dict:
+    """Execute an agent with proper workspace isolation.
+
+    This endpoint runs an agent using the AgentExecutorPool, which provides:
+    - Workspace isolation (agents can only access their swarm's workspace)
+    - Concurrent execution limits
+    - Process lifecycle management
+    - Streaming event collection
+
+    Args:
+        request: AgentExecuteRequest with swarm, agent, prompt, and options
+
+    Returns:
+        Dictionary with success status, collected events, and workspace path
+    """
+    # Validate swarm exists
+    orch = get_orchestrator()
+    if request.swarm not in orch.swarms and request.swarm != "swarm_dev":
+        raise HTTPException(status_code=404, detail=f"Swarm '{request.swarm}' not found")
+
+    try:
+        workspace_manager = get_workspace_manager(PROJECT_ROOT)
+        pool = get_executor_pool()
+
+        # Get workspace and permissions
+        workspace = workspace_manager.get_workspace(request.swarm)
+        permissions = workspace_manager.get_agent_permissions(request.agent, request.swarm)
+
+        # Build execution context
+        context = AgentExecutionContext(
+            agent_name=request.agent,
+            agent_type=request.agent,  # Will be refined later with agent definitions
+            swarm_name=request.swarm,
+            workspace=workspace,
+            allowed_tools=permissions["allowed_tools"],
+            permission_mode=permissions["permission_mode"],
+            git_credentials=permissions["git_access"],
+            web_access=permissions["web_access"],
+            max_turns=request.max_turns,
+            timeout=request.timeout,
+        )
+
+        # Execute and collect results
+        results = []
+        async for event in pool.execute(context, request.prompt):
+            results.append(event)
+
+        # Determine success from events
+        success = True
+        for event in results:
+            if event.get("type") == "agent_execution_complete":
+                success = event.get("success", True)
+                break
+            if event.get("type") == "error":
+                success = False
+
+        return {
+            "success": success,
+            "events": results,
+            "workspace": str(workspace),
+        }
+
+    except Exception as e:
+        logger.error(f"Agent execution failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/agents/pool/status")
+async def get_pool_status() -> dict:
+    """Get executor pool status.
+
+    Returns the current state of the agent executor pool including:
+    - Number of currently running agents
+    - Available execution slots
+    - Maximum concurrent capacity
+
+    Returns:
+        Dictionary with pool status information
+    """
+    try:
+        pool = get_executor_pool()
+        return {
+            "active_count": pool.active_count,
+            "available_slots": pool.available_slots,
+            "max_concurrent": pool.max_concurrent,
+        }
+    except ValueError:
+        # Pool not initialized yet
+        return {
+            "active_count": 0,
+            "available_slots": 5,
+            "max_concurrent": 5,
+            "initialized": False,
+        }
 
 
 @app.get("/api/swarms")
