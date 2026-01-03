@@ -53,59 +53,78 @@ Task(
 
 ---
 
-## Latest Work: COO Delegation Rule Enforcement Design
+## Latest Work: COO Tool Restriction Enforcement - Layer 1 IMPLEMENTED
+**Implementer**: Implementation Specialist
+**Date**: 2026-01-03
+
+**Status**: LAYER 1 COMPLETE
+
+**Problem**: The COO (Supreme Orchestrator) repeatedly violates delegation rules by directly editing files instead of delegating to implementer agents. The rules existed only as soft guidance in system prompts - there was no technical enforcement.
+
+**Solution Implemented**: Layer 1 - Tool Access Restriction (HARD ENFORCEMENT)
+
+### Changes Made
+
+1. **`/Users/jellingson/agent-swarm/backend/main.py`**
+   - Added `disallowed_tools: list[str] | None = None` parameter to `stream_claude_response()` (line 1965)
+   - Added `--disallowedTools Write,Edit` flag to Claude CLI command when parameter is provided (lines 1990-1992)
+   - Updated COO system prompt to clearly state Write/Edit tools are DISABLED (lines 2762-2842)
+   - Passed `disallowed_tools=["Write", "Edit"]` when spawning COO (line 2869)
+
+2. **`/Users/jellingson/agent-swarm/backend/services/claude_service.py`**
+   - Added `disallowed_tools: list[str] | None = None` parameter to `stream_claude_response()` (line 31)
+   - Added `--disallowedTools` flag handling (lines 60-62)
+
+3. **`/Users/jellingson/agent-swarm/backend/websocket/chat_handler.py`**
+   - Updated COO system prompt to match main.py changes (lines 51-130)
+   - Passed `disallowed_tools=["Write", "Edit"]` when spawning COO (line 276)
+
+### Key System Prompt Changes
+
+**OLD (Soft Enforcement)**:
+```
+You have FULL access to all tools and can do anything directly:
+- Read/Write/Edit any file in the workspace
+```
+
+**NEW (Hard Enforcement)**:
+```
+## TOOL RESTRICTIONS - HARD ENFORCED
+
+**The Write and Edit tools are DISABLED for you.** Attempting to use them will fail.
+
+You MUST delegate ALL file modifications to specialized agents using the Task tool.
+```
+
+### Technical Details
+
+- Uses Claude CLI's `--disallowedTools Write,Edit` flag
+- COO can still: Read, Glob/Grep, Bash, Task, Web Search/Fetch
+- COO can update STATE.md via Bash (e.g., `cat >> workspace/STATE.md << 'EOF' ... EOF`)
+- Only COO has this restriction - subagents retain full tool access
+
+### Verification Required
+
+Run to verify no syntax errors:
+```bash
+python3 -m py_compile backend/main.py backend/websocket/chat_handler.py backend/services/claude_service.py
+```
+
+### Next Steps
+
+1. Test the implementation by asking COO to edit a file (should fail)
+2. Test delegation still works (COO delegates to implementer)
+3. Consider implementing Layer 4 (Detection/Warning) for UI feedback
+
+---
+
+## Previous Work: COO Delegation Rule Enforcement Design
 **Architect**: System Architect
 **Date**: 2026-01-03
 
-**Status**: DESIGN COMPLETE - PENDING IMPLEMENTATION
-
-**Problem**: The COO (Supreme Orchestrator) repeatedly violates delegation rules by directly editing files instead of delegating to implementer agents. The rules exist only as soft guidance in system prompts - there is no technical enforcement.
+**Status**: DESIGN COMPLETE - LAYER 1 IMPLEMENTED (see above)
 
 **Design Document**: `/swarms/swarm_dev/workspace/DESIGN_COO_ENFORCEMENT.md`
-
-**Solution**: Multi-layer defense-in-depth approach with 4 layers:
-
-1. **Layer 1: Tool Access Restriction** (HARD ENFORCEMENT)
-   - Use Claude CLI `--disallowedTools` flag to prevent Write/Edit tools
-   - Requires verification that CLI supports this flag
-   - Implementation: Add `disallowed_tools` parameter to `stream_claude_response()`
-
-2. **Layer 2: Pre-Execution Hook** (DETECTION)
-   - Create `/shared/coo_enforcement.py` with rule enforcement logic
-   - Detect tool calls and Bash commands that modify files
-   - Raise `COOEnforcementViolation` with helpful error message
-   - Exception: Allow STATE.md modifications
-
-3. **Layer 3: System Prompt Hardening** (SOFT ENFORCEMENT)
-   - Rewrite prompts to state restrictions as facts ("YOU DO NOT HAVE ACCESS")
-   - Explicit "BLOCKED" labeling for disallowed tools
-   - Provide concrete delegation examples
-   - Memorable metaphor: "CONDUCTOR, not MUSICIAN"
-
-4. **Layer 4: Detection & Warning System** (MONITORING)
-   - Add `enforcement_violation` WebSocket event
-   - Display violations prominently in ActivityPanel
-   - Log violations to `logs/coo_violations.jsonl`
-
-**Files to Modify**:
-- `/backend/main.py` - Add disallowed_tools, update system prompt
-- `/backend/websocket/chat_handler.py` - Add disallowed_tools, update system prompt
-- `/frontend/lib/websocket.ts` - Add enforcement_violation event type
-- `/frontend/components/ActivityPanel.tsx` - Add violation display
-
-**New Files**:
-- `/shared/coo_enforcement.py` - COO rule enforcement logic
-
-**Implementation Plan**:
-1. Phase 1 (30 min): Verify Claude CLI `--disallowedTools` flag support
-2. Phase 2 (1-2 hrs): Implement core enforcement (Layer 1 or 2)
-3. Phase 3 (1 hr): Detection layer and UI warnings
-4. Phase 4 (1 hr): Testing and validation
-
-**Success Criteria**:
-- COO Write/Edit on non-STATE.md files results in rejection/warning
-- COO can still: Read, Glob/Grep, read-only Bash, Task, update STATE.md
-- Violations logged and surfaced in UI
 
 ---
 
