@@ -866,6 +866,127 @@ async def add_chat_message(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+# ============================================================
+# WEB SEARCH & FETCH ENDPOINTS (for agent access via curl)
+# ============================================================
+import urllib.parse
+import urllib.request
+import re
+
+class SearchRequest(BaseModel):
+    query: str
+    num_results: int = 5
+
+class FetchRequest(BaseModel):
+    url: str
+    extract_text: bool = True
+
+@app.get("/api/search")
+async def web_search_get(q: str, n: int = 5) -> dict[str, Any]:
+    """
+    Search the web via DuckDuckGo (GET version for easy curl access).
+
+    Usage by agents:
+        curl "http://localhost:8000/api/search?q=atomic+semantics&n=5"
+    """
+    return await _do_web_search(q, n)
+
+@app.post("/api/search")
+async def web_search_post(request: SearchRequest) -> dict[str, Any]:
+    """Search the web via DuckDuckGo (POST version)."""
+    return await _do_web_search(request.query, request.num_results)
+
+async def _do_web_search(query: str, num_results: int = 5) -> dict[str, Any]:
+    """Execute web search using DuckDuckGo."""
+    if not query:
+        raise HTTPException(status_code=400, detail="No search query provided")
+
+    num_results = min(num_results, 10)
+
+    try:
+        encoded_query = urllib.parse.quote(query)
+        url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; AgentSwarm/1.0)"})
+
+        loop = asyncio.get_event_loop()
+        html = await loop.run_in_executor(
+            None, lambda: urllib.request.urlopen(req, timeout=15).read().decode("utf-8")
+        )
+
+        # Parse search results
+        results = []
+        pattern = r'<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)</a>'
+        snippet_pattern = r'<a[^>]+class="result__snippet"[^>]*>([^<]*)</a>'
+
+        links = re.findall(pattern, html)
+        snippets = re.findall(snippet_pattern, html)
+
+        for i, (link, title) in enumerate(links[:num_results]):
+            snippet = snippets[i] if i < len(snippets) else ""
+            if "uddg=" in link:
+                actual_url = urllib.parse.unquote(link.split("uddg=")[-1].split("&")[0])
+            else:
+                actual_url = link
+            results.append({
+                "title": title.strip(),
+                "url": actual_url,
+                "snippet": snippet.strip()
+            })
+
+        logger.info(f"Web search: '{query}' returned {len(results)} results")
+        return {"query": query, "results": results}
+
+    except Exception as e:
+        logger.error(f"Web search error: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+@app.get("/api/fetch")
+async def web_fetch_get(url: str, extract_text: bool = True) -> dict[str, Any]:
+    """
+    Fetch content from a URL (GET version for easy curl access).
+
+    Usage by agents:
+        curl "http://localhost:8000/api/fetch?url=https://example.com"
+    """
+    return await _do_web_fetch(url, extract_text)
+
+@app.post("/api/fetch")
+async def web_fetch_post(request: FetchRequest) -> dict[str, Any]:
+    """Fetch content from a URL (POST version)."""
+    return await _do_web_fetch(request.url, request.extract_text)
+
+async def _do_web_fetch(url: str, extract_text: bool = True) -> dict[str, Any]:
+    """Fetch and optionally extract text from a URL."""
+    if not url:
+        raise HTTPException(status_code=400, detail="No URL provided")
+
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; AgentSwarm/1.0)"})
+
+        loop = asyncio.get_event_loop()
+        content = await loop.run_in_executor(
+            None, lambda: urllib.request.urlopen(req, timeout=15).read().decode("utf-8", errors="replace")
+        )
+
+        if extract_text:
+            # Simple HTML to text conversion
+            content = re.sub(r'<script[^>]*>.*?</script>', '', content, flags=re.DOTALL)
+            content = re.sub(r'<style[^>]*>.*?</style>', '', content, flags=re.DOTALL)
+            content = re.sub(r'<[^>]+>', ' ', content)
+            content = re.sub(r'\s+', ' ', content).strip()
+            content = content[:10000]  # Limit size
+
+        logger.info(f"Web fetch: '{url}' returned {len(content)} chars")
+        return {"url": url, "content": content, "length": len(content)}
+
+    except Exception as e:
+        logger.error(f"Web fetch error: {e}")
+        raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
+
 # WebSocket for streaming chat
 class ConnectionManager:
     """Manage WebSocket connections."""
