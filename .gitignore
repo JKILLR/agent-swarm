@@ -70,3 +70,8 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 .claude/coordination.db
+
+# Swarm workspaces - ignore agent work products but track STATE.md
+swarms/*/workspace/*
+!swarms/*/workspace/STATE.md
+!swarms/*/workspace/.gitkeep
