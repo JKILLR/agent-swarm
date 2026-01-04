@@ -284,6 +284,10 @@ async def _broadcast_job_update_safe(job):
 async def _broadcast_executor_event_safe(event: dict):
     """Safely broadcast executor pool events to subscribers."""
     try:
+        event_type = event.get("type", "")
+        agent = event.get("agent", "unknown")
+        if event_type in ("tool_start", "tool_complete"):
+            logger.info(f"Broadcasting {event_type} for agent '{agent}': {event.get('tool', 'unknown')}")
         await broadcast_executor_pool_event(event)
     except Exception as e:
         logger.error(f"Failed to broadcast executor event: {e}")
@@ -1426,11 +1430,12 @@ async def broadcast_executor_pool_event(event: dict):
             "agentName": event.get("agent", "Unknown Agent"),
             "success": event.get("success", True),
         }
+        logger.debug(f"Sending tool event to {len(manager.active_connections)} connections: {chat_event.get('agentName')}/{chat_event.get('tool')}")
         for ws in manager.active_connections[:]:
             try:
                 await ws.send_json(chat_event)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to send tool event to WS: {e}")
 
 
 @app.websocket("/ws/executor-pool")
