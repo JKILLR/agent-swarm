@@ -294,6 +294,10 @@ class AgentExecutorPool:
         # Add max turns limit
         cmd.extend(["--max-turns", str(context.max_turns)])
 
+        # Add allowed tools (positive list of what agent can use)
+        if context.allowed_tools:
+            cmd.extend(["--allowedTools", ",".join(context.allowed_tools)])
+
         # Add tool restrictions (e.g., COO cannot use Write/Edit)
         if disallowed_tools:
             cmd.extend(["--disallowedTools", ",".join(disallowed_tools)])

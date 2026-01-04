@@ -152,7 +152,8 @@ class WorkspaceManager:
                 "permission_mode": "acceptEdits",
                 "web_access": True,
                 "allowed_tools": [
-                    "Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task"
+                    "Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task",
+                    "WebSearch", "WebFetch"
                 ],
             }
 
@@ -165,7 +166,8 @@ class WorkspaceManager:
                 "permission_mode": "acceptEdits",
                 "web_access": True,
                 "allowed_tools": [
-                    "Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task"
+                    "Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task",
+                    "WebSearch", "WebFetch"
                 ],
             },
             "implementer": {
@@ -175,7 +177,8 @@ class WorkspaceManager:
                 "permission_mode": "acceptEdits",
                 "web_access": True,
                 "allowed_tools": [
-                    "Read", "Write", "Edit", "Bash", "Glob", "Grep"
+                    "Read", "Write", "Edit", "Bash", "Glob", "Grep",
+                    "WebSearch", "WebFetch"
                 ],
             },
             "architect": {
@@ -185,7 +188,8 @@ class WorkspaceManager:
                 "permission_mode": "acceptEdits",
                 "web_access": True,
                 "allowed_tools": [
-                    "Read", "Write", "Edit", "Bash", "Glob", "Grep"
+                    "Read", "Write", "Edit", "Bash", "Glob", "Grep",
+                    "WebSearch", "WebFetch"
                 ],
             },
             "critic": {
@@ -195,7 +199,8 @@ class WorkspaceManager:
                 "permission_mode": "default",
                 "web_access": True,
                 "allowed_tools": [
-                    "Read", "Glob", "Grep"
+                    "Read", "Glob", "Grep",
+                    "WebSearch", "WebFetch"
                 ],
             },
             "reviewer": {
@@ -205,7 +210,8 @@ class WorkspaceManager:
                 "permission_mode": "default",
                 "web_access": True,
                 "allowed_tools": [
-                    "Read", "Bash", "Glob", "Grep"
+                    "Read", "Bash", "Glob", "Grep",
+                    "WebSearch", "WebFetch"
                 ],
             },
             "researcher": {
@@ -215,7 +221,8 @@ class WorkspaceManager:
                 "permission_mode": "default",
                 "web_access": True,
                 "allowed_tools": [
-                    "Read", "Write", "Bash", "Glob", "Grep"
+                    "Read", "Write", "Bash", "Glob", "Grep",
+                    "WebSearch", "WebFetch"
                 ],
             },
             "tester": {
@@ -252,7 +259,8 @@ class WorkspaceManager:
             "permission_mode": "default",
             "web_access": True,
             "allowed_tools": [
-                "Read", "Write", "Edit", "Bash", "Glob", "Grep"
+                "Read", "Write", "Edit", "Bash", "Glob", "Grep",
+                "WebSearch", "WebFetch"
             ],
         }
 
