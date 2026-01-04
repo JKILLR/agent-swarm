@@ -495,6 +495,22 @@ async def websocket_chat(websocket: WebSocket, project_root: Path):
                 # Save messages to chat history for conversation continuity
                 if session_id:
                     try:
+                        # Auto-create session if it doesn't exist
+                        if not history.get_session(session_id):
+                            logger.info(f"Auto-creating session {session_id}")
+                            # Manually create the session file
+                            session_data = {
+                                "id": session_id,
+                                "title": message[:50] + ("..." if len(message) > 50 else ""),
+                                "swarm": None,
+                                "created_at": datetime.now().isoformat(),
+                                "updated_at": datetime.now().isoformat(),
+                                "messages": [],
+                            }
+                            session_path = history.chat_dir / f"{session_id}.json"
+                            import json
+                            session_path.write_text(json.dumps(session_data, indent=2))
+
                         # Save user message
                         history.add_message(session_id, "user", message)
                         # Save assistant response
@@ -505,8 +521,9 @@ async def websocket_chat(websocket: WebSocket, project_root: Path):
                             agent="Supreme Orchestrator",
                             thinking=result.get("thinking", "")
                         )
+                        logger.info(f"Saved messages to session {session_id}")
                     except Exception as hist_err:
-                        logger.warning(f"Failed to save chat history: {hist_err}")
+                        logger.error(f"Failed to save chat history: {hist_err}", exc_info=True)
 
                 # Save session summary to memory (lightweight, don't block)
                 try:
