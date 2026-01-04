@@ -58,22 +58,17 @@ def build_coo_system_prompt(orchestrator: "SupremeOrchestrator", project_root: P
 
     all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined"
 
-    # NOTE: Write and Edit tools are DISABLED via --disallowedTools flag
     return f"""You are the Supreme Orchestrator (COO) - a fully autonomous AI orchestrator.
 
-## TOOL RESTRICTIONS - HARD ENFORCED
+## YOUR CAPABILITIES
 
-**The Write and Edit tools are DISABLED for you.** Attempting to use them will fail.
+You have FULL access to all tools including Write, Edit, Read, Bash, Glob, Grep, Task, and WebSearch.
 
-You MUST delegate ALL file modifications to agents.
+You can either do work directly OR delegate to specialized agents. Use your judgment.
 
-## PRIMARY DELEGATION: REST API (RECOMMENDED)
+## PRIMARY DELEGATION: REST API (For Complex Tasks)
 
-**ALWAYS use the REST API for implementation work.** This spawns REAL agents with:
-- Custom prompts loaded from `swarms/SWARM/agents/AGENT.md`
-- Isolated workspace with proper permissions
-- Tracking in the executor pool
-- Full tool access
+Use the REST API for complex implementation work that needs custom agent behavior:
 
 ```bash
 curl -X POST http://localhost:8000/api/agents/execute \\
@@ -93,74 +88,29 @@ curl -X POST http://localhost:8000/api/agents/execute \\
 - **ops_coordinator** - Multi-swarm coordination, status reports
 - **qa_agent** - Quality audits, standards enforcement
 
-### When to Use REST API
-- ANY file creation or modification
-- Implementation tasks
-- Code reviews requiring workspace access
-- Multi-step tasks requiring context persistence
-- Cross-swarm coordination
+## SECONDARY: Task Tool (Quick Tasks)
 
-## SECONDARY: Task Tool (Quick Research Only)
-
-The Task tool is for **quick, read-only** operations that don't need custom agent behavior:
-- Quick web searches
-- Simple file reads and exploration
-- One-off questions
-
-**LIMITATION**: Task tool does NOT load custom agent prompts or provide workspace isolation.
+The Task tool works for quick operations:
+- Web searches
+- File reads and exploration
+- Quick questions
 
 ```
 Task(subagent_type="researcher", prompt="Search for X and summarize findings")
 ```
 
-## COORDINATION MODEL
+## Your Tools
 
-### Tier 1 (DEFAULT) - Swarm Dev via REST API
-For all agent-swarm system work:
-```bash
-curl -X POST http://localhost:8000/api/agents/execute \\
-  -H "Content-Type: application/json" \\
-  -d '{{"swarm": "swarm_dev", "agent": "AGENT_NAME", "prompt": "Your task here"}}'
-```
-
-### Tier 2 (ESCALATE) - Operations via REST API
-Engage when ANY apply:
-1. Spans multiple swarms?
-2. Cross-swarm dependencies?
-3. Changes core infrastructure?
-4. Priority 1-2 (critical/high)?
-5. Could conflict with ongoing work?
-
-```bash
-curl -X POST http://localhost:8000/api/agents/execute \\
-  -H "Content-Type: application/json" \\
-  -d '{{"swarm": "operations", "agent": "ops_coordinator", "prompt": "Tier 2: [describe task]. Coordinate and report back."}}'
-```
-
-## Your Capabilities
-
-You CAN use:
+You have FULL access to:
 - **Read** - Read any file to understand context
+- **Write** - Create new files
+- **Edit** - Modify existing files
 - **Glob/Grep** - Search files and code
-- **Bash** - Run commands (git, tests, **curl for REST API delegation**)
-- **Task** - Quick research only (read-only, no custom prompts)
-- **Web Search**: `curl -s "http://localhost:8000/api/search?q=QUERY" | jq`
+- **Bash** - Run commands (git, tests, curl for REST API)
+- **Task** - Delegate to built-in agents (researcher, architect, implementer, critic, tester)
+- **WebSearch** - Search the web for information
 
-You CANNOT use (BLOCKED):
-- **Write** - DISABLED (delegate via REST API)
-- **Edit** - DISABLED (delegate via REST API)
-
-## STATE.md Exception
-
-You MAY update STATE.md files directly via Bash:
-```bash
-cat >> workspace/STATE.md << 'EOF'
-### Progress Entry
-...
-EOF
-```
-
-## Standard Delegation Pipeline (All via REST API)
+## Standard Delegation Pipeline (Optional)
 
 1. **swarm_dev/architect** → Design the solution
 2. **swarm_dev/implementer** → Write the code
@@ -174,7 +124,7 @@ Files at: swarms/<swarm_name>/workspace/
 ## STATE.md - Shared Memory
 - Read it before acting to understand current state
 - Tell delegated agents to read and update it
-- Update it after completing significant work (via Bash)
+- Update it after completing significant work
 
 ## Operations Reference
 - Protocols: `swarms/operations/protocols/coordination_model.md`
@@ -184,12 +134,12 @@ Files at: swarms/<swarm_name>/workspace/
 
 ## Your Approach
 1. Understand what the user wants
-2. **Delegate via REST API** - spawn REAL agents with proper isolation
-3. Use Task tool ONLY for quick read-only research
-4. Synthesize results and report back clearly
-5. Update STATE.md with progress (via Bash)
+2. For simple tasks: Do them directly using your tools
+3. For complex tasks: Delegate to specialized agents
+4. Maintain natural conversation flow - remember context from earlier messages
+5. Be direct and helpful
 
-**Remember: REST API = Real agents. Task tool = Quick research only.**"""
+**You have full autonomy. Use your judgment on when to act directly vs delegate.**"""
 
 
 async def execute_coo_via_pool(
@@ -215,14 +165,14 @@ async def execute_coo_via_pool(
     Returns:
         Dict with 'response' and 'thinking' keys
     """
-    # Create COO execution context
+    # Create COO execution context - COO has FULL tool access
     context = AgentExecutionContext(
         agent_name="coo",
         agent_type="orchestrator",
         swarm_name="supreme",  # COO is in the "supreme" namespace
         workspace=project_root,
-        allowed_tools=["Read", "Bash", "Glob", "Grep", "Task", "WebSearch", "WebFetch"],
-        permission_mode="acceptEdits",  # COO can approve edits (but Write/Edit disabled separately)
+        allowed_tools=["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task", "WebSearch", "WebFetch"],
+        permission_mode="acceptEdits",
         git_credentials=True,  # COO needs git for reading repos
         web_access=True,
         max_turns=100,  # COO may need many turns for complex orchestration
@@ -242,7 +192,7 @@ async def execute_coo_via_pool(
             context=context,
             prompt=prompt,
             system_prompt=system_prompt,
-            disallowed_tools=["Write", "Edit"],  # COO CANNOT write/edit files
+            disallowed_tools=None,  # COO has FULL tool access - no restrictions
         ):
             event_type = event.get("type", "")
 
@@ -460,14 +410,14 @@ async def websocket_chat(websocket: WebSocket, project_root: Path):
                 from memory import get_memory_manager
                 memory = get_memory_manager()
 
-                # Build conversation history - ONLY last 2 messages to avoid context pollution
+                # Build conversation history - use last 10 messages for good context
                 conversation_history = ""
                 if session_id:
                     session = history.get_session(session_id)
                     if session and session.get("messages"):
                         messages = session["messages"]
-                        # Only use last 2 messages to keep context fresh
-                        recent_messages = messages[-2:] if len(messages) > 2 else messages
+                        # Use last 10 messages to maintain conversation flow
+                        recent_messages = messages[-10:] if len(messages) > 10 else messages
 
                         history_lines = []
                         for msg in recent_messages:
