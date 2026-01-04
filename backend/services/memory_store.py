@@ -190,7 +190,8 @@ class MemoryStore:
         with self._lock:
             lines = []
 
-            facts = self.get_all_facts()
+            # Access _data directly to avoid deadlock (we already hold the lock)
+            facts = {k: v["value"] for k, v in self._data["facts"].items()}
             if facts:
                 lines.append("### Known Facts About User")
                 for key, value in facts.items():
@@ -198,7 +199,7 @@ class MemoryStore:
                     nice_key = key.replace("_", " ").title()
                     lines.append(f"- {nice_key}: {value}")
 
-            prefs = self.get_all_preferences()
+            prefs = {k: v["value"] for k, v in self._data["preferences"].items()}
             if prefs:
                 lines.append("\n### User Preferences")
                 for name, value in prefs.items():
