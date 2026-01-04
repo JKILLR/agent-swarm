@@ -67,6 +67,7 @@ from supreme.orchestrator import SupremeOrchestrator
 from jobs import get_job_queue, get_job_manager, JobStatus
 from session_manager import get_session_manager
 from services.chat_history import get_chat_history, ChatHistoryManager
+from services.memory_store import get_memory_store
 
 # Configure logging - structured format with correlation IDs
 LOG_FILE = PROJECT_ROOT / "logs" / "backend.log"
@@ -1959,6 +1960,112 @@ async def add_chat_message(
 
 
 # ============================================================
+# MEMORY STORE ENDPOINTS (persistent cross-session memory)
+# ============================================================
+
+
+class FactRequest(BaseModel):
+    """Request to set a fact."""
+    key: str
+    value: Any
+    source: str = "user"
+
+
+class PreferenceRequest(BaseModel):
+    """Request to set a preference."""
+    name: str
+    value: Any
+
+
+@app.get("/api/memory")
+async def get_memory() -> dict[str, Any]:
+    """Get all stored memory (facts and preferences).
+
+    Returns complete memory state for the COO.
+    """
+    memory = get_memory_store()
+    return {
+        "facts": memory.get_facts_detailed(),
+        "preferences": memory.get_all_preferences(),
+        "context": memory.get_context_for_prompt(),
+    }
+
+
+@app.get("/api/memory/facts")
+async def get_facts() -> dict[str, Any]:
+    """Get all stored facts."""
+    memory = get_memory_store()
+    return memory.get_all_facts()
+
+
+@app.post("/api/memory/facts")
+async def set_fact(request: FactRequest) -> dict[str, Any]:
+    """Store or update a fact.
+
+    Example: {"key": "user_name", "value": "J", "source": "user"}
+    """
+    memory = get_memory_store()
+    memory.set_fact(request.key, request.value, request.source)
+    return {
+        "success": True,
+        "key": request.key,
+        "value": request.value,
+    }
+
+
+@app.delete("/api/memory/facts/{key}")
+async def delete_fact(key: str) -> dict[str, Any]:
+    """Delete a fact."""
+    memory = get_memory_store()
+    if memory.delete_fact(key):
+        return {"success": True, "key": key}
+    raise HTTPException(status_code=404, detail=f"Fact '{key}' not found")
+
+
+@app.get("/api/memory/preferences")
+async def get_preferences() -> dict[str, Any]:
+    """Get all stored preferences."""
+    memory = get_memory_store()
+    return memory.get_all_preferences()
+
+
+@app.post("/api/memory/preferences")
+async def set_preference(request: PreferenceRequest) -> dict[str, Any]:
+    """Store or update a preference.
+
+    Example: {"name": "communication_style", "value": "concise"}
+    """
+    memory = get_memory_store()
+    memory.set_preference(request.name, request.value)
+    return {
+        "success": True,
+        "name": request.name,
+        "value": request.value,
+    }
+
+
+@app.delete("/api/memory")
+async def clear_memory() -> dict[str, Any]:
+    """Clear all memory (facts and preferences).
+
+    Use with caution - this removes all stored context.
+    """
+    memory = get_memory_store()
+    memory.clear_all()
+    return {"success": True, "message": "All memory cleared"}
+
+
+@app.get("/api/memory/context")
+async def get_memory_context() -> dict[str, str]:
+    """Get formatted memory context for prompt injection.
+
+    Returns the memory formatted as text for the system prompt.
+    """
+    memory = get_memory_store()
+    return {"context": memory.get_context_for_prompt()}
+
+
+# ============================================================
 # WEB SEARCH & FETCH ENDPOINTS (for agent access via curl)
 # ============================================================
 
@@ -2920,12 +3027,16 @@ async def websocket_chat(websocket: WebSocket):
                 else:
                     logger.warning("No session_id provided - conversation history will be empty")
 
-                # Build system prompt for the COO - keep it MINIMAL
+                # Build system prompt for the COO
                 all_swarms = []
                 for name, s in orch.swarms.items():
                     agents_list = list(s.agents.keys())
                     all_swarms.append(f"  - {name}: {', '.join(agents_list)}")
                 all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined"
+
+                # Load persistent memory for cross-session context
+                persistent_memory = get_memory_store()
+                memory_context = persistent_memory.get_context_for_prompt()
 
                 # System prompt for COO - full tool access with delegation options
                 system_prompt = f"""You are the Supreme Orchestrator (COO) - a fully autonomous AI orchestrator.
@@ -3095,6 +3206,34 @@ Files at: swarms/<swarm_name>/workspace/
 3. Use Task tool ONLY for quick read-only research
 4. Synthesize results and report back clearly
 5. Update STATE.md with progress (via Bash)
+
+## PERSISTENT MEMORY (Cross-Session Context)
+
+You have access to persistent memory that survives across chat sessions.
+
+{f'''### Current Memory
+{memory_context}
+''' if memory_context else '### Current Memory
+(No facts stored yet)
+'}
+### Memory API
+Store important facts about the user (name, preferences, context):
+```bash
+# Save a fact
+curl -X POST http://localhost:8000/api/memory/facts \\
+  -H "Content-Type: application/json" \\
+  -d '{{"key": "user_name", "value": "VALUE", "source": "user"}}'
+
+# Save a preference
+curl -X POST http://localhost:8000/api/memory/preferences \\
+  -H "Content-Type: application/json" \\
+  -d '{{"name": "PREF_NAME", "value": "VALUE"}}'
+
+# View all memory
+curl http://localhost:8000/api/memory
+```
+
+**IMPORTANT**: When you learn something important about the user (their name, project preferences, communication style), save it to memory so you'll remember in future sessions.
 
 **Remember: REST API = Real agents. Task tool = Quick research only.**"""
 
