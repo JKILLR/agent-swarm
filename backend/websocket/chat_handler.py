@@ -492,6 +492,22 @@ async def websocket_chat(websocket: WebSocket, project_root: Path):
                     },
                 )
 
+                # Save messages to chat history for conversation continuity
+                if session_id:
+                    try:
+                        # Save user message
+                        history.add_message(session_id, "user", message)
+                        # Save assistant response
+                        history.add_message(
+                            session_id,
+                            "assistant",
+                            final_content,
+                            agent="Supreme Orchestrator",
+                            thinking=result.get("thinking", "")
+                        )
+                    except Exception as hist_err:
+                        logger.warning(f"Failed to save chat history: {hist_err}")
+
                 # Save session summary to memory (lightweight, don't block)
                 try:
                     session_summary = f"**User**: {message[:200]}{'...' if len(message) > 200 else ''}\n\n**COO Response**: {final_content[:500]}{'...' if len(final_content) > 500 else ''}"
