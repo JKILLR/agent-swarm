@@ -37,15 +37,16 @@ class AgentExecutionContext:
     swarm_name: str
     workspace: Path
 
-    # Permissions
+    # Permissions - full capabilities by default
     allowed_tools: list[str] = field(default_factory=lambda: [
-        "Read", "Write", "Edit", "Bash", "Glob", "Grep"
+        "Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task",
+        "WebSearch", "WebFetch"
     ])
-    permission_mode: str = "default"
+    permission_mode: str = "acceptEdits"
 
     # Credentials (passed as env vars)
-    git_credentials: bool = False
-    web_access: bool = False
+    git_credentials: bool = True
+    web_access: bool = True
 
     # Limits
     max_turns: int = 25

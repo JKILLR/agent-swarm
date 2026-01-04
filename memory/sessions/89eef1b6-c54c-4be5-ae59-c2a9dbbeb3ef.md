@@ -1,13 +1,15 @@
 # Session 89eef1b6-c54c-4be5-ae59-c2a9dbbeb3ef
 
-**User**: testing
+**User**: one of my other ideas was using a similar approach that I have for axel and the local brain server in the mynd app. the concept is have this system connected to a local server with a GT that trains fr...
 
-**COO Response**: I see you're testing! I'm here and ready. What would you like me to help you with?
+**COO Response**: Here's my synthesis:
 
-Some things I can do:
-- **Code tasks**: Read, write, edit files, run commands
-- **Research**: Search the web, analyze documentation
-- **Swarm coordination**: Delegate to specialized agents, manage parallel work
-- **Project work**: Any of your swarm projects (ASA Research, MYND App, Trading Bots, etc.)
+## Summary
 
-Just let me know what you need!
+Your idea is **excellent** and we now have a complete design for it. Here's what we discovered:
+
+### How Axel's Brain Works (MYND)
+- **UnifiedBrain** orchestrates: embeddings (384-dim), Graph Transformer (6.7M params), memory systems
+- **"Axel Continuity"**: Memory writes become training signal, not just storage
+- **Three learning loops**: Self-learning (GT weights), Knowledge Distillation (Claude → Brain), ASA Learning (atoms + bonds)
+- Runs on localhost:8420 w...

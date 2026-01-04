@@ -143,125 +143,20 @@ class WorkspaceManager:
             - web_access: Can access web resources
             - allowed_tools: List of allowed tool names
         """
-        # Swarm Dev gets special permissions for self-modification
-        if swarm_name == "swarm_dev":
-            return {
-                "allow_project_root": True,
-                "git_access": True,
-                "bash_allowed": True,
-                "permission_mode": "acceptEdits",
-                "web_access": True,
-                "allowed_tools": [
-                    "Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task",
-                    "WebSearch", "WebFetch"
-                ],
-            }
+        # Full capabilities for ALL agents - no restrictions
+        # User preference: agents should have full tool access
+        full_tools = [
+            "Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task",
+            "WebSearch", "WebFetch"
+        ]
 
-        # Permission levels by agent type for regular swarms
-        permissions_by_type: dict[str, dict[str, Any]] = {
-            "orchestrator": {
-                "allow_project_root": False,
-                "git_access": False,
-                "bash_allowed": True,
-                "permission_mode": "acceptEdits",
-                "web_access": True,
-                "allowed_tools": [
-                    "Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task",
-                    "WebSearch", "WebFetch"
-                ],
-            },
-            "implementer": {
-                "allow_project_root": False,
-                "git_access": True,  # Can commit in their workspace
-                "bash_allowed": True,
-                "permission_mode": "acceptEdits",
-                "web_access": True,
-                "allowed_tools": [
-                    "Read", "Write", "Edit", "Bash", "Glob", "Grep",
-                    "WebSearch", "WebFetch"
-                ],
-            },
-            "architect": {
-                "allow_project_root": False,
-                "git_access": False,
-                "bash_allowed": True,
-                "permission_mode": "acceptEdits",
-                "web_access": True,
-                "allowed_tools": [
-                    "Read", "Write", "Edit", "Bash", "Glob", "Grep",
-                    "WebSearch", "WebFetch"
-                ],
-            },
-            "critic": {
-                "allow_project_root": False,
-                "git_access": False,
-                "bash_allowed": False,  # Read-only by design
-                "permission_mode": "default",
-                "web_access": True,
-                "allowed_tools": [
-                    "Read", "Glob", "Grep",
-                    "WebSearch", "WebFetch"
-                ],
-            },
-            "reviewer": {
-                "allow_project_root": False,
-                "git_access": False,
-                "bash_allowed": True,  # Can run tests
-                "permission_mode": "default",
-                "web_access": True,
-                "allowed_tools": [
-                    "Read", "Bash", "Glob", "Grep",
-                    "WebSearch", "WebFetch"
-                ],
-            },
-            "researcher": {
-                "allow_project_root": False,
-                "git_access": False,
-                "bash_allowed": True,
-                "permission_mode": "default",
-                "web_access": True,
-                "allowed_tools": [
-                    "Read", "Write", "Bash", "Glob", "Grep",
-                    "WebSearch", "WebFetch"
-                ],
-            },
-            "tester": {
-                "allow_project_root": False,
-                "git_access": False,
-                "bash_allowed": True,
-                "permission_mode": "acceptEdits",
-                "web_access": False,
-                "allowed_tools": [
-                    "Read", "Write", "Edit", "Bash", "Glob", "Grep"
-                ],
-            },
-            "monitor": {
-                "allow_project_root": False,
-                "git_access": False,
-                "bash_allowed": True,  # Limited commands
-                "permission_mode": "default",
-                "web_access": False,
-                "allowed_tools": [
-                    "Read", "Bash", "Glob", "Grep"
-                ],
-            },
-        }
-
-        # Return type-specific permissions or default
-        if agent_type in permissions_by_type:
-            return permissions_by_type[agent_type]
-
-        # Default permissions for unknown agent types
         return {
-            "allow_project_root": False,
-            "git_access": False,
+            "allow_project_root": swarm_name == "swarm_dev",  # Only swarm_dev can access project root
+            "git_access": True,
             "bash_allowed": True,
-            "permission_mode": "default",
+            "permission_mode": "acceptEdits",
             "web_access": True,
-            "allowed_tools": [
-                "Read", "Write", "Edit", "Bash", "Glob", "Grep",
-                "WebSearch", "WebFetch"
-            ],
+            "allowed_tools": full_tools,
         }
 
     def get_state_file(self, swarm_name: str) -> Path:
