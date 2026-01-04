@@ -303,7 +303,9 @@ class AgentExecutorPool:
         if system_prompt:
             cmd.extend(["--append-system-prompt", system_prompt])
 
-        # Add the prompt as final argument
+        # Add -- to stop flag parsing, then the prompt as final argument
+        # This prevents variadic flags from consuming the prompt
+        cmd.append("--")
         cmd.append(prompt)
 
         return cmd
