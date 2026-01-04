@@ -419,6 +419,10 @@ class AgentExecutorPool:
                             event = json.loads(line_str)
                             event_type = event.get("type", "")
 
+                            # Debug: log all event types from CLI
+                            if event_type:
+                                logger.info(f"CLI event from {context.agent_name}: type={event_type}")
+
                             # Add execution context to events
                             event["execution_id"] = execution_id
                             event["agent"] = context.agent_name
