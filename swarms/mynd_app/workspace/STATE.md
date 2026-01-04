@@ -9,7 +9,7 @@ updated: 2026-01-03
 > Always read this file first. Update it after completing work.
 
 ## Last Updated
-2026-01-03 - RESEARCHER (Comprehensive codebase analysis from mynd-server source)
+2026-01-03 - RESEARCHER (Deep dive: Axel personality, brain server, GT training, learning architecture)
 
 ## Swarm Status: ACTIVE (Codebase Available)
 
@@ -25,6 +25,29 @@ The mynd-server codebase has been copied into this workspace at `swarms/mynd_app
 
 ## Progress Log
 <!-- Most recent entries at top -->
+
+### 2026-01-03 RESEARCHER - Deep Dive: Brain Architecture for Agent Swarm
+- **Focus**: How Axel gets personality/context, brain server mechanics, GT training, learning over time
+- **Key Findings**:
+  - **Axel Personality**: System prompt in server.py + dynamic context from UnifiedBrain
+  - **Context Assembly**: SelfAwareness + ContextSynthesizer + MemorySystem + Neural Insights
+  - **GT Training Sources**:
+    1. User connection actions (/brain/learn-connection)
+    2. Memory processing (/brain/process-memory) - "Axel Continuity"
+    3. Prediction feedback loop (was prediction correct?)
+  - **Learning Loops**:
+    1. Self-Learning: GT predicts -> user accepts/rejects -> weights update
+    2. Knowledge Distillation: Claude -> Brain extracts insights -> future context
+    3. ASA Learning: Text -> atoms -> energy boost -> bond strengthening
+  - **Key Innovation - "Axel Continuity"**: Memory writes become training signal, not just text retrieval
+- **Output**: Created `research_brain_architecture.md` (comprehensive 15KB document)
+- **Implications for Agent Swarm**:
+  - Unified context endpoint pattern
+  - Learning from agent interactions
+  - Memory layers (task/session/persistent)
+  - Graph-based relationship learning
+- **Files Analyzed**: server.py, unified_brain.py, context_synthesizer.py, graph_transformer.py, living_asa.py, local-brain-client.js, ARCHITECTURE.md
+- **Outcome**: SUCCESS - Complete understanding documented
 
 ### 2026-01-03 RESEARCHER - Complete Codebase Analysis
 - Analyzed all core source files in mynd-server codebase
@@ -74,6 +97,7 @@ The mynd-server codebase has been copied into this workspace at `swarms/mynd_app
 | `mynd-server/mynd-brain/UNIFIED_BRAIN_DESIGN.md` | Brain design specification |
 | `mynd-server/docs/BACKGROUND_COGNITION_SPEC.md` | Background processing spec |
 | `mynd-server/docs/ML_ARCHITECTURE.md` | ML system documentation |
+| `research_brain_architecture.md` | Deep dive: Axel, brain server, GT training, learning loops |
 
 ## Architecture Decisions
 <!-- Record important decisions and why they were made -->
@@ -119,6 +143,13 @@ The mynd-server codebase has been copied into this workspace at `swarms/mynd_app
 - **Decision**: All ML runs locally on user hardware (M2 GPU via MPS)
 - **Rationale**: Data never leaves device, works offline
 - **Status**: IMPLEMENTED
+
+### ADR-008: Axel Continuity (Memory -> Training Signal)
+- **Context**: "When I write a memory, it becomes words I read next session. It doesn't change how I process."
+- **Decision**: Memory writes become training signal, not just text retrieval
+- **Rationale**: Transforms passive text into active model weight updates
+- **Implementation**: /brain/process-memory extracts triples, trains GT, updates ASA
+- **Status**: IMPLEMENTED (server.py lines 4493-4668)
 
 ## Known Issues / Blockers
 <!-- Track problems that need attention -->
