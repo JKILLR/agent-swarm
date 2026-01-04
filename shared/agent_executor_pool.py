@@ -289,16 +289,13 @@ class AgentExecutorPool:
             "--output-format", "stream-json",
             "--verbose",
             "--permission-mode", context.permission_mode,
+            "--tools", "default",  # Give all tools - no restrictions
         ]
 
         # Add max turns limit
         cmd.extend(["--max-turns", str(context.max_turns)])
 
-        # Add allowed tools (positive list of what agent can use)
-        if context.allowed_tools:
-            cmd.extend(["--allowedTools", ",".join(context.allowed_tools)])
-
-        # Add tool restrictions (e.g., COO cannot use Write/Edit)
+        # Add tool restrictions only if explicitly specified
         if disallowed_tools:
             cmd.extend(["--disallowedTools", ",".join(disallowed_tools)])
 
