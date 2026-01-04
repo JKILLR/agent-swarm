@@ -413,9 +413,11 @@ async def websocket_chat(websocket: WebSocket, project_root: Path):
                 # Build conversation history - use last 10 messages for good context
                 conversation_history = ""
                 if session_id:
+                    logger.info(f"Loading history for session: {session_id}")
                     session = history.get_session(session_id)
                     if session and session.get("messages"):
                         messages = session["messages"]
+                        logger.info(f"Found {len(messages)} messages in session history")
                         # Use last 10 messages to maintain conversation flow
                         recent_messages = messages[-10:] if len(messages) > 10 else messages
 
@@ -432,6 +434,11 @@ async def websocket_chat(websocket: WebSocket, project_root: Path):
                             conversation_history = (
                                 "\n\n## Recent Context\n" + "\n\n".join(history_lines) + "\n\n---\n"
                             )
+                            logger.info(f"Built conversation history with {len(history_lines)} entries")
+                    else:
+                        logger.info(f"No messages found in session {session_id}")
+                else:
+                    logger.warning("No session_id provided - conversation history will be empty")
 
                 # Build system prompt for the COO
                 system_prompt = build_coo_system_prompt(orch, project_root)
