@@ -2,6 +2,12 @@
 
 This module handles the primary chat WebSocket that connects
 the frontend to the Supreme Orchestrator (COO).
+
+All COO execution now routes through AgentExecutorPool for:
+- Proper workspace isolation
+- Consistent event streaming
+- Resource management via semaphore
+- Unified execution tracking
 """
 
 from __future__ import annotations
@@ -13,7 +19,7 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -23,7 +29,11 @@ if TYPE_CHECKING:
 from .connection_manager import manager
 from ..services.chat_history import get_chat_history
 from ..services.orchestrator_service import get_orchestrator
-from ..services.claude_service import stream_claude_response, parse_claude_stream
+from shared.agent_executor_pool import get_executor_pool
+from shared.execution_context import AgentExecutionContext
+
+# NOTE: stream_claude_response and parse_claude_stream are no longer used
+# All COO execution now goes through execute_coo_via_pool -> AgentExecutorPool
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +192,181 @@ Files at: swarms/<swarm_name>/workspace/
 **Remember: REST API = Real agents. Task tool = Quick research only.**"""
 
 
+async def execute_coo_via_pool(
+    websocket: WebSocket,
+    project_root: Path,
+    prompt: str,
+    system_prompt: str,
+) -> dict[str, str]:
+    """Execute COO request through AgentExecutorPool.
+
+    Routes COO execution through the unified executor pool for:
+    - Proper workspace isolation
+    - Consistent event streaming
+    - Resource management
+    - Unified execution tracking
+
+    Args:
+        websocket: WebSocket connection for streaming events
+        project_root: Path to project root (COO workspace)
+        prompt: User prompt to process
+        system_prompt: COO system prompt
+
+    Returns:
+        Dict with 'response' and 'thinking' keys
+    """
+    # Create COO execution context
+    context = AgentExecutionContext(
+        agent_name="coo",
+        agent_type="orchestrator",
+        swarm_name="supreme",  # COO is in the "supreme" namespace
+        workspace=project_root,
+        allowed_tools=["Read", "Bash", "Glob", "Grep", "Task", "WebSearch", "WebFetch"],
+        permission_mode="acceptEdits",  # COO can approve edits (but Write/Edit disabled separately)
+        git_credentials=True,  # COO needs git for reading repos
+        web_access=True,
+        max_turns=100,  # COO may need many turns for complex orchestration
+        timeout=3600.0,  # 1 hour timeout
+    )
+
+    pool = get_executor_pool()
+
+    full_response = ""
+    full_thinking = ""
+    current_block_type = None
+    agent_stack = ["Supreme Orchestrator"]
+    pending_tasks: dict[str, str] = {}
+
+    try:
+        async for event in pool.execute(
+            context=context,
+            prompt=prompt,
+            system_prompt=system_prompt,
+            disallowed_tools=["Write", "Edit"],  # COO CANNOT write/edit files
+        ):
+            event_type = event.get("type", "")
+
+            # Map pool events to WebSocket events
+            if event_type == "agent_execution_start":
+                # Already sent agent_start, skip this
+                pass
+
+            elif event_type == "thinking_start":
+                await manager.send_event(
+                    websocket,
+                    "thinking_start",
+                    {"agent": "Supreme Orchestrator"},
+                )
+
+            elif event_type == "thinking_delta":
+                delta = event.get("delta", "")
+                full_thinking += delta
+                await manager.send_event(
+                    websocket,
+                    "thinking_delta",
+                    {"agent": "Supreme Orchestrator", "delta": delta},
+                )
+
+            elif event_type == "thinking_complete":
+                await manager.send_event(
+                    websocket,
+                    "thinking_complete",
+                    {"agent": "Supreme Orchestrator", "thinking": full_thinking},
+                )
+
+            elif event_type == "agent_delta":
+                delta = event.get("delta", "")
+                full_response += delta
+                await manager.send_event(
+                    websocket,
+                    "agent_delta",
+                    {
+                        "agent": "Supreme Orchestrator",
+                        "agent_type": "orchestrator",
+                        "delta": delta,
+                    },
+                )
+
+            elif event_type == "tool_start":
+                tool_name = event.get("tool", "unknown")
+                tool_input = event.get("input", {})
+                description = event.get("description", f"Using {tool_name}")
+                current_agent = agent_stack[-1] if agent_stack else "Supreme Orchestrator"
+
+                # Handle Task tool spawning
+                if tool_name == "Task":
+                    subagent = tool_input.get("subagent_type") or tool_input.get("agent", "")
+                    if subagent:
+                        agent_stack.append(subagent)
+                        task_desc = tool_input.get("description", tool_input.get("prompt", ""))[:100]
+                        await manager.send_event(
+                            websocket,
+                            "agent_spawn",
+                            {
+                                "agent": subagent,
+                                "description": task_desc,
+                                "parentAgent": current_agent,
+                            },
+                        )
+                        current_agent = subagent
+
+                await manager.send_event(
+                    websocket,
+                    "tool_start",
+                    {
+                        "tool": tool_name,
+                        "description": description,
+                        "input": tool_input,
+                        "agentName": current_agent,
+                    },
+                )
+
+            elif event_type == "tool_complete":
+                tool_name = event.get("tool", "unknown")
+                success = event.get("success", True)
+                current_agent = agent_stack[-1] if agent_stack else "Supreme Orchestrator"
+
+                await manager.send_event(
+                    websocket,
+                    "tool_complete",
+                    {
+                        "tool": tool_name,
+                        "success": success,
+                        "summary": f"{'Completed' if success else 'Failed'}: {tool_name}",
+                        "agentName": current_agent,
+                    },
+                )
+
+                # Pop agent from stack if this was a Task tool completion
+                if tool_name == "Task" and len(agent_stack) > 1:
+                    completed_agent = agent_stack.pop()
+                    await manager.send_event(
+                        websocket,
+                        "agent_complete_subagent",
+                        {"agent": completed_agent, "success": success},
+                    )
+
+            elif event_type == "content":
+                # Raw content - may be final response
+                content = event.get("content", "")
+                if content and not full_response:
+                    full_response = content
+
+            elif event_type == "agent_execution_complete":
+                # Execution finished
+                pass
+
+            elif event_type == "error":
+                error_content = event.get("content", "Unknown error")
+                raise RuntimeError(f"Execution error: {error_content}")
+
+    except asyncio.CancelledError:
+        logger.warning("COO execution was cancelled")
+        raise
+
+    return {"response": full_response, "thinking": full_thinking}
+
+
 async def websocket_chat(websocket: WebSocket, project_root: Path):
     """WebSocket endpoint for streaming chat.
 
@@ -314,32 +499,19 @@ async def websocket_chat(websocket: WebSocket, project_root: Path):
                 else:
                     user_prompt = user_message
 
-                # Use Claude CLI with Write/Edit tools DISABLED for COO
-                result = None
-                process = None
-
+                # Execute COO via AgentExecutorPool for unified execution
                 try:
-                    process = await stream_claude_response(
+                    result = await execute_coo_via_pool(
+                        websocket=websocket,
+                        project_root=project_root,
                         prompt=user_prompt,
                         system_prompt=system_prompt,
-                        swarm_name=None,
-                        workspace=project_root,
-                        chat_id=session_id,
-                        disallowed_tools=["Write", "Edit"],  # COO CANNOT write/edit files
                     )
-
-                    # Stream and parse the response
-                    result = await asyncio.wait_for(
-                        parse_claude_stream(process, websocket, manager, chat_id=session_id),
-                        timeout=3600.0,  # 1 hour timeout
-                    )
-                except asyncio.TimeoutError:
-                    if process:
-                        process.kill()
-                    raise RuntimeError("COO timed out after 1 hour")
+                except asyncio.CancelledError:
+                    raise RuntimeError("COO execution was cancelled")
                 except Exception as e:
-                    logger.error(f"Claude CLI failed: {e}")
-                    raise RuntimeError(f"**Claude CLI Error:** {e}")
+                    logger.error(f"COO execution failed: {e}")
+                    raise RuntimeError(f"**COO Execution Error:** {e}")
 
                 # Check if we got a result
                 if result is None:

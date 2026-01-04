@@ -30,6 +30,7 @@ class AgentExecutorPool:
     - Event streaming
     - Cancellation support
     - Event broadcasting to external listeners
+    - COO WebSocket execution support
 
     Attributes:
         max_concurrent: Maximum number of concurrent agent processes
@@ -56,6 +57,7 @@ class AgentExecutorPool:
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._running: dict[str, asyncio.Task] = {}
         self._processes: dict[str, asyncio.subprocess.Process] = {}
+        self._coo_execution_id: str | None = None  # Track COO execution
 
         logger.info(
             f"AgentExecutorPool initialized with max_concurrent={max_concurrent}"
@@ -83,6 +85,7 @@ class AgentExecutorPool:
         prompt: str,
         system_prompt: str | None = None,
         on_event: Callable[[dict], None] | None = None,
+        disallowed_tools: list[str] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Execute an agent with the given context.
 
@@ -94,6 +97,7 @@ class AgentExecutorPool:
             prompt: The prompt to send to the agent
             system_prompt: Optional system prompt to append
             on_event: Optional callback for each event
+            disallowed_tools: Optional list of tool names to disable (e.g., ["Write", "Edit"])
 
         Yields:
             Event dictionaries from the agent execution
@@ -122,7 +126,7 @@ class AgentExecutorPool:
         async with self._semaphore:
             try:
                 async for event in self._run_agent(
-                    execution_id, context, prompt, system_prompt
+                    execution_id, context, prompt, system_prompt, disallowed_tools
                 ):
                     if on_event:
                         on_event(event)
@@ -185,6 +189,7 @@ class AgentExecutorPool:
         context: AgentExecutionContext,
         prompt: str,
         system_prompt: str | None,
+        disallowed_tools: list[str] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Run a single agent execution.
 
@@ -193,12 +198,13 @@ class AgentExecutorPool:
             context: Agent execution context
             prompt: The prompt to send
             system_prompt: Optional system prompt
+            disallowed_tools: Optional list of tools to disable
 
         Yields:
             Event dictionaries parsed from the CLI output
         """
         # Build command
-        cmd = self._build_command(context, prompt, system_prompt)
+        cmd = self._build_command(context, prompt, system_prompt, disallowed_tools)
 
         # Build environment
         env = self._build_environment(context)
@@ -264,6 +270,7 @@ class AgentExecutorPool:
         context: AgentExecutionContext,
         prompt: str,
         system_prompt: str | None,
+        disallowed_tools: list[str] | None = None,
     ) -> list[str]:
         """Build the Claude CLI command.
 
@@ -271,6 +278,7 @@ class AgentExecutorPool:
             context: Agent execution context
             prompt: The user prompt
             system_prompt: Optional system prompt
+            disallowed_tools: Optional list of tools to disable
 
         Returns:
             Command as list of strings
@@ -285,6 +293,10 @@ class AgentExecutorPool:
 
         # Add max turns limit
         cmd.extend(["--max-turns", str(context.max_turns)])
+
+        # Add tool restrictions (e.g., COO cannot use Write/Edit)
+        if disallowed_tools:
+            cmd.extend(["--disallowedTools", ",".join(disallowed_tools)])
 
         # Add system prompt if provided
         if system_prompt:

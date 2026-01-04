@@ -879,7 +879,13 @@ async def list_escalations(
     level: str | None = None,
     swarm: str | None = None,
 ) -> list[dict]:
-    """List escalations with optional filters."""
+    """List escalations with optional filters.
+
+    Query parameters:
+        status: 'pending', 'blocking', 'resolved', 'all', or specific EscalationStatus value
+        level: 'coo' or 'ceo' - filter by target level
+        swarm: Filter by swarm name
+    """
     manager = get_escalation_manager()
 
     if status == "pending":
@@ -889,6 +895,10 @@ async def list_escalations(
         items = manager.get_by_swarm(swarm)
     elif status == "blocking":
         items = manager.get_blocked_work()
+    elif status == "all":
+        items = manager.get_all()
+    elif status == "resolved":
+        items = manager.get_all(status=EscalationStatus.RESOLVED)
     else:
         # Return all pending by default
         items = manager.get_pending()
@@ -899,10 +909,10 @@ async def list_escalations(
 @app.post("/api/escalations")
 async def create_escalation(request: EscalationCreateRequest) -> dict:
     """Create a new escalation."""
-    manager = get_escalation_manager()
+    esc_manager = get_escalation_manager()
 
     try:
-        escalation = manager.create_escalation(
+        escalation = esc_manager.create_escalation(
             from_level=EscalationLevel(request.from_level),
             to_level=EscalationLevel(request.to_level),
             reason=EscalationReason(request.reason),
@@ -916,6 +926,9 @@ async def create_escalation(request: EscalationCreateRequest) -> dict:
             context=request.context,
         )
 
+        # Broadcast WebSocket event for real-time updates
+        await broadcast_escalation_event("escalation_created", escalation.to_dict())
+
         return {"success": True, "escalation_id": escalation.id, "escalation": escalation.to_dict()}
 
     except ValueError as e:
@@ -926,12 +939,12 @@ async def create_escalation(request: EscalationCreateRequest) -> dict:
 async def get_escalation(escalation_id: str) -> dict:
     """Get a specific escalation."""
     manager = get_escalation_manager()
+    escalation = manager.get_by_id(escalation_id)
 
-    # Access internal dict since there's no get_by_id method
-    if escalation_id not in manager._escalations:
+    if not escalation:
         raise HTTPException(status_code=404, detail=f"Escalation {escalation_id} not found")
 
-    return manager._escalations[escalation_id].to_dict()
+    return escalation.to_dict()
 
 
 @app.post("/api/escalations/{escalation_id}/resolve")
@@ -941,11 +954,14 @@ async def resolve_escalation(
     resolved_by: str,
 ) -> dict:
     """Resolve an escalation."""
-    manager = get_escalation_manager()
-    escalation = manager.resolve_escalation(escalation_id, resolution, resolved_by)
+    esc_manager = get_escalation_manager()
+    escalation = esc_manager.resolve_escalation(escalation_id, resolution, resolved_by)
 
     if not escalation:
         raise HTTPException(status_code=404, detail=f"Escalation {escalation_id} not found")
+
+    # Broadcast WebSocket event for real-time updates
+    await broadcast_escalation_event("escalation_resolved", escalation.to_dict())
 
     return {"success": True, "escalation": escalation.to_dict()}
 
@@ -953,11 +969,14 @@ async def resolve_escalation(
 @app.post("/api/escalations/{escalation_id}/status")
 async def update_escalation_status(escalation_id: str, status: str) -> dict:
     """Update an escalation's status."""
-    manager = get_escalation_manager()
-    escalation = manager.update_status(escalation_id, EscalationStatus(status))
+    esc_manager = get_escalation_manager()
+    escalation = esc_manager.update_status(escalation_id, EscalationStatus(status))
 
     if not escalation:
         raise HTTPException(status_code=404, detail=f"Escalation {escalation_id} not found")
+
+    # Broadcast WebSocket event for real-time updates
+    await broadcast_escalation_event("escalation_updated", escalation.to_dict())
 
     return {"success": True, "escalation": escalation.to_dict()}
 
@@ -3018,6 +3037,137 @@ Files at: swarms/<swarm_name>/workspace/
         logger.error(f"WebSocket error: {e}")
     finally:
         manager.disconnect(websocket)
+
+
+# ============================================================
+# ESCALATION WEBSOCKET ENDPOINT
+# ============================================================
+
+# WebSocket subscribers for escalation events
+escalation_subscribers: list[WebSocket] = []
+
+
+async def broadcast_escalation_event(event_type: str, escalation_data: dict):
+    """Broadcast escalation events to all subscribers.
+
+    Event types:
+        - escalation_created: New escalation created
+        - escalation_updated: Escalation status changed
+        - escalation_resolved: Escalation was resolved
+    """
+    event = {
+        "type": event_type,
+        **escalation_data,
+    }
+
+    for ws in escalation_subscribers[:]:
+        try:
+            await ws.send_json(event)
+        except Exception:
+            try:
+                escalation_subscribers.remove(ws)
+            except ValueError:
+                pass
+
+    # Also notify main chat for CEO escalations or critical priority
+    priority = escalation_data.get("priority", "medium")
+    to_level = escalation_data.get("to_level", "")
+    if to_level == "ceo" or priority == "critical":
+        chat_event = {
+            "type": "escalation_notification",
+            "event_type": event_type,
+            "escalation_id": escalation_data.get("id", ""),
+            "title": escalation_data.get("title", "Escalation"),
+            "priority": priority,
+            "to_level": to_level,
+        }
+        for ws in manager.active_connections[:]:
+            try:
+                await ws.send_json(chat_event)
+            except Exception:
+                pass
+
+
+@app.websocket("/ws/escalations")
+async def websocket_escalations(websocket: WebSocket):
+    """WebSocket endpoint for escalation events.
+
+    Clients receive real-time updates when:
+    - Escalations are created
+    - Escalation status changes
+    - Escalations are resolved
+
+    Actions:
+        - get_pending: Get pending escalations for a level (coo or ceo)
+        - get_blocking: Get escalations blocking work
+        - get_status: Get summary counts
+    """
+    await websocket.accept()
+    escalation_subscribers.append(websocket)
+    logger.info(f"Escalation WebSocket connected. Total subscribers: {len(escalation_subscribers)}")
+
+    try:
+        # Send initial summary
+        esc_manager = get_escalation_manager()
+        coo_pending = esc_manager.get_pending(level=EscalationLevel.COO)
+        ceo_pending = esc_manager.get_pending(level=EscalationLevel.CEO)
+        blocking = esc_manager.get_blocked_work()
+
+        await websocket.send_json({
+            "type": "escalation_status",
+            "pending_coo": len(coo_pending),
+            "pending_ceo": len(ceo_pending),
+            "blocking_work": len(blocking),
+        })
+
+        # Keep connection alive and handle client messages
+        while True:
+            try:
+                data = await websocket.receive_json()
+                action = data.get("action")
+
+                if action == "get_pending":
+                    level = data.get("level", "coo")
+                    target = EscalationLevel.COO if level == "coo" else EscalationLevel.CEO
+                    items = esc_manager.get_pending(level=target)
+                    await websocket.send_json({
+                        "type": "pending_escalations",
+                        "level": level,
+                        "escalations": [e.to_dict() for e in items],
+                    })
+
+                elif action == "get_blocking":
+                    items = esc_manager.get_blocked_work()
+                    await websocket.send_json({
+                        "type": "blocking_escalations",
+                        "escalations": [e.to_dict() for e in items],
+                    })
+
+                elif action == "get_status":
+                    coo_pending = esc_manager.get_pending(level=EscalationLevel.COO)
+                    ceo_pending = esc_manager.get_pending(level=EscalationLevel.CEO)
+                    blocking = esc_manager.get_blocked_work()
+                    await websocket.send_json({
+                        "type": "escalation_status",
+                        "pending_coo": len(coo_pending),
+                        "pending_ceo": len(ceo_pending),
+                        "blocking_work": len(blocking),
+                    })
+
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.debug(f"Escalation WebSocket message error: {e}")
+                break
+
+    except WebSocketDisconnect:
+        pass
+    finally:
+        try:
+            escalation_subscribers.remove(websocket)
+        except ValueError:
+            pass
+        logger.info(f"Escalation WebSocket disconnected. Total subscribers: {len(escalation_subscribers)}")
 
 
 if __name__ == "__main__":

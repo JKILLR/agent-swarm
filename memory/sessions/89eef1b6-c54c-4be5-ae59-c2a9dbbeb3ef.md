@@ -1,16 +1,13 @@
 # Session 89eef1b6-c54c-4be5-ae59-c2a9dbbeb3ef
 
-**User**: ok let's focus on the swarm dev and operations priorities. asa research can wait for now
+**User**: testing
 
-**COO Response**: ## Focused Priorities
+**COO Response**: I see you're testing! I'm here and ready. What would you like me to help you with?
 
-### **Swarm Dev** (System Development)
+Some things I can do:
+- **Code tasks**: Read, write, edit files, run commands
+- **Research**: Search the web, analyze documentation
+- **Swarm coordination**: Delegate to specialized agents, manage parallel work
+- **Project work**: Any of your swarm projects (ASA Research, MYND App, Trading Bots, etc.)
 
-| Priority | Task | Status |
-|----------|------|--------|
-| CRITICAL | Unify WebSocket chat through AgentExecutorPool | Pending |
-| HIGH | Critic review of escalation_protocol.py | Pending |
-| HIGH | Add escalation REST endpoints + WebSocket events | Pending |
-| HIGH | Wire escalation protocol to REST API | Pending |
-| MEDIUM | Update agent prompts with escalation guidance | Pending |
-| LOW | Archive orphaned agent_executor.py | Pend...
+Just let me know what you need!

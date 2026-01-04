@@ -15,6 +15,47 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 
 ## Progress Log
 
+### 2026-01-03: Critical Architecture Fixes - COO Execution & Escalation Integration
+- **COO** completed three high-priority tasks from the architecture review
+
+#### Task 1: Unified WebSocket Chat through AgentExecutorPool ✅
+- **Problem**: COO WebSocket chat bypassed AgentExecutorPool - no isolation, no tracking
+- **Solution**:
+  - Created `execute_coo_via_pool()` function in `backend/websocket/chat_handler.py`
+  - Routes all COO execution through `AgentExecutorPool.execute()`
+  - Added `disallowed_tools` parameter to pool's execute chain
+  - Maps pool events to WebSocket events for frontend compatibility
+- **Files Modified**:
+  - `shared/agent_executor_pool.py` - Added disallowed_tools param to execute(), _run_agent(), _build_command()
+  - `backend/websocket/chat_handler.py` - Replaced stream_claude_response with pool execution
+- **Result**: COO now gets workspace isolation and resource management
+
+#### Task 2: Critic Review of escalation_protocol.py ✅
+- **Result**: APPROVED with minor improvements
+- **Added Methods**:
+  - `get_by_id()` - Direct escalation lookup by ID
+  - `get_all()` - List all escalations with optional status filter
+- **Files Modified**: `shared/escalation_protocol.py`
+
+#### Task 3: Escalation REST API + WebSocket Events ✅
+- **Improvements**:
+  - Updated `list_escalations()` to support `status=all` and `status=resolved` filters
+  - Updated `get_escalation()` to use new `get_by_id()` method
+  - All mutation endpoints now broadcast WebSocket events
+- **WebSocket Endpoint**: `ws://localhost:8000/ws/escalations`
+  - Broadcasts: `escalation_created`, `escalation_updated`, `escalation_resolved`
+  - Actions: `get_pending`, `get_blocking`, `get_status`
+  - CEO/critical escalations also broadcast to main chat
+- **Files Modified**:
+  - `backend/main.py` - Updated REST endpoints + added WebSocket endpoint
+  - `backend/websocket/escalation_updates.py` - Created (standalone module)
+  - `backend/websocket/__init__.py` - Added exports
+- **Status**: COMPLETE
+
+#### Issues Resolved
+- Issue #14: "WebSocket chat bypasses AgentExecutorPool" → **FIXED**
+- Issue #8 (partial): "Escalation Protocol not connected" → **FIXED**
+
 ### 2026-01-03: Task Delegation Fix - REST API as Primary Method
 - **COO** updated COO system prompt to prefer REST API over Task tool
 - **Problem**: Task tool (Issues #12-14) doesn't spawn REAL agents:
@@ -591,7 +632,7 @@ The main WebSocket chat flow bypasses workspace isolation and executor pool feat
 ### Delegation System (from 2026-01-03 Delegation Failure Review)
 12. **WORKAROUND** (was CRITICAL): Task tool does NOT spawn real agents - **COO now instructed to use REST API instead**
 13. **WORKAROUND** (was CRITICAL): Agent .md files not loaded for Task tool - **REST API loads them properly**
-14. **CRITICAL**: WebSocket chat bypasses AgentExecutorPool entirely - no isolation, no config (still true for COO itself)
+14. **FIXED**: WebSocket chat bypasses AgentExecutorPool entirely → **COO now routes through pool via execute_coo_via_pool()**
 
 ### Boris Analysis - Quick Wins (from 2026-01-03)
 15. **RESOLVED**: `.claude/commands/` directory created with common workflows
@@ -606,8 +647,8 @@ The main WebSocket chat flow bypasses workspace isolation and executor pool feat
 4. **NEW** (from Phase 0.1.2 review): Race condition in singleton init - endpoints may fail if called before startup completes
 5. **NEW** (from Phase 0.1.2 review): Broken relative import in jobs.py fallback path
 6. **NEW** (from Phase 0.1.2 review): `allowed_tools` permission model is informational only - not enforced
-7. **SUPERSEDED by #12-14** (from Architecture Review): Main WebSocket chat bypasses AgentExecutorPool - no isolation for COO
-8. **NEW** (from Architecture Review 2026-01-03): Three orphaned/disconnected components: Work Ledger, Mailbox, Escalation Protocol
+7. **FIXED** (from Architecture Review): Main WebSocket chat bypasses AgentExecutorPool → **Now uses execute_coo_via_pool()**
+8. **PARTIAL** (from Architecture Review 2026-01-03): Three orphaned components → **Escalation Protocol now has REST + WebSocket endpoints**; Work Ledger and Mailbox still pending
 9. **NEW** (from Architecture Review 2026-01-03): `shared/agent_executor.py` is dead code - superseded by pool
 10. **FIXED** (from Code Quality Review 2026-01-03): Missing `_get_tool_description` method in AgentExecutorPool:422 - Created shared `get_tool_description()` function
 11. **HIGH** (from Code Quality Review 2026-01-03): Singleton getters (workspace_manager, executor_pool) not thread-safe

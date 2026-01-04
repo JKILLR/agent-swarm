@@ -386,6 +386,35 @@ class EscalationManager:
                 if e.status == EscalationStatus.PENDING and e.blocked_tasks
             ]
 
+    def get_by_id(self, escalation_id: str) -> Escalation | None:
+        """Get escalation by ID.
+
+        Args:
+            escalation_id: The escalation ID to look up
+
+        Returns:
+            Escalation if found, None otherwise
+        """
+        with self._lock:
+            return self._escalations.get(escalation_id)
+
+    def get_all(self, status: EscalationStatus | None = None) -> list[Escalation]:
+        """Get all escalations, optionally filtered by status.
+
+        Args:
+            status: Optional status filter
+
+        Returns:
+            List of escalations
+        """
+        with self._lock:
+            escalations = list(self._escalations.values())
+        if status:
+            escalations = [e for e in escalations if e.status == status]
+        # Sort by creation time (most recent first)
+        escalations.sort(key=lambda e: e.created_at, reverse=True)
+        return escalations
+
     def _save_escalation(self, escalation: Escalation) -> None:
         """Save escalation to log file using atomic write."""
         filename = f"{escalation.id}.json"
