@@ -2612,3 +2612,56 @@ if inject_context:
 **Next Steps**:
 - Request manual approval for `git clone https://github.com/steveyegge/gastown.git` to complete comparative analysis
 - Or: Use Web Search tool if available to research Gastown documentation
+
+---
+
+### 2026-01-04 - Comprehensive Code Quality Review
+**Reviewer**: Quality Critic
+**Result**: NEEDS_CHANGES
+
+**Scope Reviewed:**
+- backend/main.py (3500+ lines)
+- backend/services/*.py (all modules)
+- shared/*.py (all modules)
+- swarms/*/agents/*.md (ALL 47 agent definitions)
+
+**Critical Issues Found:**
+
+1. **TypeError at Runtime** - `/home/user/agent-swarm/backend/main.py:267-269`
+   - `recover_orphaned_work(timeout_minutes=30, actor="startup_recovery")` 
+   - Method signature in work_ledger.py only accepts `timeout_minutes`
+   - Server crashes on startup when orphaned work exists
+
+2. **Missing YAML Frontmatter in Agents**:
+   - `swarms/mynd_app/agents/*.md` (3 files) - No tools, model, or type defined
+   - `swarms/asa_research/agents/theory_researcher.md` - No frontmatter
+   - `swarms/asa_research/agents/empirical_researcher.md` - No frontmatter
+
+**High Priority Issues:**
+
+3. **Missing WebFetch Tool** in researcher agents:
+   - `swarms/trading_bots/agents/researcher.md`
+   - `swarms/_template/agents/researcher.md`
+   - `swarms/swarm_dev/agents/brainstorm.md`
+
+4. **Duplicate API Endpoints** - Work ledger endpoints in both main.py:473-589 AND routes/work.py
+
+**Medium Priority Issues:**
+
+5. **Silent Exception Swallowing** - 20+ locations with `except: pass` or `except Exception:`
+6. **Hardcoded Values** - max_concurrent=5, timeout_minutes=30, various truncation limits
+7. **Import at wrong location** - threading import not at top in agent_executor_pool.py:659
+
+**Positive Observations:**
+- MemoryStore deadlock fix correctly applied
+- Thread-safe singleton implementations correct (double-checked locking)
+- WebSearch/WebFetch correctly added to ios_app_factory and asa_research researchers
+- RLock usage in WorkLedger for nested acquisition
+- Good path traversal security checks
+
+**Next Steps:**
+1. FIX IMMEDIATELY: Remove `actor` parameter from main.py:269
+2. FIX IMMEDIATELY: Add YAML frontmatter to mynd_app and asa_research agents
+3. Add WebFetch to missing researcher agents
+4. Resolve duplicate endpoint definitions in main.py vs routes/work.py
+

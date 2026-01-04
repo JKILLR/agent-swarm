@@ -8,6 +8,7 @@ tools:
   - Read
   - Glob
   - WebSearch
+  - WebFetch
 ---
 
 # Swarm Dev Brainstorm

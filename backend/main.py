@@ -264,12 +264,11 @@ async def startup_event():
     # Recover orphaned work from previous session crashes
     # This picks up any work items that were IN_PROGRESS when the server stopped
     try:
-        recovered_count = work_ledger.recover_orphaned_work(
-            timeout_minutes=30,  # Work stale after 30 minutes
-            actor="startup_recovery"
+        recovered_items = work_ledger.recover_orphaned_work(
+            timeout_minutes=30  # Work stale after 30 minutes
         )
-        if recovered_count > 0:
-            logger.info(f"Recovered {recovered_count} orphaned work items from previous session")
+        if recovered_items:
+            logger.info(f"Recovered {len(recovered_items)} orphaned work items from previous session")
     except Exception as e:
         logger.warning(f"Failed to recover orphaned work: {e}")
 

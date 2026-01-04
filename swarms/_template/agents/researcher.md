@@ -8,6 +8,7 @@ tools:
   - Grep
   - Glob
   - WebSearch
+  - WebFetch
 model: opus
 background: true
 wake_enabled: true
