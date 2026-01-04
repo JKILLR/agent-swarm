@@ -526,6 +526,27 @@ class AgentExecutorPool:
                                                 "agent": context.agent_name,
                                                 "delta": thinking,
                                             }
+                                    elif block.get("type") == "tool_use":
+                                        # Handle tool_use blocks from assistant messages
+                                        tool_name = block.get("name", "unknown")
+                                        tool_input = block.get("input", {})
+                                        description = get_tool_description(tool_name, tool_input)
+                                        yield {
+                                            "type": "tool_start",
+                                            "execution_id": execution_id,
+                                            "agent": context.agent_name,
+                                            "tool": tool_name,
+                                            "input": tool_input,
+                                            "description": description,
+                                        }
+                                        # Also yield tool_complete since we get the full block at once
+                                        yield {
+                                            "type": "tool_complete",
+                                            "execution_id": execution_id,
+                                            "agent": context.agent_name,
+                                            "tool": tool_name,
+                                            "success": True,
+                                        }
 
                             else:
                                 # Pass through other event types
