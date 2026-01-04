@@ -443,6 +443,20 @@ export default function ChatPage() {
   }, [saveMessage, setAgentActivities, setToolActivities])
 
   const handleSend = useCallback(async (content: string, attachments: Attachment[]) => {
+    // Auto-create session if none exists
+    let currentSessionId = sessionId
+    if (!currentSessionId) {
+      try {
+        const session = await createChatSession()
+        setSessionId(session.id)
+        currentSessionId = session.id
+        await loadSessions()
+      } catch (e) {
+        console.error('Failed to create session:', e)
+        return
+      }
+    }
+
     // Add user message with attachments
     setMessages((prev) => [
       ...prev,
@@ -455,8 +469,13 @@ export default function ChatPage() {
       },
     ])
 
-    // Save user message to backend
-    await saveMessage('user', content)
+    // Save user message to backend (use currentSessionId directly)
+    try {
+      await addChatMessage(currentSessionId, 'user', content)
+      await loadSessions()
+    } catch (e) {
+      console.error('Failed to save message:', e)
+    }
 
     // Build message with text attachments inline
     let fullMessage = content
@@ -486,14 +505,14 @@ export default function ChatPage() {
     // Send via WebSocket with session context and image data
     try {
       wsRef.current.send(fullMessage, {
-        session_id: sessionId || undefined,
+        session_id: currentSessionId,
         attachments: imageAttachments.length > 0 ? imageAttachments : undefined,
       })
     } catch (e) {
       console.error('Failed to send message:', e)
       setIsLoading(false)
     }
-  }, [saveMessage, sessionId])
+  }, [sessionId, loadSessions])
 
   // Simplified send for suggestion buttons
   const handleQuickSend = useCallback((content: string) => {
