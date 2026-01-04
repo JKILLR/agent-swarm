@@ -2637,14 +2637,16 @@ async def websocket_chat(websocket: WebSocket):
                 # Memory manager for session summaries (NOT loading full context - too slow)
                 memory = get_memory_manager()
 
-                # Build conversation history - ONLY last 2 messages to avoid context pollution
+                # Build conversation history - use last 10 messages for good context
                 conversation_history = ""
                 if session_id:
+                    logger.info(f"Loading history for session: {session_id}")
                     session = history.get_session(session_id)
                     if session and session.get("messages"):
                         messages = session["messages"]
-                        # Only use last 2 messages to keep context fresh and avoid pollution
-                        recent_messages = messages[-2:] if len(messages) > 2 else messages
+                        logger.info(f"Found {len(messages)} messages in session history")
+                        # Use last 10 messages for meaningful context in conversations
+                        recent_messages = messages[-10:] if len(messages) > 10 else messages
 
                         history_lines = []
                         for msg in recent_messages:
@@ -2659,6 +2661,11 @@ async def websocket_chat(websocket: WebSocket):
                             conversation_history = (
                                 "\n\n## Recent Context\n" + "\n\n".join(history_lines) + "\n\n---\n"
                             )
+                            logger.info(f"Built conversation history with {len(history_lines)} entries")
+                    else:
+                        logger.info(f"No messages found in session {session_id}")
+                else:
+                    logger.warning("No session_id provided - conversation history will be empty")
 
                 # Build system prompt for the COO - keep it MINIMAL
                 all_swarms = []
@@ -2667,17 +2674,19 @@ async def websocket_chat(websocket: WebSocket):
                     all_swarms.append(f"  - {name}: {', '.join(agents_list)}")
                 all_swarms_str = "\n".join(all_swarms) if all_swarms else "  No swarms defined"
 
-                # System prompt for COO - REST API for real agents, Task tool for quick research only
-                # NOTE: Write and Edit tools are DISABLED via --disallowedTools flag
+                # System prompt for COO - full tool access with delegation options
                 system_prompt = f"""You are the Supreme Orchestrator (COO) - a fully autonomous AI orchestrator.
 
-## TOOL RESTRICTIONS - HARD ENFORCED
+## YOUR CAPABILITIES
 
-**The Write and Edit tools are DISABLED for you.** Attempting to use them will fail.
+You have **FULL tool access** including Read, Write, Edit, Bash, Glob, Grep, Task, and more.
 
-You MUST delegate ALL file modifications to agents.
+You can:
+- **Directly modify files** using Write/Edit for quick changes
+- **Delegate to agents** via REST API for complex multi-step tasks
+- **Use both approaches** depending on what's most efficient
 
-## PRIMARY DELEGATION: REST API (RECOMMENDED)
+## DELEGATION: REST API (For Complex Tasks)
 
 **ALWAYS use the REST API for implementation work.** This spawns REAL agents with:
 - Custom prompts loaded from `swarms/SWARM/agents/AGENT.md`
@@ -2747,28 +2756,27 @@ curl -X POST http://localhost:8000/api/agents/execute \\
   -d '{{"swarm": "operations", "agent": "ops_coordinator", "prompt": "Tier 2: [describe task]. Coordinate and report back."}}'
 ```
 
-## Your Capabilities
+## Your Full Toolkit
 
-You CAN use:
 - **Read** - Read any file to understand context
+- **Write** - Create new files directly
+- **Edit** - Modify existing files directly
 - **Glob/Grep** - Search files and code
 - **Bash** - Run commands (git, tests, **curl for REST API delegation**)
-- **Task** - Quick research only (read-only, no custom prompts)
+- **Task** - Quick research (read-only, no custom prompts)
 - **Web Search**: `curl -s "http://localhost:8000/api/search?q=QUERY" | jq`
 
-You CANNOT use (BLOCKED):
-- **Write** - DISABLED (delegate via REST API)
-- **Edit** - DISABLED (delegate via REST API)
+## When to Delegate vs Direct Action
 
-## STATE.md Exception
+**Do it yourself** (quick changes):
+- Simple file edits
+- Configuration updates
+- Quick fixes
 
-You MAY update STATE.md files directly via Bash:
-```bash
-cat >> workspace/STATE.md << 'EOF'
-### Progress Entry
-...
-EOF
-```
+**Delegate via REST API** (complex work):
+- Multi-file implementations
+- Tasks needing specialized agent knowledge
+- Work requiring workspace isolation
 
 ## Standard Delegation Pipeline (All via REST API)
 
@@ -2818,7 +2826,7 @@ Files at: swarms/<swarm_name>/workspace/
                 result = None
                 process = None
 
-                # Use Claude CLI with Write/Edit tools DISABLED for COO
+                # Use Claude CLI with FULL tool access for COO
                 try:
                     process = await stream_claude_response(
                         prompt=user_prompt,
@@ -2826,7 +2834,7 @@ Files at: swarms/<swarm_name>/workspace/
                         swarm_name=None,
                         workspace=PROJECT_ROOT,
                         chat_id=session_id,
-                        disallowed_tools=["Write", "Edit"],  # COO CANNOT write/edit files
+                        disallowed_tools=None,  # COO has FULL tool access
                     )
 
                     # Stream and parse the response
@@ -2870,6 +2878,38 @@ Files at: swarms/<swarm_name>/workspace/
                         "success": True,
                     },
                 )
+
+                # Save messages to chat history for conversation continuity
+                if session_id:
+                    try:
+                        # Ensure session exists (auto-create if needed)
+                        session = history.get_session(session_id)
+                        if not session:
+                            # Auto-create session
+                            session = {
+                                "id": session_id,
+                                "title": message[:50] + ("..." if len(message) > 50 else ""),
+                                "swarm": None,
+                                "created_at": datetime.now().isoformat(),
+                                "updated_at": datetime.now().isoformat(),
+                                "messages": [],
+                            }
+                            history._save_session(session)
+                            logger.info(f"Auto-created session: {session_id}")
+
+                        # Save user message
+                        history.add_message(session_id, "user", message)
+                        # Save assistant message
+                        history.add_message(
+                            session_id,
+                            "assistant",
+                            final_content,
+                            agent="Supreme Orchestrator",
+                            thinking=result.get("thinking", ""),
+                        )
+                        logger.info(f"Saved messages to session: {session_id}")
+                    except Exception as save_err:
+                        logger.warning(f"Failed to save chat history: {save_err}")
 
                 # Save session summary to memory (lightweight, don't block)
                 try:
