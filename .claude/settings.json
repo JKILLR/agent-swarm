@@ -1,18 +1,18 @@
 {
   "permissions": {
     "allow": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Glob",
+      "Grep",
       "WebSearch",
       "WebFetch",
-      "Bash(curl:*)",
-      "Bash(wget:*)",
-      "Bash(git:*)",
-      "Bash(npm:*)",
-      "Bash(python:*)",
-      "Bash(python3:*)",
-      "Bash(pytest:*)",
-      "Bash(chmod:*)",
-      "Edit(.claude/settings.json)",
-      "Write(.claude/commands/*)"
+      "Task",
+      "TodoWrite",
+      "NotebookEdit"
     ]
   },
   "hooks": {
