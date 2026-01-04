@@ -209,21 +209,43 @@ export default function ChatPage() {
           break
 
         case 'agent_spawn':
-          // Add new agent activity when COO delegates
+          // Add or update agent activity when COO delegates
           setAgentActivities((prev) => {
-            // Mark parent agent as delegating
+            const agentName = event.agent || 'Agent'
             const parentAgent = (event as { parentAgent?: string }).parentAgent || 'COO'
-            const updated = prev.map(a =>
+
+            // Check if this agent already exists
+            const existingIdx = prev.findIndex(a => a.name === agentName)
+
+            // Mark parent agent as delegating
+            let updated = prev.map(a =>
               a.name === parentAgent || (parentAgent === 'COO' && a.name.includes('COO'))
                 ? { ...a, status: 'delegating' as const }
                 : a
             )
-            // Add the new agent
+
+            if (existingIdx !== -1) {
+              // Update existing agent entry instead of adding duplicate
+              updated = updated.map((a, idx) =>
+                idx === existingIdx
+                  ? {
+                      ...a,
+                      status: 'working' as const,
+                      description: (event as { description?: string }).description?.substring(0, 100),
+                      startTime: new Date(),
+                      endTime: undefined,
+                    }
+                  : a
+              )
+              return updated
+            }
+
+            // Add new agent only if it doesn't exist
             return [
               ...updated,
               {
-                id: `agent-${Date.now()}-${event.agent}`,
-                name: event.agent || 'Agent',
+                id: `agent-${Date.now()}-${agentName}`,
+                name: agentName,
                 status: 'working' as const,
                 description: (event as { description?: string }).description?.substring(0, 100),
                 startTime: new Date(),
@@ -443,6 +465,10 @@ export default function ChatPage() {
   }, [saveMessage, setAgentActivities, setToolActivities])
 
   const handleSend = useCallback(async (content: string, attachments: Attachment[]) => {
+    // Clear old completed activities when starting a new message
+    setAgentActivities((prev) => prev.filter(a => a.status !== 'complete' && a.status !== 'error'))
+    setToolActivities((prev) => prev.filter(t => t.status === 'running'))
+
     // Auto-create session if none exists
     let currentSessionId = sessionId
     if (!currentSessionId) {
