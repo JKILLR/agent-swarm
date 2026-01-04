@@ -73,11 +73,14 @@ class AgentExecutorPool:
 
     def _broadcast_event(self, event: dict):
         """Broadcast an event to the external listener if configured."""
+        event_type = event.get("type", "")
+        if event_type in ("tool_start", "tool_complete"):
+            logger.info(f"_broadcast_event called: {event_type} for {event.get('agent', '?')}, callback set: {self.on_event is not None}")
         if self.on_event:
             try:
                 self.on_event(event)
             except Exception as e:
-                logger.debug(f"Error broadcasting event: {e}")
+                logger.error(f"Error broadcasting event: {e}")
 
     async def execute(
         self,
