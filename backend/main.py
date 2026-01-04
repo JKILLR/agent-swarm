@@ -3038,6 +3038,12 @@ async def websocket_chat(websocket: WebSocket):
                 persistent_memory = get_memory_store()
                 memory_context = persistent_memory.get_context_for_prompt()
 
+                # Build memory section for prompt
+                if memory_context:
+                    memory_section = f"### Current Memory\n{memory_context}"
+                else:
+                    memory_section = "### Current Memory\n(No facts stored yet)"
+
                 # System prompt for COO - full tool access with delegation options
                 system_prompt = f"""You are the Supreme Orchestrator (COO) - a fully autonomous AI orchestrator.
 
@@ -3211,11 +3217,8 @@ Files at: swarms/<swarm_name>/workspace/
 
 You have access to persistent memory that survives across chat sessions.
 
-{f'''### Current Memory
-{memory_context}
-''' if memory_context else '### Current Memory
-(No facts stored yet)
-'}
+{memory_section}
+
 ### Memory API
 Store important facts about the user (name, preferences, context):
 ```bash
