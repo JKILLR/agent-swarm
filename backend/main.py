@@ -1089,6 +1089,259 @@ async def execute_agent(request: AgentExecuteRequest) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class AgentBatchRequest(BaseModel):
+    """Request to execute multiple agents in parallel."""
+    agents: list[AgentExecuteRequest]
+
+
+@app.post("/api/agents/execute-batch")
+async def execute_agents_batch(request: AgentBatchRequest) -> dict:
+    """Execute multiple agents in parallel.
+
+    This endpoint runs multiple agents concurrently using the AgentExecutorPool.
+    All agents start at the same time (up to the pool's concurrent limit).
+
+    Args:
+        request: AgentBatchRequest with list of agent execution requests
+
+    Returns:
+        Dictionary with results for each agent
+    """
+    if not request.agents:
+        raise HTTPException(status_code=400, detail="No agents specified")
+
+    if len(request.agents) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 agents per batch")
+
+    orch = get_orchestrator()
+    workspace_manager = get_workspace_manager(PROJECT_ROOT)
+    pool = get_executor_pool()
+
+    async def run_single_agent(agent_request: AgentExecuteRequest) -> dict:
+        """Run a single agent and collect results."""
+        try:
+            # Validate swarm exists
+            if agent_request.swarm not in orch.swarms and agent_request.swarm != "swarm_dev":
+                return {
+                    "agent": agent_request.agent,
+                    "swarm": agent_request.swarm,
+                    "success": False,
+                    "error": f"Swarm '{agent_request.swarm}' not found",
+                }
+
+            workspace = workspace_manager.get_workspace(agent_request.swarm)
+            permissions = workspace_manager.get_agent_permissions(agent_request.agent, agent_request.swarm)
+
+            context = AgentExecutionContext(
+                agent_name=agent_request.agent,
+                agent_type=agent_request.agent,
+                swarm_name=agent_request.swarm,
+                workspace=workspace,
+                allowed_tools=permissions["allowed_tools"],
+                permission_mode=permissions["permission_mode"],
+                git_credentials=permissions["git_access"],
+                web_access=permissions["web_access"],
+                max_turns=agent_request.max_turns,
+                timeout=agent_request.timeout,
+            )
+
+            results = []
+            async for event in pool.execute(context, agent_request.prompt):
+                results.append(event)
+
+            # Determine success
+            success = True
+            final_response = ""
+            for event in results:
+                if event.get("type") == "agent_execution_complete":
+                    success = event.get("success", True)
+                elif event.get("type") == "error":
+                    success = False
+                elif event.get("type") == "agent_delta":
+                    final_response += event.get("delta", "")
+
+            return {
+                "agent": agent_request.agent,
+                "swarm": agent_request.swarm,
+                "success": success,
+                "response": final_response[:1000] if final_response else None,
+                "event_count": len(results),
+            }
+
+        except Exception as e:
+            return {
+                "agent": agent_request.agent,
+                "swarm": agent_request.swarm,
+                "success": False,
+                "error": str(e),
+            }
+
+    # Run all agents in parallel
+    logger.info(f"Starting batch execution of {len(request.agents)} agents")
+    results = await asyncio.gather(*[run_single_agent(req) for req in request.agents])
+
+    successful = sum(1 for r in results if r.get("success"))
+    return {
+        "success": successful == len(results),
+        "total": len(results),
+        "successful": successful,
+        "failed": len(results) - successful,
+        "results": results,
+    }
+
+
+# Track async executions
+_async_executions: dict[str, dict] = {}
+
+
+class AsyncExecuteRequest(BaseModel):
+    """Request for async agent execution."""
+    swarm: str
+    agent: str
+    prompt: str
+    max_turns: int = 25
+    timeout: float = 600.0
+
+
+@app.post("/api/agents/execute-async")
+async def execute_agent_async(request: AsyncExecuteRequest) -> dict:
+    """Start an agent execution asynchronously.
+
+    This endpoint returns immediately with an execution ID. The agent runs
+    in the background, and you can poll for status using the execution ID.
+
+    Args:
+        request: AsyncExecuteRequest with agent details
+
+    Returns:
+        Dictionary with execution_id for status polling
+    """
+    orch = get_orchestrator()
+    if request.swarm not in orch.swarms and request.swarm != "swarm_dev":
+        raise HTTPException(status_code=404, detail=f"Swarm '{request.swarm}' not found")
+
+    execution_id = str(uuid.uuid4())
+
+    # Store execution state
+    _async_executions[execution_id] = {
+        "id": execution_id,
+        "agent": request.agent,
+        "swarm": request.swarm,
+        "status": "running",
+        "started_at": datetime.now().isoformat(),
+        "events": [],
+        "response": "",
+        "error": None,
+    }
+
+    async def run_async():
+        """Background task to run the agent."""
+        try:
+            workspace_manager = get_workspace_manager(PROJECT_ROOT)
+            pool = get_executor_pool()
+
+            workspace = workspace_manager.get_workspace(request.swarm)
+            permissions = workspace_manager.get_agent_permissions(request.agent, request.swarm)
+
+            context = AgentExecutionContext(
+                agent_name=request.agent,
+                agent_type=request.agent,
+                swarm_name=request.swarm,
+                workspace=workspace,
+                allowed_tools=permissions["allowed_tools"],
+                permission_mode=permissions["permission_mode"],
+                git_credentials=permissions["git_access"],
+                web_access=permissions["web_access"],
+                max_turns=request.max_turns,
+                timeout=request.timeout,
+            )
+
+            full_response = ""
+            async for event in pool.execute(context, request.prompt):
+                event_type = event.get("type", "")
+                _async_executions[execution_id]["events"].append({
+                    "type": event_type,
+                    "time": datetime.now().isoformat(),
+                })
+
+                if event_type == "agent_delta":
+                    full_response += event.get("delta", "")
+                elif event_type == "agent_execution_complete":
+                    _async_executions[execution_id]["status"] = "complete" if event.get("success") else "failed"
+                elif event_type == "error":
+                    _async_executions[execution_id]["error"] = event.get("content", "Unknown error")
+
+            _async_executions[execution_id]["response"] = full_response
+            if _async_executions[execution_id]["status"] == "running":
+                _async_executions[execution_id]["status"] = "complete"
+            _async_executions[execution_id]["completed_at"] = datetime.now().isoformat()
+
+        except Exception as e:
+            logger.error(f"Async execution {execution_id} failed: {e}")
+            _async_executions[execution_id]["status"] = "failed"
+            _async_executions[execution_id]["error"] = str(e)
+            _async_executions[execution_id]["completed_at"] = datetime.now().isoformat()
+
+    # Start background task
+    asyncio.create_task(run_async())
+    logger.info(f"Started async execution {execution_id} for {request.agent} in {request.swarm}")
+
+    return {
+        "execution_id": execution_id,
+        "status": "running",
+        "message": f"Agent {request.agent} started. Poll /api/agents/execute-async/{execution_id} for status.",
+    }
+
+
+@app.get("/api/agents/execute-async/{execution_id}")
+async def get_async_execution_status(execution_id: str) -> dict:
+    """Get status of an async agent execution.
+
+    Args:
+        execution_id: The execution ID returned by execute-async
+
+    Returns:
+        Dictionary with current execution status
+    """
+    if execution_id not in _async_executions:
+        raise HTTPException(status_code=404, detail=f"Execution {execution_id} not found")
+
+    exec_data = _async_executions[execution_id]
+    return {
+        "execution_id": execution_id,
+        "agent": exec_data["agent"],
+        "swarm": exec_data["swarm"],
+        "status": exec_data["status"],
+        "started_at": exec_data["started_at"],
+        "completed_at": exec_data.get("completed_at"),
+        "event_count": len(exec_data["events"]),
+        "response": exec_data["response"][:2000] if exec_data["response"] else None,
+        "error": exec_data.get("error"),
+    }
+
+
+@app.get("/api/agents/execute-async")
+async def list_async_executions() -> dict:
+    """List all async executions.
+
+    Returns:
+        Dictionary with all tracked executions
+    """
+    return {
+        "executions": [
+            {
+                "execution_id": exec_id,
+                "agent": data["agent"],
+                "swarm": data["swarm"],
+                "status": data["status"],
+                "started_at": data["started_at"],
+            }
+            for exec_id, data in _async_executions.items()
+        ],
+        "total": len(_async_executions),
+    }
+
+
 @app.get("/api/agents/pool/status")
 async def get_pool_status() -> dict:
     """Get executor pool status.
@@ -2755,6 +3008,42 @@ curl -X POST http://localhost:8000/api/agents/execute \\
   -H "Content-Type: application/json" \\
   -d '{{"swarm": "operations", "agent": "ops_coordinator", "prompt": "Tier 2: [describe task]. Coordinate and report back."}}'
 ```
+
+## PARALLEL EXECUTION (Run Multiple Agents Simultaneously)
+
+### Batch Execution (Recommended for Parallel Work)
+Run multiple agents truly in parallel with a single call:
+```bash
+curl -X POST http://localhost:8000/api/agents/execute-batch \\
+  -H "Content-Type: application/json" \\
+  -d '{{"agents": [
+    {{"swarm": "swarm_dev", "agent": "implementer", "prompt": "Task 1..."}},
+    {{"swarm": "swarm_dev", "agent": "critic", "prompt": "Task 2..."}},
+    {{"swarm": "swarm_dev", "agent": "reviewer", "prompt": "Task 3..."}}
+  ]}}'
+```
+All agents start at the same time. Up to 5 run concurrently.
+
+### Async Execution (Fire-and-Forget)
+Start an agent and check status later:
+```bash
+# Start agent (returns immediately with execution_id)
+curl -X POST http://localhost:8000/api/agents/execute-async \\
+  -H "Content-Type: application/json" \\
+  -d '{{"swarm": "swarm_dev", "agent": "implementer", "prompt": "Long running task..."}}'
+
+# Check status later
+curl http://localhost:8000/api/agents/execute-async/EXECUTION_ID
+
+# List all running executions
+curl http://localhost:8000/api/agents/execute-async
+```
+
+### Pool Status (Check Available Slots)
+```bash
+curl http://localhost:8000/api/agents/pool/status
+```
+Shows active agents and available slots (max 5 concurrent).
 
 ## Your Full Toolkit
 
