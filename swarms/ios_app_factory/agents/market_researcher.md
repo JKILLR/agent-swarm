@@ -9,6 +9,8 @@ tools:
   - Glob
   - Grep
   - Bash
+  - WebSearch
+  - WebFetch
 ---
 
 # Market Researcher

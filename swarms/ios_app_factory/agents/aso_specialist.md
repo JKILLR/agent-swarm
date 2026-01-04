@@ -8,6 +8,8 @@ tools:
   - Write
   - Bash
   - Glob
+  - WebSearch
+  - WebFetch
 ---
 
 # ASO Specialist

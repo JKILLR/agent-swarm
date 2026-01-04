@@ -9,6 +9,8 @@ tools:
   - Edit
   - Glob
   - Grep
+  - WebSearch
+  - WebFetch
 ---
 
 # App Architect
