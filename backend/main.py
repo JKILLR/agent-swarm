@@ -2875,7 +2875,10 @@ async def websocket_jobs(websocket: WebSocket):
                 job_id = data.get("job_id")
                 if job_id and job_id in subscribed_jobs:
                     if job_id in job_update_subscribers:
-                        job_update_subscribers[job_id].remove(websocket)
+                        try:
+                            job_update_subscribers[job_id].remove(websocket)
+                        except ValueError:
+                            pass
                     subscribed_jobs.discard(job_id)
 
             elif action == "list":
@@ -2896,7 +2899,10 @@ async def websocket_jobs(websocket: WebSocket):
         for job_id in subscribed_jobs:
             if job_id in job_update_subscribers:
                 if websocket in job_update_subscribers[job_id]:
-                    job_update_subscribers[job_id].remove(websocket)
+                    try:
+                        job_update_subscribers[job_id].remove(websocket)
+                    except ValueError:
+                        pass
 
 
 async def broadcast_job_update(job):
@@ -2910,7 +2916,10 @@ async def broadcast_job_update(job):
             try:
                 await ws.send_json(message)
             except Exception:
-                job_update_subscribers[job.id].remove(ws)
+                try:
+                    job_update_subscribers[job.id].remove(ws)
+                except ValueError:
+                    pass
 
     # Send to "all" subscribers
     if "all" in job_update_subscribers:
@@ -2918,7 +2927,10 @@ async def broadcast_job_update(job):
             try:
                 await ws.send_json(message)
             except Exception:
-                job_update_subscribers["all"].remove(ws)
+                try:
+                    job_update_subscribers["all"].remove(ws)
+                except ValueError:
+                    pass
 
 
 @app.websocket("/ws/chat")
@@ -3537,4 +3549,4 @@ async def websocket_escalations(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
