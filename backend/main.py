@@ -17,7 +17,7 @@ import urllib.request
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, List, Dict, Tuple
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,6 +68,8 @@ from jobs import get_job_queue, get_job_manager, JobStatus
 from session_manager import get_session_manager
 from services.chat_history import get_chat_history, ChatHistoryManager
 from services.memory_store import get_memory_store
+from routes.mind_graph import router as mind_graph_router
+from routes.chat import router as chat_router
 
 # Configure logging - structured format with correlation IDs
 LOG_FILE = PROJECT_ROOT / "logs" / "backend.log"
@@ -144,6 +146,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers
+app.include_router(mind_graph_router)
+app.include_router(chat_router)
+
 
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
     """Middleware that generates and propagates request correlation IDs."""
@@ -171,7 +177,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 app.add_middleware(CorrelationIdMiddleware)
 
 # Global orchestrator instance
-orchestrator: SupremeOrchestrator | None = None
+orchestrator: Optional[SupremeOrchestrator] = None
 
 
 @app.on_event("startup")
@@ -314,7 +320,7 @@ class SwarmCreate(BaseModel):
 
 class ChatMessage(BaseModel):
     message: str
-    swarm: str | None = None
+    swarm: Optional[str] = None
 
 
 class SwarmResponse(BaseModel):
@@ -322,7 +328,7 @@ class SwarmResponse(BaseModel):
     description: str
     status: str
     agent_count: int
-    priorities: list[str]
+    priorities: List[str]
 
 
 class AgentInfo(BaseModel):
@@ -345,17 +351,17 @@ class ChatMessageModel(BaseModel):
     role: str  # "user" or "assistant"
     content: str
     timestamp: str
-    agent: str | None = None
-    thinking: str | None = None
+    agent: Optional[str] = None
+    thinking: Optional[str] = None
 
 
 class ChatSession(BaseModel):
     id: str
     title: str
-    swarm: str | None = None
+    swarm: Optional[str] = None
     created_at: str
     updated_at: str
-    messages: list[ChatMessageModel] = []
+    messages: List[ChatMessageModel] = []
 
 
 # NOTE: ChatHistoryManager is imported from services.chat_history
@@ -379,16 +385,16 @@ class JobCreate(BaseModel):
     """Request to create a background job."""
     type: str = "chat"  # "chat", "swarm_directive", "task"
     prompt: str
-    swarm: str | None = None
-    session_id: str | None = None
+    swarm: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 @app.get("/api/jobs")
 async def list_jobs(
-    session_id: str | None = None,
-    status: str | None = None,
+    session_id: Optional[str] = None,
+    status: Optional[str] = None,
     limit: int = 20,
-) -> list[dict]:
+) -> List[Dict]:
     """List background jobs."""
     queue = get_job_queue()
 
@@ -468,17 +474,17 @@ class WorkCreateRequest(BaseModel):
     description: str
     work_type: str = "task"
     priority: str = "medium"
-    parent_id: str | None = None
-    swarm_name: str | None = None
-    context: dict | None = None
+    parent_id: Optional[str] = None
+    swarm_name: Optional[str] = None
+    context: Optional[Dict] = None
 
 
 @app.get("/api/work")
 async def list_work_items(
-    status: str | None = None,
-    swarm: str | None = None,
+    status: Optional[str] = None,
+    swarm: Optional[str] = None,
     limit: int = 50,
-) -> list[dict]:
+) -> List[Dict]:
     """List work items with optional filters."""
     ledger = get_work_ledger()
 
@@ -549,7 +555,7 @@ async def claim_work_item(work_id: str, owner: str) -> dict:
 
 
 @app.post("/api/work/{work_id}/complete")
-async def complete_work_item(work_id: str, owner: str, result: dict | None = None) -> dict:
+async def complete_work_item(work_id: str, owner: str, result: Optional[Dict] = None) -> dict:
     """Mark a work item as completed."""
     ledger = get_work_ledger()
     item = ledger.complete_work(work_id, owner, result)
@@ -605,10 +611,10 @@ class MessageSendRequest(BaseModel):
     body: str
     message_type: str = "request"
     priority: str = "normal"
-    swarm_name: str | None = None
-    payload: dict | None = None
-    reply_to: str | None = None
-    tags: list[str] | None = None
+    swarm_name: Optional[str] = None
+    payload: Optional[Dict] = None
+    reply_to: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 
 class HandoffRequest(BaseModel):
@@ -618,10 +624,10 @@ class HandoffRequest(BaseModel):
     subject: str
     work_completed: str
     current_state: str
-    next_steps: list[str]
-    files_modified: list[str] | None = None
-    blockers: list[str] | None = None
-    swarm_name: str | None = None
+    next_steps: List[str]
+    files_modified: Optional[List[str]] = None
+    blockers: Optional[List[str]] = None
+    swarm_name: Optional[str] = None
     priority: str = "normal"
 
 
@@ -629,8 +635,8 @@ class HandoffRequest(BaseModel):
 async def check_mailbox(
     agent_name: str,
     unread_only: bool = True,
-    message_type: str | None = None,
-) -> list[dict]:
+    message_type: Optional[str] = None,
+) -> List[Dict]:
     """Check an agent's mailbox for messages."""
     mailbox = get_mailbox_manager()
 
@@ -727,7 +733,7 @@ async def complete_message(message_id: str, archive: bool = True) -> dict:
 
 
 @app.post("/api/mailbox/message/{message_id}/reply")
-async def reply_to_message(message_id: str, from_agent: str, body: str, payload: dict | None = None) -> dict:
+async def reply_to_message(message_id: str, from_agent: str, body: str, payload: Optional[Dict] = None) -> dict:
     """Reply to a message."""
     mailbox = get_mailbox_manager()
     message = mailbox.reply(message_id, from_agent, body, payload)
@@ -739,7 +745,7 @@ async def reply_to_message(message_id: str, from_agent: str, body: str, payload:
 
 
 @app.get("/api/mailbox/thread/{thread_id}")
-async def get_message_thread(thread_id: str) -> list[dict]:
+async def get_message_thread(thread_id: str) -> List[Dict]:
     """Get all messages in a conversation thread."""
     mailbox = get_mailbox_manager()
     messages = mailbox.get_thread(thread_id)
@@ -760,18 +766,18 @@ class EscalationCreateRequest(BaseModel):
     description: str
     created_by: str
     priority: str = "medium"
-    swarm_name: str | None = None
-    blocked_tasks: list[str] | None = None
-    related_files: list[str] | None = None
-    context: dict | None = None
+    swarm_name: Optional[str] = None
+    blocked_tasks: Optional[List[str]] = None
+    related_files: Optional[List[str]] = None
+    context: Optional[Dict] = None
 
 
 @app.get("/api/escalations")
 async def list_escalations(
-    status: str | None = None,
-    level: str | None = None,
-    swarm: str | None = None,
-) -> list[dict]:
+    status: Optional[str] = None,
+    level: Optional[str] = None,
+    swarm: Optional[str] = None,
+) -> List[Dict]:
     """List escalations with optional filters.
 
     Query parameters:
@@ -875,7 +881,7 @@ async def update_escalation_status(escalation_id: str, status: str) -> dict:
 
 
 @app.get("/api/escalations/pending/coo")
-async def get_coo_pending_escalations() -> list[dict]:
+async def get_coo_pending_escalations() -> List[Dict]:
     """Get pending escalations for COO."""
     manager = get_escalation_manager()
     items = manager.get_pending(level=EscalationLevel.COO)
@@ -883,7 +889,7 @@ async def get_coo_pending_escalations() -> list[dict]:
 
 
 @app.get("/api/escalations/pending/ceo")
-async def get_ceo_pending_escalations() -> list[dict]:
+async def get_ceo_pending_escalations() -> List[Dict]:
     """Get pending escalations for CEO (human)."""
     manager = get_escalation_manager()
     items = manager.get_pending(level=EscalationLevel.CEO)
@@ -912,8 +918,8 @@ async def complete_workflow_step(
     swarm_name: str,
     work_id: str,
     step_name: str,
-    agent_name: str | None = None,
-    result: dict | None = None,
+    agent_name: Optional[str] = None,
+    result: Optional[Dict] = None,
 ) -> dict:
     """Mark a workflow step as completed."""
     orch = get_orchestrator()
@@ -1900,8 +1906,8 @@ async def list_chat_sessions() -> list[dict[str, Any]]:
 
 @app.post("/api/chat/sessions")
 async def create_chat_session(
-    swarm: str | None = None,
-    title: str | None = None,
+    swarm: Optional[str] = None,
+    title: Optional[str] = None,
 ) -> dict[str, Any]:
     """Create a new chat session."""
     history = get_chat_history()
@@ -1921,8 +1927,8 @@ async def get_chat_session(session_id: str) -> dict[str, Any]:
 @app.put("/api/chat/sessions/{session_id}")
 async def update_chat_session(
     session_id: str,
-    title: str | None = None,
-    swarm: str | None = None,
+    title: Optional[str] = None,
+    swarm: Optional[str] = None,
 ) -> dict[str, Any]:
     """Update chat session metadata."""
     history = get_chat_history()
@@ -1952,8 +1958,8 @@ async def add_chat_message(
     session_id: str,
     role: str,
     content: str,
-    agent: str | None = None,
-    thinking: str | None = None,
+    agent: Optional[str] = None,
+    thinking: Optional[str] = None,
 ) -> dict[str, Any]:
     """Add a message to a chat session."""
     history = get_chat_history()
@@ -2230,11 +2236,11 @@ manager = ConnectionManager()
 
 async def stream_claude_response(
     prompt: str,
-    swarm_name: str | None = None,
-    workspace: Path | None = None,
-    chat_id: str | None = None,
-    system_prompt: str | None = None,
-    disallowed_tools: list[str] | None = None,
+    swarm_name: Optional[str] = None,
+    workspace: Optional[Path] = None,
+    chat_id: Optional[str] = None,
+    system_prompt: Optional[str] = None,
+    disallowed_tools: Optional[List[str]] = None,
 ) -> asyncio.subprocess.Process:
     """
     Start a claude CLI process and return it for streaming.
@@ -2304,7 +2310,7 @@ async def parse_claude_stream(
     process: asyncio.subprocess.Process,
     websocket: WebSocket,
     manager: ConnectionManager,
-    chat_id: str | None = None,
+    chat_id: Optional[str] = None,
 ) -> dict:
     """
     Parse streaming JSON output from claude CLI and send events to WebSocket.
@@ -2397,7 +2403,7 @@ async def parse_claude_stream(
     return {"response": context["full_response"], "thinking": context["full_thinking"]}
 
 
-def _get_file_info(tool_name: str, tool_input: dict) -> tuple[str | None, str | None]:
+def _get_file_info(tool_name: str, tool_input: dict) -> Tuple[Optional[str], Optional[str]]:
     """Extract file path and operation type from tool input."""
     file_path = tool_input.get('file_path')
 

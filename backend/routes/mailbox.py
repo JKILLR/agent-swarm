@@ -7,11 +7,11 @@ This module provides endpoints for the Agent Mailbox system including:
 - Message threading
 """
 
-from __future__ import annotations
+from typing import Optional, List, Dict
 
 from fastapi import APIRouter, HTTPException
 
-from ..models.requests import MessageSendRequest, HandoffRequest
+from models.requests import MessageSendRequest, HandoffRequest
 from shared.agent_mailbox import (
     get_mailbox_manager,
     MessageType,
@@ -26,8 +26,8 @@ router = APIRouter(prefix="/api/mailbox", tags=["mailbox"])
 async def check_mailbox(
     agent_name: str,
     unread_only: bool = True,
-    message_type: str | None = None,
-) -> list[dict]:
+    message_type: Optional[str] = None,
+) -> List[Dict]:
     """Check an agent's mailbox for messages.
 
     Args:
@@ -173,7 +173,7 @@ async def complete_message(message_id: str, archive: bool = True) -> dict:
 
 
 @router.post("/message/{message_id}/reply")
-async def reply_to_message(message_id: str, from_agent: str, body: str, payload: dict | None = None) -> dict:
+async def reply_to_message(message_id: str, from_agent: str, body: str, payload: Optional[Dict] = None) -> dict:
     """Reply to a message.
 
     Args:
@@ -198,7 +198,7 @@ async def reply_to_message(message_id: str, from_agent: str, body: str, payload:
 
 
 @router.get("/thread/{thread_id}")
-async def get_message_thread(thread_id: str) -> list[dict]:
+async def get_message_thread(thread_id: str) -> List[Dict]:
     """Get all messages in a conversation thread.
 
     Args:

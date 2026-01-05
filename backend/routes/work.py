@@ -8,11 +8,11 @@ This module provides endpoints for persistent work tracking including:
 - Recovery of orphaned work
 """
 
-from __future__ import annotations
+from typing import Optional, List, Dict
 
 from fastapi import APIRouter, HTTPException
 
-from ..models.requests import WorkCreateRequest
+from models.requests import WorkCreateRequest
 from shared.work_ledger import get_work_ledger
 from shared.work_models import WorkType, WorkPriority
 
@@ -21,10 +21,10 @@ router = APIRouter(prefix="/api/work", tags=["work"])
 
 @router.get("")
 async def list_work_items(
-    status: str | None = None,
-    swarm: str | None = None,
+    status: Optional[str] = None,
+    swarm: Optional[str] = None,
     limit: int = 50,
-) -> list[dict]:
+) -> List[Dict]:
     """List work items with optional filters.
 
     Args:
@@ -132,7 +132,7 @@ async def claim_work_item(work_id: str, owner: str) -> dict:
 
 
 @router.post("/{work_id}/complete")
-async def complete_work_item(work_id: str, owner: str, result: dict | None = None) -> dict:
+async def complete_work_item(work_id: str, owner: str, result: Optional[Dict] = None) -> dict:
     """Mark a work item as completed.
 
     Args:

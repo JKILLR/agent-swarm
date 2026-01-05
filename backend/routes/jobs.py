@@ -7,7 +7,7 @@ This module provides endpoints for managing background jobs including:
 - Cancelling jobs
 """
 
-from __future__ import annotations
+from typing import Optional, List, Dict
 
 from fastapi import APIRouter, HTTPException
 
@@ -19,10 +19,10 @@ router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
 @router.get("")
 async def list_jobs(
-    session_id: str | None = None,
-    status: str | None = None,
+    session_id: Optional[str] = None,
+    status: Optional[str] = None,
     limit: int = 20,
-) -> list[dict]:
+) -> List[Dict]:
     """List background jobs.
 
     Args:

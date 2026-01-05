@@ -1,5 +1,6 @@
 """Pydantic models for API request bodies."""
 
+from typing import Optional, Dict
 from pydantic import BaseModel
 
 
@@ -13,15 +14,15 @@ class SwarmCreate(BaseModel):
 class ChatMessage(BaseModel):
     """Request to send a chat message."""
     message: str
-    swarm: str | None = None
+    swarm: Optional[str] = None
 
 
 class JobCreate(BaseModel):
     """Request to create a background job."""
     type: str = "chat"  # "chat", "swarm_directive", "task"
     prompt: str
-    swarm: str | None = None
-    session_id: str | None = None
+    swarm: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 class WorkCreateRequest(BaseModel):
@@ -30,9 +31,9 @@ class WorkCreateRequest(BaseModel):
     description: str
     work_type: str = "task"
     priority: str = "medium"
-    parent_id: str | None = None
-    swarm_name: str | None = None
-    context: dict | None = None
+    parent_id: Optional[str] = None
+    swarm_name: Optional[str] = None
+    context: Optional[Dict] = None
 
 
 class MessageSendRequest(BaseModel):
@@ -43,9 +44,9 @@ class MessageSendRequest(BaseModel):
     body: str
     message_type: str = "request"  # request, response, notification, handoff, escalation
     priority: str = "normal"  # low, normal, high, urgent
-    thread_id: str | None = None
-    expires_at: str | None = None
-    metadata: dict | None = None
+    thread_id: Optional[str] = None
+    expires_at: Optional[str] = None
+    metadata: Optional[Dict] = None
 
 
 class HandoffRequest(BaseModel):
@@ -55,7 +56,7 @@ class HandoffRequest(BaseModel):
     task_summary: str
     completed_work: str
     remaining_work: str
-    context: dict | None = None
+    context: Optional[Dict] = None
     priority: str = "normal"
 
 
@@ -66,9 +67,9 @@ class EscalationCreateRequest(BaseModel):
     reason: str  # "stuck", "decision", "conflict", "resource", "error", "timeout"
     priority: str = "medium"  # "low", "medium", "high", "critical"
     context: dict
-    swarm_name: str | None = None
-    agent_name: str | None = None
-    work_id: str | None = None
+    swarm_name: Optional[str] = None
+    agent_name: Optional[str] = None
+    work_id: Optional[str] = None
 
 
 class AgentExecuteRequest(BaseModel):
