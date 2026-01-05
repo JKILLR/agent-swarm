@@ -561,10 +561,13 @@ export default function ChatPage() {
         </div>
         <div className="flex-1 overflow-auto">
           {sessions.map((session) => (
-            <button
+            <div
               key={session.id}
               onClick={() => loadSession(session.id)}
-              className={`w-full px-3 py-2 text-left hover:bg-zinc-800/30 transition-colors group flex items-center gap-2 ${
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && loadSession(session.id)}
+              className={`w-full px-3 py-2 text-left hover:bg-zinc-800/30 transition-colors group flex items-center gap-2 cursor-pointer ${
                 sessionId === session.id ? 'bg-zinc-800/50 border-l-2 border-l-orange-500' : 'border-l-2 border-l-transparent'
               }`}
             >
@@ -580,7 +583,7 @@ export default function ChatPage() {
               >
                 <Trash2 className="w-3 h-3 text-zinc-500" />
               </button>
-            </button>
+            </div>
           ))}
           {sessions.length === 0 && (
             <p className="text-xs text-zinc-600 p-3">No chat history yet</p>
@@ -618,13 +621,21 @@ export default function ChatPage() {
             </div>
             <div className="flex-1 overflow-auto p-2">
               {sessions.map((session) => (
-                <button
+                <div
                   key={session.id}
                   onClick={() => {
                     loadSession(session.id)
                     setShowMobileHistory(false)
                   }}
-                  className={`w-full px-4 py-3 text-left hover:bg-zinc-800/30 active:bg-zinc-800/50 transition-colors flex items-center gap-3 rounded-lg touch-manipulation min-h-[56px] ${
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      loadSession(session.id)
+                      setShowMobileHistory(false)
+                    }
+                  }}
+                  className={`w-full px-4 py-3 text-left hover:bg-zinc-800/30 active:bg-zinc-800/50 transition-colors flex items-center gap-3 rounded-lg touch-manipulation min-h-[56px] cursor-pointer ${
                     sessionId === session.id ? 'bg-zinc-800/50 border-l-2 border-l-orange-500' : 'border-l-2 border-l-transparent'
                   }`}
                 >
@@ -642,7 +653,7 @@ export default function ChatPage() {
                   >
                     <Trash2 className="w-4 h-4 text-zinc-500" />
                   </button>
-                </button>
+                </div>
               ))}
               {sessions.length === 0 && (
                 <p className="text-sm text-zinc-600 p-4 text-center">No chat history yet</p>
