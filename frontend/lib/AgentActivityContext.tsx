@@ -109,7 +109,6 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
         // When an agent is spawned via Task tool
         const agentName = event.agent || ''
         const description = event.description || ''
-        const parentAgent = event.parentAgent || 'COO'
 
         // Agent spawn events use just the agent type name (e.g., "implementer", "researcher")
         const key = `subagent/${agentName}`
@@ -177,8 +176,9 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
       }
     }
 
+    // Only attach event handlers - don't manage connection lifecycle
+    // The chat page or other components that need WebSocket will call connect()
     ws.on('*', handleEvent)
-    ws.connect().catch(console.error)
 
     return () => {
       ws.off('*', handleEvent)

@@ -9,6 +9,9 @@ function getWsBase(): string {
   return process.env.NEXT_PUBLIC_WS_URL || `${protocol}//${host}:${port}`
 }
 
+// Connection states for clearer lifecycle management
+type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting'
+
 export type WebSocketEventType =
   | 'chat_start'
   | 'agent_start'
@@ -62,23 +65,26 @@ export class ChatWebSocket {
   private connectionPromise: Promise<void> | null = null
   private isIntentionalDisconnect = false
   private reconnectTimeout: NodeJS.Timeout | null = null
+  private connectionState: ConnectionState = 'disconnected'
+  private heartbeatInterval: NodeJS.Timeout | null = null
+  private lastPongTime: number = 0
+  private connectionId = 0 // Track connection identity to handle stale callbacks
 
   connect(): Promise<void> {
-    // Guard: if already connected, don't create another connection
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    // Guard: if already connected, return resolved promise
+    if (this.connectionState === 'connected' && this.ws?.readyState === WebSocket.OPEN) {
       return Promise.resolve()
     }
 
     // Guard: if currently connecting, return the existing promise
-    if (this.ws?.readyState === WebSocket.CONNECTING && this.connectionPromise) {
+    // This is the key fix - we check connectionState BEFORE checking ws.readyState
+    if (this.connectionState === 'connecting' && this.connectionPromise) {
       return this.connectionPromise
     }
 
-    // Close existing connection before creating new one
-    if (this.ws) {
-      this.ws.onclose = null // Prevent reconnect trigger
-      this.ws.close()
-      this.ws = null
+    // Guard: if reconnecting, return the existing promise
+    if (this.connectionState === 'reconnecting' && this.connectionPromise) {
+      return this.connectionPromise
     }
 
     // Clear any pending reconnect
@@ -87,20 +93,74 @@ export class ChatWebSocket {
       this.reconnectTimeout = null
     }
 
+    // Stop heartbeat from previous connection
+    this.stopHeartbeat()
+
+    // Clean up any existing dead connection (CLOSED or CLOSING state)
+    if (this.ws && (this.ws.readyState === WebSocket.CLOSED || this.ws.readyState === WebSocket.CLOSING)) {
+      this.ws.onclose = null
+      this.ws.onerror = null
+      this.ws.onmessage = null
+      this.ws.onopen = null
+      this.ws = null
+    }
+
+    // If we still have a live connection, don't create a new one
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.connectionState = 'connected'
+      return Promise.resolve()
+    }
+
+    // If there's a connection in progress (CONNECTING state), wait for it
+    if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+      // Create a promise that resolves when the existing connection opens or fails
+      if (!this.connectionPromise) {
+        this.connectionPromise = new Promise((resolve, reject) => {
+          const checkState = () => {
+            if (this.ws?.readyState === WebSocket.OPEN) {
+              this.connectionState = 'connected'
+              resolve()
+            } else if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+              reject(new Error('Connection failed'))
+            } else {
+              setTimeout(checkState, 50)
+            }
+          }
+          checkState()
+        })
+      }
+      return this.connectionPromise
+    }
+
     this.isIntentionalDisconnect = false
+    this.connectionState = 'connecting'
+    const currentConnectionId = ++this.connectionId
 
     this.connectionPromise = new Promise((resolve, reject) => {
       try {
-        this.ws = new WebSocket(`${getWsBase()}/ws/chat`)
+        const wsUrl = `${getWsBase()}/ws/chat`
+        console.log(`WebSocket connecting to ${wsUrl}`)
+        this.ws = new WebSocket(wsUrl)
 
         this.ws.onopen = () => {
+          // Check if this is still the current connection attempt
+          if (this.connectionId !== currentConnectionId) {
+            console.log('Stale connection opened, ignoring')
+            return
+          }
+
           console.log('WebSocket connected')
+          this.connectionState = 'connected'
           this.reconnectAttempts = 0
-          this.connectionPromise = null
+          this.lastPongTime = Date.now()
+          this.startHeartbeat()
           resolve()
         }
 
         this.ws.onmessage = (event) => {
+          // Update last pong time on any message (acts as heartbeat response)
+          this.lastPongTime = Date.now()
+
           try {
             const data = JSON.parse(event.data) as WebSocketEvent
             this.emit(data.type, data)
@@ -110,9 +170,17 @@ export class ChatWebSocket {
           }
         }
 
-        this.ws.onclose = () => {
-          console.log('WebSocket disconnected')
+        this.ws.onclose = (event) => {
+          // Check if this is still the current connection
+          if (this.connectionId !== currentConnectionId) {
+            console.log('Stale connection closed, ignoring')
+            return
+          }
+
+          console.log(`WebSocket disconnected (code: ${event.code}, reason: ${event.reason || 'none'})`)
+          this.connectionState = 'disconnected'
           this.connectionPromise = null
+          this.stopHeartbeat()
           this.emit('disconnected', { type: 'error', message: 'Disconnected' })
 
           // Only reconnect if not intentionally disconnected
@@ -122,11 +190,20 @@ export class ChatWebSocket {
         }
 
         this.ws.onerror = (error) => {
+          // Check if this is still the current connection attempt
+          if (this.connectionId !== currentConnectionId) {
+            console.log('Stale connection error, ignoring')
+            return
+          }
+
           console.error('WebSocket error:', error)
-          this.connectionPromise = null
+          // Don't set connectionPromise to null here - let onclose handle cleanup
+          // onerror is always followed by onclose
           reject(error)
         }
       } catch (e) {
+        console.error('Failed to create WebSocket:', e)
+        this.connectionState = 'disconnected'
         this.connectionPromise = null
         reject(e)
       }
@@ -135,9 +212,44 @@ export class ChatWebSocket {
     return this.connectionPromise
   }
 
+  private startHeartbeat() {
+    this.stopHeartbeat()
+    this.lastPongTime = Date.now()
+
+    // Check connection health every 30 seconds
+    this.heartbeatInterval = setInterval(() => {
+      const timeSinceLastMessage = Date.now() - this.lastPongTime
+      // If no message received in 60 seconds, connection might be dead
+      if (timeSinceLastMessage > 60000) {
+        console.log('WebSocket connection appears stale, reconnecting...')
+        this.reconnect()
+      }
+    }, 30000)
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
+    }
+  }
+
+  private reconnect() {
+    this.stopHeartbeat()
+    if (this.ws) {
+      this.ws.onclose = null // Prevent double reconnect
+      this.ws.close()
+      this.ws = null
+    }
+    this.connectionState = 'disconnected'
+    this.connectionPromise = null
+    this.attemptReconnect()
+  }
+
   private attemptReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log('Max reconnection attempts reached')
+      this.emit('max_reconnect_reached', { type: 'error', message: 'Max reconnection attempts reached' })
       return
     }
 
@@ -146,18 +258,28 @@ export class ChatWebSocket {
       return
     }
 
+    // Don't reconnect if we're already connecting
+    if (this.connectionState === 'connecting' || this.connectionState === 'reconnecting') {
+      return
+    }
+
     this.reconnectAttempts++
+    this.connectionState = 'reconnecting'
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)
-    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`)
+    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
 
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectTimeout = null
-      this.connect().catch(() => {})
+      this.connectionState = 'disconnected' // Reset state before connecting
+      this.connect().catch((e) => {
+        console.error('Reconnection failed:', e)
+      })
     }, delay)
   }
 
   disconnect() {
     this.isIntentionalDisconnect = true
+    this.connectionState = 'disconnected'
 
     // Clear any pending reconnect
     if (this.reconnectTimeout) {
@@ -165,8 +287,14 @@ export class ChatWebSocket {
       this.reconnectTimeout = null
     }
 
+    // Stop heartbeat
+    this.stopHeartbeat()
+
     if (this.ws) {
       this.ws.onclose = null // Prevent reconnect trigger
+      this.ws.onerror = null
+      this.ws.onmessage = null
+      this.ws.onopen = null
       this.ws.close()
       this.ws = null
     }
@@ -175,15 +303,21 @@ export class ChatWebSocket {
 
   send(message: string, options?: { swarm?: string; session_id?: string; attachments?: Array<{type: string; name: string; content: string; mimeType?: string}> }) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket not connected, cannot send message')
       throw new Error('WebSocket not connected')
     }
 
-    this.ws.send(JSON.stringify({
-      message,
-      swarm: options?.swarm,
-      session_id: options?.session_id,
-      attachments: options?.attachments,
-    }))
+    try {
+      this.ws.send(JSON.stringify({
+        message,
+        swarm: options?.swarm,
+        session_id: options?.session_id,
+        attachments: options?.attachments,
+      }))
+    } catch (e) {
+      console.error('Failed to send WebSocket message:', e)
+      throw e
+    }
   }
 
   on(event: string, handler: EventHandler) {
@@ -206,12 +340,28 @@ export class ChatWebSocket {
   private emit(event: string, data: WebSocketEvent) {
     const handlers = this.handlers.get(event)
     if (handlers) {
-      handlers.forEach(handler => handler(data))
+      // Create a copy to avoid issues if handlers modify the array
+      [...handlers].forEach(handler => {
+        try {
+          handler(data)
+        } catch (e) {
+          console.error(`Error in WebSocket event handler for ${event}:`, e)
+        }
+      })
     }
   }
 
   get isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN
+    return this.connectionState === 'connected' && this.ws?.readyState === WebSocket.OPEN
+  }
+
+  get state(): ConnectionState {
+    return this.connectionState
+  }
+
+  // Reset reconnection counter (call when user manually triggers reconnect)
+  resetReconnectAttempts() {
+    this.reconnectAttempts = 0
   }
 }
 
