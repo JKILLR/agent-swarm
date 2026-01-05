@@ -224,7 +224,7 @@ async def get_session_memories(session_id: str) -> dict:
 
     # Find nodes with this session in provenance
     session_nodes = []
-    for node in graph.nodes.values():
+    for node in graph._nodes.values():
         provenance = node.provenance or {}
         if provenance.get("session_id") == session_id:
             session_nodes.append({
