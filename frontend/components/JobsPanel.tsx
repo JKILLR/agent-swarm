@@ -52,6 +52,9 @@ export default function JobsPanel({ expanded: defaultExpanded = false }: JobsPan
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [selectedJob, setSelectedJob] = useState<string | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const reconnectAttempts = useRef(0)
+  const maxReconnectAttempts = 5
 
   // Load jobs
   const loadJobs = useCallback(async () => {
@@ -66,46 +69,72 @@ export default function JobsPanel({ expanded: defaultExpanded = false }: JobsPan
     }
   }, [])
 
-  // Connect to job updates WebSocket
+  // Connect to job updates WebSocket with reconnection
   useEffect(() => {
     loadJobs()
 
-    const ws = new WebSocket(`${WS_BASE}/ws/jobs`)
+    const connectWebSocket = () => {
+      const ws = new WebSocket(`${WS_BASE}/ws/jobs`)
 
-    ws.onopen = () => {
-      // Subscribe to all job updates
-      ws.send(JSON.stringify({ action: 'subscribe_all' }))
-    }
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        if (data.type === 'job_update') {
-          // Update or add job in list
-          setJobs((prev) => {
-            const idx = prev.findIndex((j) => j.id === data.job.id)
-            if (idx >= 0) {
-              const updated = [...prev]
-              updated[idx] = data.job
-              return updated
-            } else {
-              return [data.job, ...prev].slice(0, 10)
-            }
-          })
-        }
-      } catch (e) {
-        console.error('Failed to parse job update:', e)
+      ws.onopen = () => {
+        console.log('Jobs WebSocket connected')
+        reconnectAttempts.current = 0
+        // Subscribe to all job updates
+        ws.send(JSON.stringify({ action: 'subscribe_all' }))
       }
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.type === 'job_update') {
+            // Update or add job in list
+            setJobs((prev) => {
+              const idx = prev.findIndex((j) => j.id === data.job.id)
+              if (idx >= 0) {
+                const updated = [...prev]
+                updated[idx] = data.job
+                return updated
+              } else {
+                return [data.job, ...prev].slice(0, 10)
+              }
+            })
+          }
+        } catch (e) {
+          console.error('Failed to parse job update:', e)
+        }
+      }
+
+      ws.onerror = (error) => {
+        console.error('Jobs WebSocket error:', error)
+      }
+
+      ws.onclose = () => {
+        wsRef.current = null
+        // Attempt reconnection with exponential backoff
+        if (reconnectAttempts.current < maxReconnectAttempts) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000)
+          console.log(`Jobs WebSocket closed, reconnecting in ${delay}ms...`)
+          reconnectAttempts.current++
+          reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay)
+        } else {
+          console.log('Jobs WebSocket max reconnect attempts reached')
+        }
+      }
+
+      wsRef.current = ws
     }
 
-    ws.onerror = (error) => {
-      console.error('Jobs WebSocket error:', error)
-    }
-
-    wsRef.current = ws
+    // Initial connection with small delay to let backend start
+    const initialDelay = setTimeout(connectWebSocket, 500)
 
     return () => {
-      ws.close()
+      clearTimeout(initialDelay)
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+      }
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
     }
   }, [loadJobs])
 
