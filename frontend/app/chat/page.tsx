@@ -49,6 +49,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef(getChatWebSocket())
   const pendingMessageRef = useRef<{ content: string; agent?: string; thinking?: string } | null>(null)
+  const saveMessageRef = useRef<typeof saveMessage | null>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -128,6 +129,11 @@ export default function ChatPage() {
     }
   }, [sessionId, loadSessions])
 
+  // Keep saveMessageRef updated with latest saveMessage
+  useEffect(() => {
+    saveMessageRef.current = saveMessage
+  }, [saveMessage])
+
   // Initialize: load sessions and create/load initial session
   useEffect(() => {
     const init = async () => {
@@ -147,8 +153,11 @@ export default function ChatPage() {
   // Connect to WebSocket
   useEffect(() => {
     const ws = wsRef.current
+    let mounted = true
 
     const handleEvent = (event: WebSocketEvent) => {
+      if (!mounted) return // Ignore events if unmounted
+
       switch (event.type) {
         case 'chat_start':
           setIsLoading(true)
@@ -430,10 +439,10 @@ export default function ChatPage() {
               endTime: a.endTime || new Date(),
             }))
           )
-          // Save the assistant message to backend
-          if (pendingMessageRef.current) {
+          // Save the assistant message to backend (using ref to avoid stale closure)
+          if (pendingMessageRef.current && saveMessageRef.current) {
             const msg = pendingMessageRef.current
-            saveMessage('assistant', msg.content, msg.agent, msg.thinking)
+            saveMessageRef.current('assistant', msg.content, msg.agent, msg.thinking)
             pendingMessageRef.current = null
           }
           break
@@ -453,16 +462,28 @@ export default function ChatPage() {
 
     ws.on('*', handleEvent)
 
-    ws.connect()
-      .then(() => setIsConnected(true))
-      .catch(() => setIsConnected(false))
+    // Handle disconnected event to update UI
+    const handleDisconnect = () => {
+      if (mounted) setIsConnected(false)
+    }
+    ws.on('disconnected', handleDisconnect)
 
-    ws.on('disconnected', () => setIsConnected(false))
+    // Connect to WebSocket
+    ws.connect()
+      .then(() => {
+        if (mounted) setIsConnected(true)
+      })
+      .catch((e) => {
+        console.error('WebSocket connection failed:', e)
+        if (mounted) setIsConnected(false)
+      })
 
     return () => {
+      mounted = false
       ws.off('*', handleEvent)
+      ws.off('disconnected', handleDisconnect)
     }
-  }, [saveMessage, setAgentActivities, setToolActivities])
+  }, [setAgentActivities, setToolActivities]) // Removed saveMessage as it changes too often
 
   const handleSend = useCallback(async (content: string, attachments: Attachment[]) => {
     // Clear old completed activities when starting a new message
