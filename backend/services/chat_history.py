@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from filelock import FileLock, Timeout
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,9 +20,16 @@ class ChatHistoryManager:
     def __init__(self, base_path: Path):
         self.chat_dir = base_path / "logs" / "chat"
         self.chat_dir.mkdir(parents=True, exist_ok=True)
+        self._lock_dir = self.chat_dir / ".locks"
+        self._lock_dir.mkdir(parents=True, exist_ok=True)
 
     def _session_path(self, session_id: str) -> Path:
         return self.chat_dir / f"{session_id}.json"
+
+    def _get_session_lock(self, session_id: str) -> FileLock:
+        """Get a file lock for a specific session to prevent race conditions."""
+        lock_path = self._lock_dir / f"{session_id}.lock"
+        return FileLock(lock_path, timeout=10)
 
     def list_sessions(self) -> list[dict[str, Any]]:
         """List all chat sessions (without full messages)."""
@@ -71,41 +80,51 @@ class ChatHistoryManager:
     def add_message(
         self, session_id: str, role: str, content: str, agent: str | None = None, thinking: str | None = None
     ) -> dict[str, Any]:
-        """Add a message to a session."""
-        session = self.get_session(session_id)
-        if not session:
-            raise ValueError(f"Session {session_id} not found")
+        """Add a message to a session (thread-safe with file locking)."""
+        try:
+            with self._get_session_lock(session_id):
+                session = self.get_session(session_id)
+                if not session:
+                    raise ValueError(f"Session {session_id} not found")
 
-        message = {
-            "id": str(uuid.uuid4()),
-            "role": role,
-            "content": content,
-            "timestamp": datetime.now().isoformat(),
-            "agent": agent,
-            "thinking": thinking,
-        }
-        session["messages"].append(message)
-        session["updated_at"] = datetime.now().isoformat()
+                message = {
+                    "id": str(uuid.uuid4()),
+                    "role": role,
+                    "content": content,
+                    "timestamp": datetime.now().isoformat(),
+                    "agent": agent,
+                    "thinking": thinking,
+                }
+                session["messages"].append(message)
+                session["updated_at"] = datetime.now().isoformat()
 
-        # Auto-update title from first user message if still default
-        if role == "user" and len(session["messages"]) == 1:
-            session["title"] = content[:50] + ("..." if len(content) > 50 else "")
+                # Auto-update title from first user message if still default
+                if role == "user" and len(session["messages"]) == 1:
+                    session["title"] = content[:50] + ("..." if len(content) > 50 else "")
 
-        self._save_session(session)
-        return message
+                self._save_session(session)
+                return message
+        except Timeout:
+            logger.error(f"Timeout acquiring lock for session {session_id}")
+            raise ValueError(f"Could not acquire lock for session {session_id}")
 
     def update_session(self, session_id: str, **kwargs) -> dict[str, Any] | None:
-        """Update session metadata (title, swarm, etc.)."""
-        session = self.get_session(session_id)
-        if not session:
-            return None
+        """Update session metadata (title, swarm, etc.) (thread-safe with file locking)."""
+        try:
+            with self._get_session_lock(session_id):
+                session = self.get_session(session_id)
+                if not session:
+                    return None
 
-        for key in ["title", "swarm"]:
-            if key in kwargs:
-                session[key] = kwargs[key]
-        session["updated_at"] = datetime.now().isoformat()
-        self._save_session(session)
-        return session
+                for key in ["title", "swarm"]:
+                    if key in kwargs:
+                        session[key] = kwargs[key]
+                session["updated_at"] = datetime.now().isoformat()
+                self._save_session(session)
+                return session
+        except Timeout:
+            logger.error(f"Timeout acquiring lock for session {session_id}")
+            return None
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a chat session."""

@@ -202,6 +202,7 @@ export default function ActivityPanel({
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const wasProcessingRef = useRef(isProcessing)
+  const notificationRef = useRef<Notification | null>(null)
 
   // Set up portal container for fullscreen mode
   useEffect(() => {
@@ -236,7 +237,13 @@ export default function ActivityPanel({
       // Browser notification - wrapped in try-catch for safety
       if ('Notification' in window && Notification.permission === 'granted') {
         try {
-          new Notification('Agent Work Complete', {
+          // Close any existing notification before creating a new one
+          if (notificationRef.current) {
+            notificationRef.current.close()
+            notificationRef.current = null
+          }
+
+          notificationRef.current = new Notification('Agent Work Complete', {
             body: `Completed ${tools.length} tool operations`,
             icon: '/favicon.ico',
           })
@@ -251,10 +258,14 @@ export default function ActivityPanel({
     }
     wasProcessingRef.current = isProcessing
 
-    // Cleanup timeout on unmount or re-run
+    // Cleanup timeout and notification on unmount or re-run
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId)
+      }
+      if (notificationRef.current) {
+        notificationRef.current.close()
+        notificationRef.current = null
       }
     }
   }, [isProcessing, agents.length, tools.length, onComplete])
