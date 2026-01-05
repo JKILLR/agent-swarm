@@ -7,11 +7,11 @@ This module provides endpoints for the escalation protocol including:
 - Status updates
 """
 
-from __future__ import annotations
+from typing import Optional, List, Dict
 
 from fastapi import APIRouter, HTTPException
 
-from ..models.requests import EscalationCreateRequest
+from models.requests import EscalationCreateRequest
 from shared.escalation_protocol import (
     get_escalation_manager,
     EscalationLevel,
@@ -25,10 +25,10 @@ router = APIRouter(prefix="/api/escalations", tags=["escalations"])
 
 @router.get("")
 async def list_escalations(
-    status: str | None = None,
-    level: str | None = None,
-    swarm: str | None = None,
-) -> list[dict]:
+    status: Optional[str] = None,
+    level: Optional[str] = None,
+    swarm: Optional[str] = None,
+) -> List[Dict]:
     """List escalations with optional filters.
 
     Args:

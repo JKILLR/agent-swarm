@@ -13,8 +13,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from ..models.requests import SwarmCreate
-from ..services.orchestrator_service import get_orchestrator
+from models.requests import SwarmCreate
+from services.orchestrator_service import get_orchestrator
 
 router = APIRouter(prefix="/api/swarms", tags=["swarms"])
 
