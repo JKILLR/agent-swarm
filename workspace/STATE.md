@@ -375,6 +375,41 @@ backend/
 
 ## Progress Log
 
+### 2026-01-05 - WebSocket Stability Review
+**Reviewer**: Quality Critic
+**Result**: NEEDS_CHANGES
+
+**Summary**: Reviewed WebSocket connection management for stability issues causing connection leaks.
+
+**Critical Issues Found**:
+1. **Multiple WebSocket connections created per page load** (`frontend/lib/websocket.ts:63-66`)
+   - `connect()` creates NEW WebSocket every call, orphaning previous connections
+   - Both AgentActivityContext and chat/page.tsx call connect() on shared singleton
+
+2. **WebSocket never disconnected on component unmount** (`frontend/app/chat/page.tsx:462-464`, `frontend/lib/AgentActivityContext.tsx:183-185`)
+   - Cleanup only calls `ws.off()`, never `ws.disconnect()`
+   - Connections persist across navigation
+
+3. **Backend broadcast functions don't clean up dead connections** (`backend/main.py:1412-1416`)
+   - Failed sends to `manager.active_connections` silently ignored
+   - Dead connections remain in list, inflating counts
+
+**Root Cause of "Total: 3, 4, 5..." logs**:
+Navigation creates new connections without closing old ones. Frontend singleton's `connect()` method overwrites websocket reference without closing existing one.
+
+**Recommended Fixes**:
+1. Add connection guard in `connect()`: check `this.ws?.readyState === WebSocket.OPEN`
+2. Call `ws.disconnect()` in component cleanup functions
+3. Remove dead connections in broadcast exception handlers
+
+**Files Requiring Changes**:
+- `/home/user/agent-swarm/frontend/lib/websocket.ts`
+- `/home/user/agent-swarm/frontend/app/chat/page.tsx`
+- `/home/user/agent-swarm/frontend/lib/AgentActivityContext.tsx`
+- `/home/user/agent-swarm/backend/main.py`
+
+---
+
 ### 2026-01-03 - Swarm Brain Architecture Design (ADR-006)
 **Architect**: System Architect
 
@@ -1034,6 +1069,27 @@ backend/
 - `frontend/components/ActivityPanel.tsx`: Import types from context
 
 ## Known Issues
+
+### CRITICAL: WebSocket Connection Leaks (from 2026-01-05 Stability Review)
+
+**Root Cause**: Frontend `connect()` method creates new WebSocket every call, orphaning previous connections.
+
+1. **Frontend connect() overwrites without closing**
+   - File: `frontend/lib/websocket.ts:63-66`
+   - `connect()` creates NEW WebSocket, overwrites `this.ws` reference
+   - Previous connection orphaned (still connected to backend, no cleanup)
+
+2. **Components don't disconnect on unmount**
+   - Files: `frontend/app/chat/page.tsx:462-464`, `frontend/lib/AgentActivityContext.tsx:183-185`
+   - Cleanup only unregisters handlers, never closes WebSocket
+   - Status: NEEDS FIX
+
+3. **Backend doesn't clean dead connections from active_connections**
+   - File: `backend/main.py:1412-1416` (and similar broadcast loops)
+   - Failed sends silently ignored, dead connections stay in list
+   - Status: NEEDS FIX
+
+---
 
 ### CRITICAL: COO Delegation System Broken (from 2026-01-03 Delegation Review)
 
