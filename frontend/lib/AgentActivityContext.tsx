@@ -165,7 +165,7 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
 
       // Clear activities when chat completes
       if (event.type === 'chat_complete') {
-        // Mark all as idle
+        // Mark all swarm activities as idle
         setActivities((prev) => {
           const updated = { ...prev }
           for (const key in updated) {
@@ -173,6 +173,25 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
           }
           return updated
         })
+
+        // Also mark all panel agent activities as complete
+        // This ensures the Activity Panel stops showing "Working" spinner
+        setPanelAgentActivities((prev) =>
+          prev.map((a) => ({
+            ...a,
+            status: 'complete' as const,
+            endTime: a.endTime || new Date(),
+          }))
+        )
+
+        // Also mark all panel tool activities as complete
+        setPanelToolActivities((prev) =>
+          prev.map((t) => ({
+            ...t,
+            status: 'complete' as const,
+            endTime: t.endTime || new Date(),
+          }))
+        )
       }
     }
 
