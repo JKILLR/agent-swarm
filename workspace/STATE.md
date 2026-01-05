@@ -2830,3 +2830,75 @@ if inject_context:
 - Monitor bot logs for liquidity/daily limit messages
 - Consider adding more verbose logging for daily P&L tracking
 
+
+---
+
+## Research: Claude Code Skills System - 2026-01-04
+**Researcher**: Research Specialist Agent
+**Date**: 2026-01-04
+
+**Status**: COMPLETE
+
+### Research Objective
+Comprehensive research on Claude Code skills system, including:
+- How skills work and are applied
+- Available skill categories (especially frontend/UI)
+- Specialized skills for agent departments
+
+### Key Findings Summary
+1. Skills are model-invoked: Claude automatically selects relevant skills based on context
+2. Official Anthropic skills include document skills (DOCX, PDF, PPTX, XLSX) and frontend-design
+3. Skills use progressive disclosure architecture to minimize context usage
+4. Published as open standard at agentskills.io for cross-platform portability
+5. Extensive community skills available via awesome-claude-skills repositories
+
+### Skill Categories Identified
+- Document Skills (docx, pdf, pptx, xlsx)
+- Frontend Design Skills (frontend-design, canvas-design, artifacts-builder)
+- Creative Skills (algorithmic-art, slack-gif-creator)
+- DevOps Skills (aws-skills, terraform, infrastructure-as-code)
+- Testing Skills (webapp-testing, api-tester, test-fixing)
+- Security Skills (security-bluebook-builder, defense-in-depth, varlock-claude-skill)
+- Enterprise Skills (brand-guidelines, internal-comms)
+
+### Full Research Report
+See: /home/user/agent-swarm/workspace/research/claude-code-skills-research.md
+
+
+---
+
+## Corporate Structure Research - 2026-01-04
+**Agent**: Research Specialist
+**Date**: 2026-01-04
+
+**Status**: COMPLETE
+
+### Research Summary
+Comprehensive analysis of corporate organizational structures for software/product companies to inform AI agent corporation design.
+
+### Key Findings
+
+1. **Hierarchy Levels**: C-Suite (strategy) -> VP (planning) -> Director (allocation) -> Manager (assignment) -> IC (execution)
+
+2. **CTO vs VP Engineering Split**: CTO owns vision/strategy (external), VP Engineering owns execution/delivery (internal). Critical separation of concerns.
+
+3. **RACI Model**: Every task needs exactly ONE Accountable owner. Multiple can be Responsible, Consulted, or Informed.
+
+4. **Quality Gates**: Automated checkpoints in CI/CD that block progression until criteria met. Fail fast, catch issues early.
+
+5. **Cross-Team Coordination**: 75% of cross-functional teams fail. Success requires: single owner, shared goals, clear RACI, regular syncs.
+
+6. **Three Key Voices**: CEO/COO needs Marketing, Product+Design, and Engineering as equal peers reporting directly.
+
+### Recommendations for Agent Swarm
+
+1. COO as primary orchestrator (current model is correct)
+2. Use RACI explicitly: one Accountable agent per task
+3. Implement quality gates: research -> architecture -> implementation -> testing
+4. STATE.md serves as shared artifact for all communication
+5. Clear escalation paths when agents encounter blockers
+
+### Full Report
+See research response for complete analysis with sources.
+
+---
