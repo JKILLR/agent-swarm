@@ -130,6 +130,174 @@ def setup_logging() -> logging.Logger:
 
 logger = setup_logging()
 
+
+# ============================================================
+# THREAD-SAFE WEBSOCKET SUBSCRIBER MANAGEMENT
+# ============================================================
+
+class WebSocketSubscriberManager:
+    """Thread-safe manager for WebSocket subscriber lists.
+
+    Prevents race conditions when multiple coroutines concurrently
+    add/remove subscribers or broadcast to subscriber lists.
+    """
+
+    def __init__(self, name: str = "default"):
+        self.name = name
+        self._lock = asyncio.Lock()
+        self._subscribers: list[WebSocket] = []
+
+    async def add(self, ws: WebSocket) -> int:
+        """Add a subscriber. Returns total count."""
+        async with self._lock:
+            if ws not in self._subscribers:
+                self._subscribers.append(ws)
+            return len(self._subscribers)
+
+    async def remove(self, ws: WebSocket) -> int:
+        """Remove a subscriber. Returns total count."""
+        async with self._lock:
+            try:
+                self._subscribers.remove(ws)
+            except ValueError:
+                pass
+            return len(self._subscribers)
+
+    async def broadcast(self, message: dict) -> tuple[int, int]:
+        """Broadcast message to all subscribers.
+
+        Returns (success_count, failure_count).
+        Failed connections are automatically removed.
+        """
+        async with self._lock:
+            # Create a copy for iteration
+            current_subscribers = list(self._subscribers)
+
+        success = 0
+        failed = []
+
+        for ws in current_subscribers:
+            try:
+                await ws.send_json(message)
+                success += 1
+            except Exception:
+                failed.append(ws)
+
+        # Remove failed connections
+        if failed:
+            async with self._lock:
+                for ws in failed:
+                    try:
+                        self._subscribers.remove(ws)
+                    except ValueError:
+                        pass
+
+        return (success, len(failed))
+
+    async def get_subscribers(self) -> list[WebSocket]:
+        """Get a copy of current subscribers."""
+        async with self._lock:
+            return list(self._subscribers)
+
+    @property
+    def count(self) -> int:
+        """Get subscriber count (non-async, may be slightly stale)."""
+        return len(self._subscribers)
+
+
+class WebSocketDictSubscriberManager:
+    """Thread-safe manager for keyed WebSocket subscriber lists.
+
+    Manages subscribers grouped by keys (e.g., job_id -> subscribers).
+    """
+
+    def __init__(self, name: str = "default"):
+        self.name = name
+        self._lock = asyncio.Lock()
+        self._subscribers: dict[str, list[WebSocket]] = {}
+
+    async def add(self, key: str, ws: WebSocket) -> int:
+        """Add a subscriber for a key. Returns count for that key."""
+        async with self._lock:
+            if key not in self._subscribers:
+                self._subscribers[key] = []
+            if ws not in self._subscribers[key]:
+                self._subscribers[key].append(ws)
+            return len(self._subscribers[key])
+
+    async def remove(self, key: str, ws: WebSocket) -> int:
+        """Remove a subscriber for a key. Returns count for that key."""
+        async with self._lock:
+            if key in self._subscribers:
+                try:
+                    self._subscribers[key].remove(ws)
+                except ValueError:
+                    pass
+                # Clean up empty lists
+                if not self._subscribers[key]:
+                    del self._subscribers[key]
+                return len(self._subscribers.get(key, []))
+            return 0
+
+    async def remove_from_all(self, ws: WebSocket) -> list[str]:
+        """Remove a subscriber from all keys. Returns list of keys affected."""
+        affected = []
+        async with self._lock:
+            for key in list(self._subscribers.keys()):
+                if ws in self._subscribers[key]:
+                    self._subscribers[key].remove(ws)
+                    affected.append(key)
+                    if not self._subscribers[key]:
+                        del self._subscribers[key]
+        return affected
+
+    async def broadcast(self, key: str, message: dict) -> tuple[int, int]:
+        """Broadcast message to subscribers for a specific key.
+
+        Returns (success_count, failure_count).
+        Failed connections are automatically removed.
+        """
+        async with self._lock:
+            if key not in self._subscribers:
+                return (0, 0)
+            current_subscribers = list(self._subscribers[key])
+
+        success = 0
+        failed = []
+
+        for ws in current_subscribers:
+            try:
+                await ws.send_json(message)
+                success += 1
+            except Exception:
+                failed.append(ws)
+
+        # Remove failed connections
+        if failed:
+            async with self._lock:
+                if key in self._subscribers:
+                    for ws in failed:
+                        try:
+                            self._subscribers[key].remove(ws)
+                        except ValueError:
+                            pass
+                    if not self._subscribers[key]:
+                        del self._subscribers[key]
+
+        return (success, len(failed))
+
+    async def has_key(self, key: str) -> bool:
+        """Check if a key has any subscribers."""
+        async with self._lock:
+            return key in self._subscribers and len(self._subscribers[key]) > 0
+
+
+# Initialize thread-safe subscriber managers
+executor_pool_subs = WebSocketSubscriberManager("executor_pool")
+escalation_subs = WebSocketSubscriberManager("escalations")
+job_subs = WebSocketDictSubscriberManager("jobs")
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Agent Swarm API",
@@ -1381,21 +1549,10 @@ async def get_pool_status() -> dict:
         }
 
 
-# WebSocket subscribers for executor pool events
-executor_pool_subscribers: list[WebSocket] = []
-
-
 async def broadcast_executor_pool_event(event: dict):
     """Broadcast executor pool events to all subscribers and main chat connections."""
-    # Send to dedicated executor pool subscribers
-    for ws in executor_pool_subscribers[:]:
-        try:
-            await ws.send_json(event)
-        except Exception:
-            try:
-                executor_pool_subscribers.remove(ws)
-            except ValueError:
-                pass
+    # Send to dedicated executor pool subscribers (thread-safe)
+    await executor_pool_subs.broadcast(event)
 
     # Also send to main chat WebSocket connections for parallel agent tracking
     # Map executor pool event types to chat WebSocket event types
@@ -1456,8 +1613,8 @@ async def websocket_executor_pool(websocket: WebSocket):
     - Progress updates
     """
     await websocket.accept()
-    executor_pool_subscribers.append(websocket)
-    logger.info(f"Executor pool WebSocket connected. Total subscribers: {len(executor_pool_subscribers)}")
+    count = await executor_pool_subs.add(websocket)
+    logger.info(f"Executor pool WebSocket connected. Total subscribers: {count}")
 
     try:
         # Send initial status
@@ -1510,11 +1667,8 @@ async def websocket_executor_pool(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
-        try:
-            executor_pool_subscribers.remove(websocket)
-        except ValueError:
-            pass
-        logger.info(f"Executor pool WebSocket disconnected. Total subscribers: {len(executor_pool_subscribers)}")
+        count = await executor_pool_subs.remove(websocket)
+        logger.info(f"Executor pool WebSocket disconnected. Total subscribers: {count}")
 
 
 @app.get("/api/swarms")
@@ -2197,17 +2351,31 @@ async def _do_web_fetch(url: str, extract_text: bool = True) -> dict[str, Any]:
 
 # WebSocket for streaming chat
 class ConnectionManager:
-    """Manage WebSocket connections."""
+    """Manage WebSocket connections with thread-safe operations."""
 
     def __init__(self):
         self.active_connections: list[WebSocket] = []
+        self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        self.active_connections.append(websocket)
-        logger.info(f"WebSocket connected. Total: {len(self.active_connections)}")
+        async with self._lock:
+            self.active_connections.append(websocket)
+            count = len(self.active_connections)
+        logger.info(f"WebSocket connected. Total: {count}")
+
+    async def disconnect_async(self, websocket: WebSocket):
+        """Async version of disconnect with proper locking."""
+        async with self._lock:
+            try:
+                self.active_connections.remove(websocket)
+            except ValueError:
+                pass  # Already removed
+            count = len(self.active_connections)
+        logger.info(f"WebSocket disconnected. Total: {count}")
 
     def disconnect(self, websocket: WebSocket):
+        """Sync version for backwards compatibility (use disconnect_async when possible)."""
         try:
             self.active_connections.remove(websocket)
         except ValueError:
@@ -2217,8 +2385,9 @@ class ConnectionManager:
     async def send_event(self, websocket: WebSocket, event_type: str, data: dict[str, Any]):
         """Send a structured event to the client."""
         try:
-            if websocket not in self.active_connections:
-                return  # Connection already closed
+            async with self._lock:
+                if websocket not in self.active_connections:
+                    return  # Connection already closed
             await websocket.send_json(
                 {
                     "type": event_type,
@@ -2230,6 +2399,27 @@ class ConnectionManager:
                 logger.debug(f"Skipped send to closed WebSocket: {e}")
             else:
                 logger.error(f"Error sending event: {e}")
+
+    async def broadcast_event(self, event: dict):
+        """Broadcast an event to all connected clients (thread-safe)."""
+        async with self._lock:
+            connections = list(self.active_connections)
+
+        failed = []
+        for ws in connections:
+            try:
+                await ws.send_json(event)
+            except Exception:
+                failed.append(ws)
+
+        # Remove failed connections
+        if failed:
+            async with self._lock:
+                for ws in failed:
+                    try:
+                        self.active_connections.remove(ws)
+                    except ValueError:
+                        pass
 
 
 manager = ConnectionManager()
@@ -2838,10 +3028,6 @@ async def _process_cli_event(event: dict, websocket: WebSocket, manager, context
         logger.error(f"Error processing CLI event: {e}")
 
 
-# Job update subscribers
-job_update_subscribers: dict[str, list[WebSocket]] = {}
-
-
 @app.websocket("/ws/jobs")
 async def websocket_jobs(websocket: WebSocket):
     """WebSocket endpoint for job updates."""
@@ -2854,12 +3040,10 @@ async def websocket_jobs(websocket: WebSocket):
             action = data.get("action")
 
             if action == "subscribe":
-                # Subscribe to a specific job's updates
+                # Subscribe to a specific job's updates (thread-safe)
                 job_id = data.get("job_id")
                 if job_id:
-                    if job_id not in job_update_subscribers:
-                        job_update_subscribers[job_id] = []
-                    job_update_subscribers[job_id].append(websocket)
+                    await job_subs.add(job_id, websocket)
                     subscribed_jobs.add(job_id)
 
                     # Send current job status
@@ -2872,20 +3056,14 @@ async def websocket_jobs(websocket: WebSocket):
                         })
 
             elif action == "subscribe_all":
-                # Subscribe to all job updates
-                if "all" not in job_update_subscribers:
-                    job_update_subscribers["all"] = []
-                job_update_subscribers["all"].append(websocket)
+                # Subscribe to all job updates (thread-safe)
+                await job_subs.add("all", websocket)
                 subscribed_jobs.add("all")
 
             elif action == "unsubscribe":
                 job_id = data.get("job_id")
                 if job_id and job_id in subscribed_jobs:
-                    if job_id in job_update_subscribers:
-                        try:
-                            job_update_subscribers[job_id].remove(websocket)
-                        except ValueError:
-                            pass
+                    await job_subs.remove(job_id, websocket)
                     subscribed_jobs.discard(job_id)
 
             elif action == "list":
@@ -2902,42 +3080,20 @@ async def websocket_jobs(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
-        # Clean up subscriptions
-        for job_id in subscribed_jobs:
-            if job_id in job_update_subscribers:
-                if websocket in job_update_subscribers[job_id]:
-                    try:
-                        job_update_subscribers[job_id].remove(websocket)
-                    except ValueError:
-                        pass
+        # Clean up all subscriptions for this websocket (thread-safe)
+        await job_subs.remove_from_all(websocket)
 
 
 async def broadcast_job_update(job):
-    """Broadcast job update to subscribers."""
+    """Broadcast job update to subscribers (thread-safe)."""
     job_dict = job.to_dict()
     message = {"type": "job_update", "job": job_dict}
 
     # Send to job-specific subscribers
-    if job.id in job_update_subscribers:
-        for ws in job_update_subscribers[job.id][:]:
-            try:
-                await ws.send_json(message)
-            except Exception:
-                try:
-                    job_update_subscribers[job.id].remove(ws)
-                except ValueError:
-                    pass
+    await job_subs.broadcast(job.id, message)
 
     # Send to "all" subscribers
-    if "all" in job_update_subscribers:
-        for ws in job_update_subscribers["all"][:]:
-            try:
-                await ws.send_json(message)
-            except Exception:
-                try:
-                    job_update_subscribers["all"].remove(ws)
-                except ValueError:
-                    pass
+    await job_subs.broadcast("all", message)
 
 
 @app.websocket("/ws/chat")
@@ -3419,19 +3575,16 @@ curl http://localhost:8000/api/memory
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
-        manager.disconnect(websocket)
+        await manager.disconnect_async(websocket)
 
 
 # ============================================================
 # ESCALATION WEBSOCKET ENDPOINT
 # ============================================================
 
-# WebSocket subscribers for escalation events
-escalation_subscribers: list[WebSocket] = []
-
 
 async def broadcast_escalation_event(event_type: str, escalation_data: dict):
-    """Broadcast escalation events to all subscribers.
+    """Broadcast escalation events to all subscribers (thread-safe).
 
     Event types:
         - escalation_created: New escalation created
@@ -3443,14 +3596,8 @@ async def broadcast_escalation_event(event_type: str, escalation_data: dict):
         **escalation_data,
     }
 
-    for ws in escalation_subscribers[:]:
-        try:
-            await ws.send_json(event)
-        except Exception:
-            try:
-                escalation_subscribers.remove(ws)
-            except ValueError:
-                pass
+    # Broadcast to escalation subscribers (thread-safe)
+    await escalation_subs.broadcast(event)
 
     # Also notify main chat for CEO escalations or critical priority
     priority = escalation_data.get("priority", "medium")
@@ -3464,11 +3611,8 @@ async def broadcast_escalation_event(event_type: str, escalation_data: dict):
             "priority": priority,
             "to_level": to_level,
         }
-        for ws in manager.active_connections[:]:
-            try:
-                await ws.send_json(chat_event)
-            except Exception:
-                manager.disconnect(ws)
+        # Send to main chat connections (use manager's thread-safe method)
+        await manager.broadcast_event(chat_event)
 
 
 @app.websocket("/ws/escalations")
@@ -3486,8 +3630,8 @@ async def websocket_escalations(websocket: WebSocket):
         - get_status: Get summary counts
     """
     await websocket.accept()
-    escalation_subscribers.append(websocket)
-    logger.info(f"Escalation WebSocket connected. Total subscribers: {len(escalation_subscribers)}")
+    count = await escalation_subs.add(websocket)
+    logger.info(f"Escalation WebSocket connected. Total subscribers: {count}")
 
     try:
         # Send initial summary
@@ -3546,11 +3690,8 @@ async def websocket_escalations(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
-        try:
-            escalation_subscribers.remove(websocket)
-        except ValueError:
-            pass
-        logger.info(f"Escalation WebSocket disconnected. Total subscribers: {len(escalation_subscribers)}")
+        count = await escalation_subs.remove(websocket)
+        logger.info(f"Escalation WebSocket disconnected. Total subscribers: {count}")
 
 
 if __name__ == "__main__":
