@@ -61,6 +61,16 @@ export class ChatWebSocket {
   private reconnectDelay = 1000
 
   connect(): Promise<void> {
+    // Guard: if already connected, don't create another connection
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return Promise.resolve()
+    }
+    // Close existing connection before creating new one
+    if (this.ws) {
+      this.ws.close()
+      this.ws = null
+    }
+
     return new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(`${getWsBase()}/ws/chat`)

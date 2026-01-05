@@ -1413,7 +1413,7 @@ async def broadcast_executor_pool_event(event: dict):
             try:
                 await ws.send_json(chat_event)
             except Exception:
-                pass
+                manager.disconnect(ws)
     elif event_type == "agent_execution_complete":
         # Send as agent_complete_subagent for consistency
         chat_event = {
@@ -1426,7 +1426,7 @@ async def broadcast_executor_pool_event(event: dict):
             try:
                 await ws.send_json(chat_event)
             except Exception:
-                pass
+                manager.disconnect(ws)
     elif event_type in ("tool_start", "tool_complete"):
         # Pass through tool events with agent attribution
         chat_event = {
@@ -1442,6 +1442,7 @@ async def broadcast_executor_pool_event(event: dict):
                 await ws.send_json(chat_event)
             except Exception as e:
                 logger.debug(f"Failed to send tool event to WS: {e}")
+                manager.disconnect(ws)
 
 
 @app.websocket("/ws/executor-pool")
@@ -3467,7 +3468,7 @@ async def broadcast_escalation_event(event_type: str, escalation_data: dict):
             try:
                 await ws.send_json(chat_event)
             except Exception:
-                pass
+                manager.disconnect(ws)
 
 
 @app.websocket("/ws/escalations")
