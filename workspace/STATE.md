@@ -375,38 +375,159 @@ backend/
 
 ## Progress Log
 
-### 2026-01-05 - WebSocket Stability Review
+### 2026-01-05 - WebSocket Disconnect/Chat Loading Deep Review
 **Reviewer**: Quality Critic
 **Result**: NEEDS_CHANGES
 
-**Summary**: Reviewed WebSocket connection management for stability issues causing connection leaks.
+**Symptoms Reported**:
+1. WebSocket connects then immediately disconnects (Total: 1 -> Total: 0)
+2. Multiple reconnection attempts before stable connection
+3. Chat content not loading
 
-**Critical Issues Found**:
-1. **Multiple WebSocket connections created per page load** (`frontend/lib/websocket.ts:63-66`)
-   - `connect()` creates NEW WebSocket every call, orphaning previous connections
-   - Both AgentActivityContext and chat/page.tsx call connect() on shared singleton
+---
 
-2. **WebSocket never disconnected on component unmount** (`frontend/app/chat/page.tsx:462-464`, `frontend/lib/AgentActivityContext.tsx:183-185`)
-   - Cleanup only calls `ws.off()`, never `ws.disconnect()`
-   - Connections persist across navigation
+#### Critical Issues Found
 
-3. **Backend broadcast functions don't clean up dead connections** (`backend/main.py:1412-1416`)
-   - Failed sends to `manager.active_connections` silently ignored
-   - Dead connections remain in list, inflating counts
+**BUG 1: React Strict Mode Causes Double-Mount Connection Chaos**
+- **File**: `/home/user/agent-swarm/frontend/next.config.js:3`
+- **Code**: `reactStrictMode: true`
+- **Root Cause**: React 18 Strict Mode mounts components twice in development. Both `AgentActivityContext` and `chat/page.tsx` call `ws.connect()` on mount, causing:
+  1. First mount: connect() called, WebSocket in CONNECTING state
+  2. Strict Mode unmount: cleanup runs, but does NOT call disconnect()
+  3. Second mount: connect() called again, previous connection closed mid-handshake
+- **Impact**: Immediate disconnect pattern, unstable initial connection
 
-**Root Cause of "Total: 3, 4, 5..." logs**:
-Navigation creates new connections without closing old ones. Frontend singleton's `connect()` method overwrites websocket reference without closing existing one.
+**BUG 2: connect() Only Guards OPEN State, Not CONNECTING**
+- **File**: `/home/user/agent-swarm/frontend/lib/websocket.ts:63-72`
+- **Code**:
+  ```typescript
+  if (this.ws?.readyState === WebSocket.OPEN) {
+    return Promise.resolve()
+  }
+  if (this.ws) {
+    this.ws.close()  // Kills CONNECTING WebSocket!
+    this.ws = null
+  }
+  ```
+- **Root Cause**: Guard only checks `OPEN`, not `CONNECTING` (readyState === 0). If a connection is being established, a second `connect()` call closes it and starts fresh.
+- **Impact**: Race condition when multiple components call connect() simultaneously
 
-**Recommended Fixes**:
-1. Add connection guard in `connect()`: check `this.ws?.readyState === WebSocket.OPEN`
-2. Call `ws.disconnect()` in component cleanup functions
-3. Remove dead connections in broadcast exception handlers
+**BUG 3: Dual WebSocket Consumers Both Call connect()**
+- **Files**:
+  - `/home/user/agent-swarm/frontend/lib/AgentActivityContext.tsx:65,181`
+  - `/home/user/agent-swarm/frontend/app/chat/page.tsx:50,456`
+- **Code**: Both components do:
+  ```typescript
+  const wsRef = useRef(getChatWebSocket())
+  // ...
+  ws.connect()
+  ```
+- **Root Cause**: Both components mount at the same time (Context wraps layout, chat/page is nested). They share the singleton but call connect() independently.
+- **Impact**: Race to connect, potential duplicate connections
+
+**BUG 4: No disconnect() in Cleanup Functions**
+- **Files**:
+  - `/home/user/agent-swarm/frontend/app/chat/page.tsx:462-464`
+  - `/home/user/agent-swarm/frontend/lib/AgentActivityContext.tsx:183-185`
+- **Code**:
+  ```typescript
+  return () => {
+    ws.off('*', handleEvent)
+    // Missing: ws.disconnect() or connection management
+  }
+  ```
+- **Root Cause**: Cleanup only removes event handlers, never closes the WebSocket
+- **Impact**: Orphaned connections stay open, reconnect logic fires unexpectedly
+
+**BUG 5: onclose Handler Triggers Reconnect Before Cleanup**
+- **File**: `/home/user/agent-swarm/frontend/lib/websocket.ts:94-98`
+- **Code**:
+  ```typescript
+  this.ws.onclose = () => {
+    console.log('WebSocket disconnected')
+    this.emit('disconnected', { type: 'error', message: 'Disconnected' })
+    this.attemptReconnect()  // Immediate reconnect!
+  }
+  ```
+- **Root Cause**: When React Strict Mode unmounts/remounts, the close event may fire and trigger reconnection WHILE React is still in the middle of cleanup/remount cycle
+- **Impact**: Reconnection races with remount, creating connection chaos
+
+---
+
+#### Warnings (Should Fix)
+
+**WARN 1: Chat Content May Not Load Due to Event Handler Timing**
+- **Files**:
+  - `/home/user/agent-swarm/frontend/app/chat/page.tsx:132-145` (session loading)
+  - `/home/user/agent-swarm/frontend/app/chat/page.tsx:148-465` (WebSocket handlers)
+- **Issue**: Sessions load via REST API, but WebSocket events for streaming chat may arrive before handlers are fully registered (due to mount timing issues)
+- **Impact**: Chat events lost during connection instability
+
+**WARN 2: Backend Connection Count Can Get Out of Sync**
+- **File**: `/home/user/agent-swarm/backend/main.py:2210-2215`
+- **Code**: `disconnect()` silently ignores ValueError if already removed
+- **Issue**: If disconnect is called twice (from multiple exception paths), the count logging may be misleading
+
+---
+
+#### Recommended Fixes
+
+**FIX 1: Add CONNECTING state guard to connect()**
+```typescript
+connect(): Promise<void> {
+  // Guard: already connected or connecting
+  if (this.ws?.readyState === WebSocket.OPEN ||
+      this.ws?.readyState === WebSocket.CONNECTING) {
+    return this.ws.readyState === WebSocket.OPEN
+      ? Promise.resolve()
+      : this.connectionPromise  // Return existing promise
+  }
+  // ... rest of connect logic
+}
+```
+
+**FIX 2: Centralize WebSocket connection in AgentActivityContext only**
+- Remove `ws.connect()` from `chat/page.tsx`
+- Context should own the connection lifecycle
+- Page should only register/unregister handlers
+
+**FIX 3: Add disconnect() to cleanup or use connection ref counting**
+```typescript
+// In cleanup:
+return () => {
+  ws.off('*', handleEvent)
+  // Only disconnect if no other consumers:
+  if (ws.handlerCount === 0) {
+    ws.disconnect()
+  }
+}
+```
+
+**FIX 4: Disable Strict Mode for production-like testing**
+- Temporarily set `reactStrictMode: false` to verify fix
+- Or implement proper connection lifecycle that survives double-mount
+
+**FIX 5: Add connection state tracking to prevent reconnect races**
+```typescript
+private isReconnecting = false
+
+private attemptReconnect() {
+  if (this.isReconnecting) return
+  this.isReconnecting = true
+  // ... reconnect logic
+  // Reset flag on success/failure
+}
+```
+
+---
 
 **Files Requiring Changes**:
-- `/home/user/agent-swarm/frontend/lib/websocket.ts`
-- `/home/user/agent-swarm/frontend/app/chat/page.tsx`
-- `/home/user/agent-swarm/frontend/lib/AgentActivityContext.tsx`
-- `/home/user/agent-swarm/backend/main.py`
+- `/home/user/agent-swarm/frontend/lib/websocket.ts` - Add CONNECTING guard, connection promise tracking
+- `/home/user/agent-swarm/frontend/app/chat/page.tsx` - Remove direct connect(), delegate to context
+- `/home/user/agent-swarm/frontend/lib/AgentActivityContext.tsx` - Own connection lifecycle fully
+- `/home/user/agent-swarm/frontend/next.config.js` - Consider strictMode implications
+
+**Priority**: HIGH - These bugs directly cause the reported symptoms
 
 ---
 

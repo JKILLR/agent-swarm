@@ -59,25 +59,44 @@ export class ChatWebSocket {
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
   private reconnectDelay = 1000
+  private connectionPromise: Promise<void> | null = null
+  private isIntentionalDisconnect = false
+  private reconnectTimeout: NodeJS.Timeout | null = null
 
   connect(): Promise<void> {
     // Guard: if already connected, don't create another connection
     if (this.ws?.readyState === WebSocket.OPEN) {
       return Promise.resolve()
     }
+
+    // Guard: if currently connecting, return the existing promise
+    if (this.ws?.readyState === WebSocket.CONNECTING && this.connectionPromise) {
+      return this.connectionPromise
+    }
+
     // Close existing connection before creating new one
     if (this.ws) {
+      this.ws.onclose = null // Prevent reconnect trigger
       this.ws.close()
       this.ws = null
     }
 
-    return new Promise((resolve, reject) => {
+    // Clear any pending reconnect
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
+
+    this.isIntentionalDisconnect = false
+
+    this.connectionPromise = new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(`${getWsBase()}/ws/chat`)
 
         this.ws.onopen = () => {
           console.log('WebSocket connected')
           this.reconnectAttempts = 0
+          this.connectionPromise = null
           resolve()
         }
 
@@ -93,18 +112,27 @@ export class ChatWebSocket {
 
         this.ws.onclose = () => {
           console.log('WebSocket disconnected')
+          this.connectionPromise = null
           this.emit('disconnected', { type: 'error', message: 'Disconnected' })
-          this.attemptReconnect()
+
+          // Only reconnect if not intentionally disconnected
+          if (!this.isIntentionalDisconnect) {
+            this.attemptReconnect()
+          }
         }
 
         this.ws.onerror = (error) => {
           console.error('WebSocket error:', error)
+          this.connectionPromise = null
           reject(error)
         }
       } catch (e) {
+        this.connectionPromise = null
         reject(e)
       }
     })
+
+    return this.connectionPromise
   }
 
   private attemptReconnect() {
@@ -113,20 +141,36 @@ export class ChatWebSocket {
       return
     }
 
+    // Don't start another reconnect if one is pending
+    if (this.reconnectTimeout) {
+      return
+    }
+
     this.reconnectAttempts++
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)
     console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`)
 
-    setTimeout(() => {
+    this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null
       this.connect().catch(() => {})
     }, delay)
   }
 
   disconnect() {
+    this.isIntentionalDisconnect = true
+
+    // Clear any pending reconnect
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
+
     if (this.ws) {
+      this.ws.onclose = null // Prevent reconnect trigger
       this.ws.close()
       this.ws = null
     }
+    this.connectionPromise = null
   }
 
   send(message: string, options?: { swarm?: string; session_id?: string; attachments?: Array<{type: string; name: string; content: string; mimeType?: string}> }) {
