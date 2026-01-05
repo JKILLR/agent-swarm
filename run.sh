@@ -63,7 +63,7 @@ trap cleanup SIGINT SIGTERM
 echo -e "${GREEN}Starting backend on http://localhost:8000${NC}"
 export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
 cd "$SCRIPT_DIR/backend"
-$PYTHON -m uvicorn main:app --reload --host 0.0.0.0 --port 8000 &
+$PYTHON -m uvicorn main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
 # Wait a bit for backend to start
