@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from ..models.requests import JobCreate
+from models.requests import JobCreate
 from jobs import get_job_queue, get_job_manager
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
