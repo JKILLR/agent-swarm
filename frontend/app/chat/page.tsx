@@ -15,7 +15,8 @@ import ChatMessage from '@/components/ChatMessage'
 import AgentResponse from '@/components/AgentResponse'
 import { useAgentActivity } from '@/lib/AgentActivityContext'
 import { useMobileLayout } from '@/components/MobileLayout'
-import { Terminal, WifiOff, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Terminal, WifiOff, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight, X, Activity } from 'lucide-react'
+import ActivityPanel from '@/components/ActivityPanel'
 
 interface Message {
   id: string
@@ -44,7 +45,9 @@ export default function ChatPage() {
     panelToolActivities: toolActivities,
     setPanelAgentActivities: setAgentActivities,
     setPanelToolActivities: setToolActivities,
+    clearPanelActivities,
   } = useAgentActivity()
+  const [showMobileActivity, setShowMobileActivity] = useState(false)
   const { isMobile } = useMobileLayout()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef(getChatWebSocket())
@@ -566,8 +569,14 @@ export default function ChatPage() {
     handleSend(content, [])
   }, [handleSend])
 
+  // Activity state for mobile panel
+  const hasActivity = agentActivities.length > 0 || toolActivities.length > 0
+  const isActivityProcessing = agentActivities.some(
+    (a) => a.status !== 'complete' && a.status !== 'error'
+  )
+
   return (
-    <div className="flex h-full relative bg-[#0d0d0d]">
+    <div className="flex h-full relative bg-[#0d0d0d] overflow-hidden">
       {/* Session Sidebar - Hidden on mobile, use bottom sheet instead */}
       <div className={`hidden md:flex ${showSidebar ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden border-r border-zinc-800/50 flex-col bg-[#0d0d0d]`}>
         <div className="p-3 border-b border-zinc-800/50 flex items-center justify-between">
@@ -684,6 +693,45 @@ export default function ChatPage() {
         </>
       )}
 
+      {/* Mobile Activity Bottom Sheet */}
+      {isMobile && showMobileActivity && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 z-40 bg-black/80"
+            onClick={() => setShowMobileActivity(false)}
+          />
+          {/* Bottom Sheet */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d0d] rounded-t-2xl border-t border-zinc-800/50 max-h-[70vh] flex flex-col animate-slide-up">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800/50">
+              <div className="flex items-center gap-2">
+                <Activity className={`w-5 h-5 ${isActivityProcessing ? 'text-orange-500 animate-pulse' : 'text-zinc-500'}`} />
+                <span className="font-medium text-zinc-300">Activity</span>
+                {isActivityProcessing && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-xs">
+                    Active
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setShowMobileActivity(false)}
+                className="p-2 hover:bg-zinc-800/50 rounded-lg transition-colors touch-manipulation"
+              >
+                <X className="w-5 h-5 text-zinc-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <ActivityPanel
+                agents={agentActivities}
+                tools={toolActivities}
+                isProcessing={isActivityProcessing}
+                onClear={clearPanelActivities}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#0d0d0d]">
         {/* Header */}
@@ -717,6 +765,20 @@ export default function ChatPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Mobile activity button - only show when there's activity */}
+            {isMobile && (isActivityProcessing || hasActivity) && (
+              <button
+                onClick={() => setShowMobileActivity(true)}
+                className={`p-2 rounded-lg transition-all touch-manipulation ${
+                  isActivityProcessing
+                    ? 'bg-orange-500/20 animate-pulse'
+                    : 'hover:bg-zinc-800/50'
+                }`}
+                title="View activity"
+              >
+                <Activity className={`w-5 h-5 ${isActivityProcessing ? 'text-orange-500' : 'text-zinc-500'}`} />
+              </button>
+            )}
             {isConnected ? (
               <span className="flex items-center gap-1.5 text-xs text-green-500">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
