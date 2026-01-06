@@ -1,0 +1,82 @@
+# Design Swarm Configuration
+# Specialized UI/UX design team with built-in research capabilities
+
+name: "design"
+description: "Expert UI/UX design team that researches current trends before all design decisions"
+version: "1.0.0"
+status: "active"
+
+# Agents in this swarm
+agents:
+  - name: "design_lead"
+    type: "orchestrator"
+    prompt_file: "agents/design_lead.md"
+    max_turns: 30
+    background: false
+    description: "Reviews and approves design decisions, ensures consistency"
+
+  - name: "design_researcher"
+    type: "researcher"
+    prompt_file: "agents/design_researcher.md"
+    max_turns: 25
+    background: true
+    description: "Researches current design trends, patterns, and best practices"
+
+  - name: "ui_implementer"
+    type: "implementer"
+    prompt_file: "agents/ui_implementer.md"
+    max_turns: 30
+    background: true
+    description: "Builds React/Tailwind components from designs"
+
+  - name: "ux_reviewer"
+    type: "critic"
+    prompt_file: "agents/ux_reviewer.md"
+    max_turns: 20
+    background: true
+    description: "Audits accessibility and usability"
+
+# Workspace for design files
+workspace: "./workspace"
+
+# Swarm settings
+settings:
+  max_concurrent_tasks: 4
+  require_consensus: false  # Design decisions flow through design_lead
+  timeout: 300
+  parallel_execution: true
+  wake_messaging: true
+
+  # Design-specific settings
+  web_search_enabled: true  # Agents should always research before design work
+  trend_cache_ttl: 604800   # 7 days in seconds
+  accessibility_standard: "WCAG_2.2_AA"
+
+# Design-specific configuration
+design_system:
+  framework: "tailwind_v4"
+  component_library: "shadcn_ui"
+  color_system: "oklch"
+  spacing_system: "8pt_grid"
+
+# Current priorities
+priorities:
+  - "Research current design trends before any work"
+  - "Ensure WCAG 2.2 AA accessibility compliance"
+  - "Follow design system standards"
+  - "Mobile-first responsive design"
+
+# Review workflow
+review_workflow:
+  - stage: "research"
+    agent: "design_researcher"
+    required: true
+  - stage: "design"
+    agent: "design_lead"
+    required: true
+  - stage: "implementation"
+    agent: "ui_implementer"
+    required: true
+  - stage: "review"
+    agent: "ux_reviewer"
+    required: true

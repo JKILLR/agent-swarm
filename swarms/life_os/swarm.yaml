@@ -1,0 +1,158 @@
+name: life_os
+description: Personal & Work Life Management System for J - Construction PM/Site Superintendent managing low-rise apartment builds
+version: 1.0.0
+status: active
+
+# Life OS uses its own workspace
+workspace: workspace
+
+agents:
+  # Primary orchestrator - J's main interface
+  - name: chief_of_staff
+    role: orchestrator
+    prompt_file: agents/chief_of_staff.md
+    max_turns: 30
+    description: "Primary interface. Daily briefings, priority management, cross-agent coordination."
+
+  # Construction-specific agents
+  - name: site_superintendent
+    role: construction
+    prompt_file: agents/site_superintendent.md
+    max_turns: 25
+    description: "Daily site operations, safety, quality control, field problem solving."
+
+  - name: project_controller
+    role: construction
+    prompt_file: agents/project_controller.md
+    max_turns: 25
+    description: "Schedules, budgets, RFIs, submittals, owner reporting."
+
+  - name: subcontractor_manager
+    role: construction
+    prompt_file: agents/subcontractor_manager.md
+    max_turns: 25
+    description: "Trade coordination, sub performance tracking, conflict resolution."
+
+  - name: inspector_liaison
+    role: construction
+    prompt_file: agents/inspector_liaison.md
+    max_turns: 20
+    description: "Inspection scheduling, prep checklists, code compliance."
+
+  # General work/life agents
+  - name: work_manager
+    role: management
+    prompt_file: agents/work_manager.md
+    max_turns: 20
+    description: "Contract management, professional development, business admin."
+
+  - name: personal_manager
+    role: management
+    prompt_file: agents/personal_manager.md
+    max_turns: 20
+    description: "Personal tasks, health, relationships, home management."
+
+  - name: comms_agent
+    role: communications
+    prompt_file: agents/comms_agent.md
+    max_turns: 20
+    description: "Email triage, message drafting, communication in J's voice."
+
+  - name: calendar_agent
+    role: scheduling
+    prompt_file: agents/calendar_agent.md
+    max_turns: 20
+    description: "Schedule management, time protection, conflict resolution."
+
+  - name: memory_curator
+    role: data
+    prompt_file: agents/memory_curator.md
+    max_turns: 25
+    description: "Knowledge extraction, MindGraph management, context provision."
+
+  - name: automation_agent
+    role: integration
+    prompt_file: agents/automation_agent.md
+    max_turns: 25
+    description: "Workflow automation, external integrations, data sync."
+
+settings:
+  max_concurrent_tasks: 3
+  timeout: 600
+  parallel_execution: true
+
+# Integration targets
+integrations:
+  priority_1:
+    - gmail
+    - google_drive
+    - google_calendar
+
+  priority_2:
+    - ios_messages
+    - apple_shortcuts
+
+  priority_3:
+    - procore  # If used for construction PM
+    - plangrid
+    - buildertrend
+
+# Data categories tracked
+data_categories:
+  work_construction:
+    - daily_logs
+    - inspection_records
+    - rfi_tracking
+    - submittal_tracking
+    - subcontractor_info
+    - schedule_data
+    - budget_data
+
+  work_general:
+    - contracts
+    - professional_contacts
+    - certifications
+    - expenses
+
+  personal:
+    - tasks
+    - appointments
+    - important_dates
+    - health_tracking
+    - financial_items
+
+# Agent collaboration matrix
+collaboration:
+  chief_of_staff:
+    delegates_to: [site_superintendent, project_controller, subcontractor_manager, work_manager, personal_manager, comms_agent, calendar_agent]
+    receives_from: [all]
+
+  site_superintendent:
+    collaborates_with: [project_controller, subcontractor_manager, inspector_liaison]
+    reports_to: chief_of_staff
+
+  project_controller:
+    collaborates_with: [site_superintendent, subcontractor_manager]
+    reports_to: chief_of_staff
+
+  memory_curator:
+    receives_from: [all]
+    provides_to: [all]
+
+# Owner profile
+owner:
+  name: J
+  role: "Construction Project Manager / Site Superintendent"
+  employer_type: "Contract work for developer"
+  project_type: "Low-rise apartment buildings"
+
+  challenges:
+    - "Software projects consuming too much time"
+    - "Real job responsibilities need attention"
+    - "Personal life has been neglected"
+
+  goals:
+    - "System that learns everything about J"
+    - "Can act autonomously on J's behalf"
+    - "Manages both work and personal life"
+    - "Reduces cognitive load"

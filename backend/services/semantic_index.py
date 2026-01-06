@@ -9,10 +9,12 @@ Key features:
 - Persistence via embeddings.npz and embedding_meta.json
 - Lazy loading with dirty tracking for efficient saves
 - Thread-safe operations
+- Async methods for use in async contexts
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import threading
@@ -154,7 +156,7 @@ class SemanticIndex:
         return " | ".join(parts)
 
     def index_node(self, node: "MindNode") -> None:
-        """Add or update embedding for a node.
+        """Add or update embedding for a node (sync).
 
         Args:
             node: The node to index
@@ -164,6 +166,22 @@ class SemanticIndex:
         service = get_embedding_service()
         text = self._build_embedding_text(node)
         embedding = service.embed(text)
+
+        with self._lock:
+            self._embeddings[node.id] = embedding
+            self._dirty = True
+
+    async def index_node_async(self, node: "MindNode") -> None:
+        """Add or update embedding for a node (async).
+
+        Args:
+            node: The node to index
+        """
+        from backend.services.embedding_service import get_embedding_service
+
+        service = get_embedding_service()
+        text = self._build_embedding_text(node)
+        embedding = await service.embed_async(text)
 
         with self._lock:
             self._embeddings[node.id] = embedding
@@ -187,7 +205,7 @@ class SemanticIndex:
         node_types: list["NodeType"] | None = None,
         min_similarity: float = 0.3,
     ) -> list[SearchResult]:
-        """Semantic search over indexed nodes.
+        """Semantic search over indexed nodes (sync).
 
         Args:
             query: Natural language query
@@ -205,6 +223,54 @@ class SemanticIndex:
 
         service = get_embedding_service()
         query_embedding = service.embed(query)
+
+        results = []
+        with self._lock:
+            for node_id, embedding in self._embeddings.items():
+                similarity = service.cosine_similarity(query_embedding, embedding)
+
+                if similarity < min_similarity:
+                    continue
+
+                node = self.graph.get_node(node_id)
+                if not node:
+                    continue
+
+                if node_types and node.node_type not in node_types:
+                    continue
+
+                results.append(SearchResult(node=node, similarity=similarity))
+
+        results.sort(key=lambda r: r.similarity, reverse=True)
+        return results[:limit]
+
+    async def search_async(
+        self,
+        query: str,
+        limit: int = 10,
+        node_types: list["NodeType"] | None = None,
+        min_similarity: float = 0.3,
+    ) -> list[SearchResult]:
+        """Semantic search over indexed nodes (async).
+
+        Runs embedding in thread pool to avoid blocking event loop.
+
+        Args:
+            query: Natural language query
+            limit: Max results to return
+            node_types: Filter by node type (None = all types)
+            min_similarity: Minimum cosine similarity threshold
+
+        Returns:
+            List of SearchResult sorted by similarity (descending)
+        """
+        if not self._embeddings:
+            return []
+
+        from backend.services.embedding_service import get_embedding_service
+
+        service = get_embedding_service()
+        query_embedding = await service.embed_async(query)
 
         results = []
         with self._lock:
@@ -281,6 +347,28 @@ class SemanticIndex:
 
         texts = [self._build_embedding_text(n) for n in nodes]
         embeddings = service.embed_batch(texts)
+
+        with self._lock:
+            self._embeddings = {
+                node.id: embeddings[i]
+                for i, node in enumerate(nodes)
+            }
+            self._dirty = True
+            self._save()
+        logger.info(f"Rebuilt embeddings for {len(nodes)} nodes")
+
+    async def rebuild_all_async(self) -> None:
+        """Rebuild embeddings for all nodes (async). Call after bulk import."""
+        from backend.services.embedding_service import get_embedding_service
+
+        service = get_embedding_service()
+        nodes = list(self.graph._nodes.values())
+
+        if not nodes:
+            return
+
+        texts = [self._build_embedding_text(n) for n in nodes]
+        embeddings = await service.embed_batch_async(texts)
 
         with self._lock:
             self._embeddings = {

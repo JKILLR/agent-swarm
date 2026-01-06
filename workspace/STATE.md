@@ -375,6 +375,68 @@ backend/
 
 ## Progress Log
 
+### 2026-01-05 - Memory Architecture 8GB Implementation Design
+**Architect**: System Architect
+**Status**: DESIGN COMPLETE
+
+**Design Document**: `/Users/jellingson/agent-swarm/docs/MEMORY_ARCHITECTURE_8GB.md`
+
+**Context**: The visionary memory architecture in `MAXIMALLY_INTELLIGENT_MEMORY_ARCHITECTURE.md` describes an ambitious cognitive memory system, but assumes unlimited resources. This practical implementation adapts all concepts for an 8GB M2 Mac Mini.
+
+**Key Architectural Decisions**:
+
+| Decision | Rationale |
+|----------|-----------|
+| **SQLite for ALL storage** | Single source of truth, WAL mode for concurrency, built-in FTS5 |
+| **50MB embedding cache (LRU)** | ~32K embeddings cached, predictable memory ceiling |
+| **100-item working memory limit** | Enforces cognitive 7+/-2 constraint, prevents unbounded growth |
+| **Bounded spreading activation (3 hops, 50 nodes)** | Prevents memory explosion on dense graphs |
+| **Batched embeddings (32 items)** | Balance between latency and throughput |
+| **Memory-mapped files for large indices** | OS handles paging, doesn't count against heap |
+
+**Memory Budget Allocation** (Total: ~1GB):
+- Embedding Model: 500MB
+- Embedding Cache: 50MB (LRU)
+- SQLite Page Cache: 64MB
+- Working Memory: 10MB
+- Python Heap: 200MB
+- Batch Buffers: 50MB
+- Reserved Headroom: 126MB
+
+**Implementation Priority**:
+1. Phase 1 (Week 1-2): SQLite storage foundation - `memory_db.py`, `semantic_memory.py`
+2. Phase 2 (Week 3): FTS5 + semantic search
+3. Phase 3 (Week 4): Bounded working memory with eviction
+4. Phase 4 (Week 5): Bounded spreading activation
+5. Phase 5 (Week 6-7): Memory decay + consolidation
+6. Phase 6 (Week 8): Meta-cognition (confidence, gap detection)
+7. Phase 7 (Week 9-10): Integration and performance tuning
+
+**Preserved Concepts from Visionary Architecture**:
+- Tri-Memory System (Episodic, Semantic, Procedural) - now SQLite-backed
+- Working Memory with limited capacity - hard 100-item limit
+- Memory consolidation/sleep cycles - batched background processing
+- Ebbinghaus decay curves - computed from retrieval_history table
+- Confidence tracking - Bayesian updates in database
+- Spreading activation - bounded to prevent memory explosion
+
+**Key Files to Create**:
+- `backend/services/memory_db.py` - SQLite connection management
+- `backend/services/episodic_memory.py` - Episode storage
+- `backend/services/semantic_memory.py` - Fact/concept storage
+- `backend/services/procedural_memory.py` - Skill storage
+- `backend/services/working_memory.py` - Bounded attention buffer
+- `backend/services/embedding_store.py` - SQLite BLOB + mmap
+- `backend/services/embedding_service_batched.py` - Rate-limited batching
+- `backend/services/spreading_activation.py` - Bounded graph traversal
+- `backend/services/memory_decay.py` - Ebbinghaus implementation
+- `backend/services/consolidation_service.py` - Episodic to semantic
+- `backend/services/confidence_tracker.py` - Bayesian updates
+- `backend/services/gap_detector.py` - Know what you don't know
+- `backend/services/memory_monitor.py` - Budget enforcement
+
+---
+
 ### 2026-01-05 - WebSocket Disconnect/Chat Loading Deep Review
 **Reviewer**: Quality Critic
 **Result**: NEEDS_CHANGES
@@ -3077,5 +3139,2026 @@ Comprehensive analysis of corporate organizational structures for software/produ
 
 ### Full Report
 See research response for complete analysis with sources.
+
+---
+
+---
+
+## RLM Repository Analysis - 2026-01-05
+**Researcher**: Research Specialist Agent
+**Date**: 2026-01-05
+
+**Status**: COMPLETE - Comprehensive analysis of /tmp/rlm repository
+
+### Executive Summary
+RLM (Recursive Language Models) is NOT a memory system in the traditional sense. It is a recursive inference paradigm for handling long contexts by allowing LLMs to programmatically decompose and recursively call themselves through a REPL environment.
+
+### Key Architectural Insights
+
+**Core Pattern:**
+```
+User Query -> RLM(root LLM) -> REPL Environment -> llm_query() -> Sub-LLM(s) -> Aggregation -> Final Answer
+```
+
+**Critical Findings:**
+1. NO vector/embedding storage - all state is ephemeral Python variables
+2. NO persistent memory - state exists only during one completion() call
+3. "Reflection" is actually recursion through code execution
+4. LLM writes Python code in REPL that can call llm_query() for sub-LLM queries
+
+### File Structure Overview
+- `/tmp/rlm/rlm/core/rlm.py` - Main RLM class, iterative completion loop
+- `/tmp/rlm/rlm/core/types.py` - Data structures: RLMIteration, REPLResult, CodeBlock
+- `/tmp/rlm/rlm/environments/local_repl.py` - Primary execution environment
+- `/tmp/rlm/rlm/utils/prompts.py` - System prompt defining the paradigm
+- `/tmp/rlm/rlm/core/lm_handler.py` - TCP server routing LLM requests
+
+### Comparison with Memory Systems
+| Aspect | RLM | Traditional Memory |
+|--------|-----|-------------------|
+| Storage | Ephemeral Python vars | Persistent vector DB |
+| Retrieval | LLM-written code | Semantic similarity |
+| Embeddings | None | Core component |
+| Persistence | None | Across sessions |
+| Use case | Long-context processing | Conversational memory |
+
+### Limitations Identified
+1. No persistent memory between completion() calls
+2. Security concerns with exec() code execution
+3. No semantic understanding without re-reading context
+4. Token inefficiency (sub-LLM calls duplicate prompts)
+5. Linear cost scaling: O(context * iterations * sub_calls)
+6. Prompt injection vulnerability in FINAL() parsing
+
+### Scalability Concerns
+- Each iteration sequential (10 iterations = 70-350s latency)
+- No caching for repeated sub-queries
+- message_history grows unbounded across iterations
+- Environment startup overhead (Docker: 3-5s, Modal: cloud latency)
+
+### Reference
+Full analysis available in conversation history. Key files read:
+- README.md, AGENTS.md, pyproject.toml
+- All files in /tmp/rlm/rlm/core/
+- All files in /tmp/rlm/rlm/environments/
+- All files in /tmp/rlm/rlm/clients/
+- All files in /tmp/rlm/rlm/utils/
+
+
+---
+
+## Memory Architecture: 8GB Constrained Design Complete
+**Architect**: System Architect Agent
+**Date**: 2026-01-05
+
+**Status**: DESIGN COMPLETE - READY FOR IMPLEMENTATION
+
+### Document Created
+**File**: `/Users/jellingson/agent-swarm/docs/MEMORY_ARCHITECTURE_8GB.md` (3,053 lines)
+
+### Summary
+Created a production-ready implementation specification that adapts all cognitive concepts from the visionary MAXIMALLY_INTELLIGENT_MEMORY_ARCHITECTURE.md for M2 Mac Mini 8GB RAM constraints.
+
+### Key Architectural Decisions
+
+| Visionary Approach | 8GB Implementation | Rationale |
+|-------------------|-------------------|-----------|
+| In-memory dict for nodes | SQLite tables with FTS5 | Persistence + low RAM |
+| In-memory NumPy embeddings | SQLite BLOB + LRU cache (50MB) | Predictable ceiling |
+| Unbounded working memory | Hard limit: 100 items | Cognitive constraint |
+| Full graph spreading | Bounded: 3 hops, 50 nodes max | Prevents explosion |
+| Single embedding calls | Batched (32 items) + rate limiting | Throughput vs latency |
+| Linear similarity scan | Batched DB queries + optional mmap | Scales to 10K+ nodes |
+
+### Memory Budget (Total: ~1GB)
+
+| Component | Allocation |
+|-----------|------------|
+| Embedding Model (all-MiniLM-L6-v2) | 500 MB |
+| SQLite Page Cache | 64 MB |
+| Embedding LRU Cache | 50 MB |
+| Batch Buffers | 50 MB |
+| Python Heap | 200 MB |
+| Working Memory | 10 MB |
+| Reserved Headroom | 126 MB |
+
+### Preserved Cognitive Concepts
+- Tri-Memory System (Episodic, Semantic, Procedural) as SQLite tables
+- Working Memory with 100-item LRU eviction
+- Memory Consolidation "sleep cycles" in batches
+- Ebbinghaus Decay with retrieval_history table
+- Bayesian Confidence updates stored per node
+- Bounded Spreading Activation (3 hops, 50 nodes max)
+- Meta-Cognition (gap detection, contradiction finding)
+
+### Implementation Priority (10 Weeks)
+1. Phase 1 (W1-2): SQLite foundation + basic stores
+2. Phase 2 (W3): FTS5 + semantic search  
+3. Phase 3 (W4): Bounded working memory
+4. Phase 4 (W5): Bounded spreading activation
+5. Phase 5 (W6-7): Memory decay + consolidation
+6. Phase 6 (W8): Meta-cognition layer
+7. Phase 7 (W9-10): Integration + tuning
+
+### 13 New Modules Specified
+- `backend/services/memory_db.py` - SQLite pooling with WAL mode
+- `backend/services/episodic_memory.py` - Gzip-compressed episode storage
+- `backend/services/semantic_memory.py` - FTS5 full-text search
+- `backend/services/procedural_memory.py` - Skill execution tracking
+- `backend/services/working_memory.py` - 100-item bounded buffer
+- `backend/services/embedding_store.py` - SQLite BLOB + 50MB LRU
+- `backend/services/embedding_service_batched.py` - Rate-limited batching
+- `backend/services/spreading_activation.py` - 3-hop bounded traversal
+- `backend/services/memory_decay.py` - ACT-R activation decay
+- `backend/services/consolidation_service.py` - Episodic→semantic abstraction
+- `backend/services/confidence_tracker.py` - Bayesian updates
+- `backend/services/gap_detector.py` - Low confidence/stale detection
+- `backend/services/memory_monitor.py` - Budget enforcement
+
+### Database Schema
+- 7 core tables (episodic, semantic, procedural, edges, embeddings, working_memory, retrieval_history)
+- FTS5 virtual table with auto-sync triggers
+- Proper indices for common query patterns
+- Foreign key constraints and cleanup triggers
+
+### Next Steps
+1. Review and approve design document
+2. Begin Phase 1 implementation (SQLite foundation)
+3. Set up memory monitoring from the start
+
+---
+
+## Updates - January 5, 2026
+
+### Completed
+- **Activity Panel Bug Fix**: Spinner stuck issue resolved - CC implemented fix
+- **MYND Phase 1 Memory Architecture**: Tri-memory cognitive architecture foundation implemented
+
+
+---
+
+### 2026-01-05 - Design Trend Resources Research for AI Agents
+**Researcher**: Research Specialist Agent
+**Status**: COMPLETE
+
+**Objective**: Research best approaches for AI agents to stay current with design trends before doing design work.
+
+**Key Resource Categories Identified**:
+
+1. **Design Inspiration Platforms**: Awwwards, Dribbble, Behance, SiteInspire, CSS Design Awards
+2. **Design Blogs/Publications**: Smashing Magazine, CSS-Tricks, A List Apart, UX Collective
+3. **Component Libraries**: shadcn/ui, Radix UI, MUI, Mantine, Ant Design
+4. **Color/Typography Tools**: Coolors, Khroma, Typewolf, Fontpair.co, Google Fonts
+5. **Pattern Libraries**: Mobbin, Land-book, Landingfolio, Saaspo, Lapa Ninja
+6. **Framework Updates**: Tailwind CSS v4.0+ (Oxide engine), CSS Cascade Layers
+
+**2026 Design Trends Summary**:
+- Monochrome palettes with bold single-hue designs
+- 3D sculptural elements and liquid chrome effects
+- Hand-drawn humanized typography
+- Variable fonts for performance
+- Accessibility-first component design
+- Pantone Color of the Year: Cloud Dancer (neutral)
+
+**Research Document**: See `/Users/jellingson/agent-swarm/workspace/research/design_trends_ai_agent_resources.md`
+
+---
+
+## UI/UX Design Research for Agent Swarm - 2026-01-05
+**Researcher**: Research Specialist Agent
+**Date**: 2026-01-05
+
+**Status**: COMPLETE
+
+### Purpose
+Comprehensive UI/UX design research to build expert-level AI agent prompts for a design swarm.
+
+### Key Areas Researched
+1. Core UI/UX Principles (2025)
+2. Modern Design Systems (Design Tokens, W3C Spec 2025.10)
+3. Current Design Trends 2025-2026
+4. WCAG 2.2 Accessibility Standards
+5. Tailwind CSS, shadcn/ui, Radix UI
+6. Design-to-Code Workflow (Figma Dev Mode)
+7. Mobile-First Responsive Design
+8. OKLCH Color Systems
+9. Typography Scales & Font Pairing
+10. 8pt Grid Spacing Systems
+
+### Full Research Document
+See: workspace/research/UI_UX_DESIGN_RESEARCH_2025.md
+
+---
+
+---
+
+### 2026-01-05 - UI/UX Design Trends Research (2025-2026)
+**Researcher**: Research Specialist Agent
+**Status**: COMPLETE
+
+**Research Document**: `/Users/jellingson/agent-swarm/workspace/research/UI_UX_DESIGN_TRENDS_2025_2026.md`
+
+**Key Findings Summary**:
+
+1. **Generative UI** is the most transformative trend - Interfaces created on-the-fly by AI agents based on user goals
+
+2. **Liquid Glass** is the defining visual language - Apple's June 2025 redesign (biggest since iOS 7) influencing entire industry
+
+3. **Agentic UX** is mandatory - 60% of designers believe AI agents will have major impact; design for both humans AND AI
+
+4. **Dark Mode First-Class** - 82% mobile preference, design both modes from start
+
+5. **Typography is Bold and Kinetic** - Variable fonts standard, text responds to interaction
+
+6. **Blue-Greens Dominate** - THE color trend of 2026 with warm neutral support
+
+7. **Micro-Interactions are Standard** - 50% of designers already adding animations; 12% CTR increase
+
+**Design Direction for Agent Swarm Dashboard**:
+- Implement Liquid Glass/Glassmorphism for modern aesthetic
+- Dark mode as primary with well-designed light mode
+- Blue-green accent palette with warm neutrals
+- Purposeful micro-interactions for state changes
+- AI transparency features (visible reasoning, confidence levels)
+- Modular, customizable widget layouts
+- Real-time dynamic updates with animated state transitions
+
+**Topics Covered**:
+1. Dashboard and command center UI patterns
+2. Data visualization and org chart designs
+3. AI/Agent interface patterns
+4. Premium SaaS dashboard aesthetics
+5. Dark mode vs light mode trends
+6. Glassmorphism and neumorphism status
+7. Typography trends
+8. Color palette trends
+9. Animation and micro-interaction trends
+
+---
+
+## 2026-01-06 - Mobile UI Audit: Frontend Chat Issues
+**Auditor**: Mobile UI Review
+**Status**: COMPLETE
+
+### Summary
+Comprehensive audit of mobile layout and responsiveness for the chat interface. The implementation is generally well-done with proper mobile considerations already in place. Found several minor issues and potential improvements.
+
+---
+
+### OVERALL ASSESSMENT: GOOD
+
+The mobile implementation is **well-structured** with proper responsive design patterns in place. Most mobile-specific concerns have already been addressed. Below are findings categorized by severity.
+
+---
+
+### 1. CHAT SCROLL BEHAVIOR
+
+**STATUS: MOSTLY GOOD**
+
+**Current Implementation:**
+- `frontend/app/chat/page.tsx:57-63` - Uses `scrollIntoView({ behavior: 'smooth' })` triggered by `useEffect` on messages array change
+- `frontend/app/chat/page.tsx:797` - Messages container has proper `overflow-auto` class
+
+**Potential Issues:**
+
+**ISSUE 1.1: No iOS Virtual Keyboard Handling**
+- **File**: `frontend/app/chat/page.tsx:852-865`
+- **Severity**: MEDIUM
+- **Problem**: When iOS virtual keyboard appears, it can push the input area up and cause layout shifts. The current safe-area handling (`pb-[calc(0.5rem+env(safe-area-inset-bottom))]`) helps but doesn't address the keyboard specifically.
+- **Recommendation**: Consider using `visualViewport` API or CSS `dvh` units to handle virtual keyboard appearance.
+
+**ISSUE 1.2: scrollIntoView May Be Janky on Mobile**
+- **File**: `frontend/app/chat/page.tsx:57-63`
+- **Severity**: LOW
+- **Problem**: On older iOS devices, `scrollIntoView({ behavior: 'smooth' })` can be jerky or not scroll completely.
+- **Recommendation**: Consider using `scrollTop` assignment as fallback for better cross-device consistency.
+
+**GOOD PRACTICES FOUND:**
+- `frontend/app/globals.css:222-227` - Has `-webkit-overflow-scrolling: touch` for momentum scrolling
+- `frontend/app/chat/page.tsx:853` - Uses `env(safe-area-inset-bottom)` for notched phones
+- `frontend/app/layout.tsx:17-22` - Proper viewport meta with `userScalable: false` to prevent zoom on input focus
+
+---
+
+### 2. ACTIVITY PANEL ON MOBILE
+
+**STATUS: GOOD IMPLEMENTATION**
+
+**Current Implementation:**
+- `frontend/app/chat/page.tsx:696-733` - Dedicated Mobile Activity Bottom Sheet
+- `frontend/app/chat/page.tsx:769-780` - Mobile activity button in header (only shows when there's activity)
+- `frontend/components/ActivityPanel.tsx:213-219` - Has separate mobile detection via resize listener
+
+**GOOD PRACTICES FOUND:**
+- Bottom sheet pattern with overlay (`bg-black/80`) is correct for mobile
+- `animate-slide-up` animation class for smooth sheet appearance
+- Touch-friendly close button (`touch-manipulation` class)
+- Max height of `70vh` prevents sheet from covering entire screen
+- Activity button pulses when processing (`animate-pulse` on line 773-774)
+
+**Minor Issue 2.1: Duplicate Mobile Detection**
+- **File**: `frontend/components/ActivityPanel.tsx:213-219`
+- **Severity**: LOW
+- **Problem**: ActivityPanel has its own `isMobile` state detection, while the parent already has `useMobileLayout()` context. This is redundant.
+- **Recommendation**: Pass `isMobile` as prop from parent or use the context directly.
+
+---
+
+### 3. GENERAL MOBILE LAYOUT
+
+**STATUS: WELL IMPLEMENTED**
+
+**Responsive Breakpoints Review:**
+
+| Element | Desktop | Mobile | File:Line |
+|---------|---------|--------|-----------|
+| Sidebar | `w-64` visible | Hidden, slide-out drawer | `MobileLayout.tsx:104-114` |
+| Messages padding | `p-6` | `p-3` | `page.tsx:797` |
+| Header padding | `px-6 py-4` | `px-3 py-3` | `page.tsx:738` |
+| Input padding | `p-4` | `p-2` | `page.tsx:853` |
+| Touch targets | `min-w-[44px] min-h-[44px]` | Same | `ChatInput.tsx:260,275` |
+| Font size input | `text-sm` | `text-base` (16px) | `ChatInput.tsx:239,242` |
+
+**GOOD PRACTICES FOUND:**
+
+1. **Touch Targets**: Minimum 44x44px on all interactive elements
+   - `frontend/components/ChatInput.tsx:260,275` - Buttons have `min-w-[44px] min-h-[44px]`
+   - `frontend/components/Sidebar.tsx:72,105,151` - Nav items have `min-h-[44px]` on mobile
+
+2. **Font Size Zoom Prevention**:
+   - `frontend/components/ChatInput.tsx:242` - `style={{ fontSize: '16px' }}` prevents iOS zoom on focus
+   - `frontend/app/layout.tsx:20-21` - `maximumScale: 1, userScalable: false`
+
+3. **Safe Area Insets**:
+   - `frontend/app/chat/page.tsx:853` - Bottom padding uses `env(safe-area-inset-bottom)`
+   - `frontend/app/globals.css:153-160` - Utility classes `.pb-safe` and `.pt-safe` defined
+
+4. **Body Scroll Lock**:
+   - `frontend/components/MobileLayout.tsx:59-69` - Disables body scroll when sidebar open
+
+5. **Dynamic Viewport Height**:
+   - `frontend/components/MobileLayout.tsx:75` - Uses `h-[100dvh]` for dynamic viewport height
+
+---
+
+### 4. ISSUES FOUND (Prioritized)
+
+#### HIGH PRIORITY
+
+**(None found - mobile implementation is solid)**
+
+#### MEDIUM PRIORITY
+
+**ISSUE M1: Keyboard Visibility Detection Missing**
+- **File**: `frontend/app/chat/page.tsx`
+- **Problem**: No handling for iOS virtual keyboard appearing/disappearing
+- **Impact**: Input area may be obscured when keyboard is up
+- **Fix**: Add `visualViewport` listener or use `dvh` CSS units
+
+**ISSUE M2: History Bottom Sheet Close Target Too Small**
+- **File**: `frontend/app/chat/page.tsx:645-649`
+- **Problem**: Close button (X icon) is only `p-2` inside a header area
+- **Impact**: May be hard to tap on small screens
+- **Fix**: Increase close button padding or add larger tap area
+
+#### LOW PRIORITY
+
+**ISSUE L1: Redundant Mobile Detection in ActivityPanel**
+- **File**: `frontend/components/ActivityPanel.tsx:213-219`
+- **Problem**: Duplicate window resize listener for mobile detection
+- **Fix**: Use `useMobileLayout()` context or accept `isMobile` as prop
+
+**ISSUE L2: Attachment Preview May Overflow on Small Screens**
+- **File**: `frontend/components/ChatInput.tsx:186`
+- **Problem**: Attachment preview container doesn't have max-width on mobile
+- **Fix**: Add `max-w-full` or similar constraint
+
+**ISSUE L3: Lightbox Missing Safe Area Handling**
+- **File**: `frontend/components/ChatMessage.tsx:35-51`
+- **Problem**: Image lightbox close button at `top-4` may overlap with notch
+- **Fix**: Use `pt-safe` or `env(safe-area-inset-top)`
+
+**ISSUE L4: Agent Response Thinking Section Scroll Container**
+- **File**: `frontend/components/AgentResponse.tsx:144`
+- **Problem**: Thinking section has `max-h-64 overflow-y-auto` which may have scroll issues on iOS
+- **Fix**: Add `-webkit-overflow-scrolling: touch` inline or via class
+
+---
+
+### 5. RECOMMENDATIONS
+
+1. **Keyboard Handling** (Priority: Medium)
+   - Add visualViewport API integration to detect keyboard visibility
+   - Adjust message scroll behavior when keyboard appears/disappears
+
+2. **Testing Required**:
+   - Test on actual iOS device with notch (iPhone 12+)
+   - Test with iOS virtual keyboard
+   - Test bottom sheets with VoiceOver enabled
+   - Test horizontal orientation
+
+3. **CSS Improvements**:
+   - Consider adding `overscroll-behavior: contain` to prevent body scroll bleed
+   - Consider using CSS `scroll-margin-bottom` for better scroll-into-view behavior
+
+---
+
+### Files Reviewed
+
+| File | Status |
+|------|--------|
+| `frontend/app/chat/page.tsx` | Reviewed - Good |
+| `frontend/app/globals.css` | Reviewed - Good |
+| `frontend/app/layout.tsx` | Reviewed - Good |
+| `frontend/components/ChatInput.tsx` | Reviewed - Good |
+| `frontend/components/ChatMessage.tsx` | Reviewed - Minor issues |
+| `frontend/components/AgentResponse.tsx` | Reviewed - Minor issues |
+| `frontend/components/ActivityPanel.tsx` | Reviewed - Minor issues |
+| `frontend/components/MobileLayout.tsx` | Reviewed - Good |
+| `frontend/components/Sidebar.tsx` | Reviewed - Good |
+| `frontend/tailwind.config.ts` | Reviewed - Good |
+
+---
+
+### Conclusion
+
+The mobile UI implementation is **well-designed** and follows modern responsive design practices. The team has clearly considered mobile users with proper touch targets, safe area handling, and responsive breakpoints. The issues found are minor and relate to edge cases (keyboard handling, deep-nested scroll containers). No critical mobile UI bugs were found.
+
+---
+
+---
+
+### 2026-01-06 - CRITICAL BUG INVESTIGATION: Frontend Chat Issues
+**Investigator**: Quality Critic
+**Status**: BUGS IDENTIFIED - FIXES REQUIRED
+
+**Symptoms Reported**:
+1. DUPLICATE RESPONSES: Same AI response appearing twice in chat (Desktop)
+2. STUCK ON WORKING: UI never shows final response, user must exit and re-enter chat
+
+---
+
+#### BUG 1: DUPLICATE MESSAGE CREATION (Root Cause of Double Responses)
+
+**File**: `frontend/app/chat/page.tsx:382-432`
+
+**Root Cause**: The `agent_complete` handler has a flawed message deduplication strategy.
+
+**Problematic Code**:
+```typescript
+case 'agent_complete':
+  setMessages((prev) => {
+    // Find existing thinking message for this agent
+    const thinkingIdx = prev.findIndex(
+      (m) => m.type === 'agent' && m.status === 'thinking' && m.agentType === event.agent_type
+    )
+
+    if (thinkingIdx !== -1) {
+      // Update existing message
+      // ...
+      return updated
+    }
+
+    // No thinking message found, add new complete message  <-- BUG: This creates DUPLICATE
+    return [
+      ...prev,
+      { ...newMessage }
+    ]
+  })
+```
+
+**Why Duplicates Occur**:
+1. `agent_start` (line 295-309) creates a message with `status: 'thinking'`
+2. `agent_delta` (line 364-380) streams content INTO that thinking message
+3. When `agent_delta` finishes streaming, the message has `content` filled but STILL has `status: 'thinking'`
+4. `agent_complete` arrives with `event.content` (the same text already streamed)
+5. The `findIndex` at line 393-395 FINDS the thinking message and updates it - this is correct
+6. **BUT** sometimes the `agent_complete` arrives with a DIFFERENT `agent_type` than the thinking message, causing `findIndex` to return -1
+7. In that case, line 418-432 adds a BRAND NEW message with the same content
+
+**Additional Race Condition**:
+- If two rapid `agent_complete` events arrive (e.g., from WebSocket reconnection/resend), the second one may not find the first because React state hasn't flushed yet
+
+**Evidence**:
+- Line 394: `m.agentType === event.agent_type` - if agent_type differs between `agent_start` and `agent_complete`, duplication occurs
+- Backend sends `agent_type: "orchestrator"` on both events (chat_handler.py:404 and chat_handler.py:487), but there may be timing where the type doesn't match
+
+---
+
+#### BUG 2: STUCK ON WORKING (isLoading Never Reset)
+
+**File**: `frontend/app/chat/page.tsx:435-450`
+
+**Root Cause**: `isLoading` is only set to `false` when `chat_complete` event is received. If that event is lost or never sent, the UI stays in "Working" state forever.
+
+**Problematic Code**:
+```typescript
+case 'chat_complete':
+  setIsLoading(false)  // <-- Only place isLoading is set to false
+  // ... rest of handler
+```
+
+**Why It Gets Stuck**:
+1. `setIsLoading(true)` is called in `chat_start` handler (line 166)
+2. If WebSocket disconnects BEFORE `chat_complete` is received, `isLoading` stays `true`
+3. The `error` handler (line 453-462) also sets `setIsLoading(false)`, BUT only if the error event is received
+4. If the connection drops silently (no error event, no chat_complete), the UI is permanently stuck
+
+**Additional Issue in Error Handler**:
+```typescript
+case 'error':
+  setIsLoading(false)  // This is good
+  setAgentActivities(...)  // Mark agents as error
+  console.error('Chat error:', event.message)  // Just logs, doesn't notify user
+```
+
+The error handler doesn't clear the pending message or reset the UI state properly.
+
+**Missing Reset on Disconnect**:
+- Line 469-472: The `handleDisconnect` callback only sets `setIsConnected(false)` but does NOT set `setIsLoading(false)`
+- This means if the WebSocket disconnects mid-chat, the spinner continues forever
+
+---
+
+#### BUG 3: DOUBLE EVENT HANDLERS (Potential Duplicate Processing)
+
+**Files**:
+- `frontend/app/chat/page.tsx:466` - `ws.on('*', handleEvent)`
+- `frontend/lib/AgentActivityContext.tsx:200` - `ws.on('*', handleEvent)`
+
+**Root Cause**: BOTH components register wildcard `*` handlers on the SAME WebSocket singleton.
+
+**Why This May Cause Issues**:
+1. `AgentActivityContext` is a provider that wraps the entire app (always mounted)
+2. `chat/page.tsx` also registers handlers when the chat page is mounted
+3. Both receive ALL events simultaneously
+4. If both handlers have side effects on the same state, race conditions occur
+
+**Critical Finding**:
+- `AgentActivityContext.tsx:167-195` handles `chat_complete` and updates `setPanelAgentActivities` and `setPanelToolActivities`
+- `chat/page.tsx:435-450` ALSO handles `chat_complete` and updates `setAgentActivities` (which is the SAME state via context!)
+
+**State Conflict**:
+```typescript
+// AgentActivityContext.tsx:179-184
+setPanelAgentActivities((prev) =>
+  prev.map((a) => ({
+    ...a,
+    status: 'complete' as const,
+    endTime: a.endTime || new Date(),
+  }))
+)
+
+// chat/page.tsx:437-444
+setAgentActivities((prev) =>
+  prev.map((a) => ({
+    ...a,
+    status: 'complete' as const,
+    endTime: a.endTime || new Date(),
+  }))
+)
+```
+
+These are the SAME state (`panelAgentActivities` = `setAgentActivities` via context at line 46-47).
+BOTH handlers update the same state, potentially causing double renders or state inconsistencies.
+
+---
+
+#### BUG 4: Message ID Collision Risk
+
+**File**: `frontend/app/chat/page.tsx:300, 422`
+
+**Problematic Code**:
+```typescript
+// Line 300 (agent_start):
+id: `agent-${Date.now()}`
+
+// Line 422 (agent_complete when no thinking message found):
+id: `agent-${Date.now()}-${event.agent}`
+```
+
+**Issue**: If two events arrive in the same millisecond, they get the same `Date.now()` value, leading to potential React key collisions.
+
+---
+
+#### BUG 5: pendingMessageRef Not Cleared on Error/Disconnect
+
+**File**: `frontend/app/chat/page.tsx:384-388, 446-450`
+
+**Problematic Code**:
+```typescript
+case 'agent_complete':
+  pendingMessageRef.current = {
+    content: event.content || '',
+    agent: event.agent || 'Claude',
+    thinking: event.thinking,
+  }
+  // ...
+
+case 'chat_complete':
+  if (pendingMessageRef.current && saveMessageRef.current) {
+    const msg = pendingMessageRef.current
+    saveMessageRef.current('assistant', msg.content, msg.agent, msg.thinking)
+    pendingMessageRef.current = null  // Only cleared here
+  }
+```
+
+**Issue**: If `chat_complete` never arrives (disconnect/error), `pendingMessageRef` holds stale data. On the NEXT chat, this stale message might accidentally be saved.
+
+---
+
+#### SUMMARY OF FIXES REQUIRED
+
+| Bug | File | Line | Fix |
+|-----|------|------|-----|
+| Duplicate messages | `chat/page.tsx` | 393-395 | Don't rely on `agentType` matching; find by message ID or last thinking message |
+| Stuck on working | `chat/page.tsx` | 469-472 | Add `setIsLoading(false)` to disconnect handler |
+| Double event handlers | `chat/page.tsx` + `AgentActivityContext.tsx` | 435-450, 167-195 | Remove duplicate `chat_complete` handling from one location |
+| ID collision | `chat/page.tsx` | 300, 422 | Use UUID or counter-based IDs |
+| pendingMessage leak | `chat/page.tsx` | 453-462 | Clear pendingMessageRef in error handler and disconnect handler |
+
+---
+
+**Priority**: P0 - These bugs directly impact core chat functionality
+
+**Recommended Fix Order**:
+1. Fix disconnect handler to reset `isLoading` (prevents stuck state)
+2. Fix `agent_complete` logic to prevent duplicates
+3. Remove duplicate `chat_complete` handling
+4. Clear `pendingMessageRef` on error/disconnect
+5. Improve message ID generation (lower priority)
+
+
+---
+
+## Frontend Chat Flow Architecture Review - 2026-01-06
+**Reviewer**: Architecture Analyst
+**Status**: ANALYSIS COMPLETE
+
+---
+
+### ARCHITECTURE DIAGRAM
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              FRONTEND (React/Next.js)                            │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                        LAYER 1: PROVIDERS                                │    │
+│  │  ┌─────────────────────────────────────────────────────────────────────┐│    │
+│  │  │  AgentActivityProvider (lib/AgentActivityContext.tsx)               ││    │
+│  │  │  - Wraps entire app in layout.tsx                                   ││    │
+│  │  │  - Holds: activities, panelAgentActivities, panelToolActivities     ││    │
+│  │  │  - Gets WebSocket singleton via getChatWebSocket()                  ││    │
+│  │  │  - Listens for: agent_*, tool_*, chat_complete events               ││    │
+│  │  │  - Does NOT call ws.connect() (fixed)                               ││    │
+│  │  └─────────────────────────────────────────────────────────────────────┘│    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                         │                                        │
+│                                         ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                        LAYER 2: CHAT PAGE                               │    │
+│  │  ┌─────────────────────────────────────────────────────────────────────┐│    │
+│  │  │  ChatPage (app/chat/page.tsx)                                       ││    │
+│  │  │                                                                      ││    │
+│  │  │  STATE:                                                             ││    │
+│  │  │  - messages: Message[]           - Chat messages                    ││    │
+│  │  │  - isConnected: boolean          - WebSocket connection status      ││    │
+│  │  │  - isLoading: boolean            - Response in progress             ││    │
+│  │  │  - sessionId: string | null      - Current chat session             ││    │
+│  │  │                                                                      ││    │
+│  │  │  REFS:                                                              ││    │
+│  │  │  - wsRef = useRef(getChatWebSocket())  - WebSocket singleton        ││    │
+│  │  │  - pendingMessageRef                   - Tracks message for save    ││    │
+│  │  │  - saveMessageRef                      - Avoids stale closure       ││    │
+│  │  │                                                                      ││    │
+│  │  │  LIFECYCLE:                                                         ││    │
+│  │  │  - useEffect calls ws.connect() on mount                            ││    │
+│  │  │  - Cleanup removes event listeners (no disconnect)                  ││    │
+│  │  └─────────────────────────────────────────────────────────────────────┘│    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                         │                                        │
+└─────────────────────────────────────────┼────────────────────────────────────────┘
+                                          │
+                                          ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        LAYER 3: WEBSOCKET SINGLETON                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  ChatWebSocket (lib/websocket.ts)                                       │    │
+│  │                                                                          │    │
+│  │  STATE:                                                                  │    │
+│  │  - connectionState: 'disconnected' | 'connecting' | 'connected' | 'reconnecting'│
+│  │  - ws: WebSocket | null                                                 │    │
+│  │  - connectionPromise: Promise<void> | null                              │    │
+│  │  - connectionId: number (tracks connection identity)                    │    │
+│  │  - reconnectAttempts: number                                            │    │
+│  │                                                                          │    │
+│  │  GUARDS:                                                                 │    │
+│  │  - connect() checks connectionState before creating new WS              │    │
+│  │  - Handles CONNECTING state by waiting on existing promise              │    │
+│  │  - connectionId prevents stale callback execution                       │    │
+│  │                                                                          │    │
+│  │  RECONNECTION:                                                           │    │
+│  │  - Exponential backoff: 1s, 2s, 4s, 8s, 16s                             │    │
+│  │  - Max 5 attempts                                                        │    │
+│  │  - Heartbeat every 30s, reconnect if no message in 60s                  │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────┬───────────────────────────────────────┘
+                                          │
+                                          │ WebSocket: /ws/chat
+                                          ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              BACKEND (FastAPI)                                   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  ConnectionManager (websocket/connection_manager.py)                    │    │
+│  │  - Tracks active_connections list                                       │    │
+│  │  - send_event() sends JSON with type field                              │    │
+│  │  - broadcast() sends to all connections                                 │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                         │                                        │
+│                                         ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  websocket_chat() (websocket/chat_handler.py)                           │    │
+│  │                                                                          │    │
+│  │  LOOP:                                                                   │    │
+│  │  1. await websocket.receive_json()  - Get message from client           │    │
+│  │  2. Send "chat_start" event                                             │    │
+│  │  3. Send "agent_start" event                                            │    │
+│  │  4. Execute COO via AgentExecutorPool                                   │    │
+│  │  5. Stream events: thinking_*, agent_delta, tool_*                      │    │
+│  │  6. Send "agent_complete" with final content                            │    │
+│  │  7. Send "chat_complete" event                                          │    │
+│  │  8. Save to chat history                                                │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                         │                                        │
+│                                         ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │  AgentExecutorPool (shared/agent_executor_pool.py)                      │    │
+│  │                                                                          │    │
+│  │  - Semaphore limits concurrent executions (default: 5)                  │    │
+│  │  - Spawns Claude CLI subprocess with stream-json output                 │    │
+│  │  - Parses CLI events and maps to WebSocket events                       │    │
+│  │  - Handles timeout (1 hour for COO)                                     │    │
+│  │  - Tracks agent_stack for Task tool delegation                          │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### MESSAGE FLOW SEQUENCE
+
+```
+┌──────────┐     ┌──────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  User    │     │ ChatPage │     │  WebSocket  │     │ chat_handler│     │ ExecutorPool│
+└────┬─────┘     └────┬─────┘     └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+     │                │                   │                   │                   │
+     │ Type message   │                   │                   │                   │
+     │───────────────>│                   │                   │                   │
+     │                │                   │                   │                   │
+     │                │ handleSend()      │                   │                   │
+     │                │─────┐             │                   │                   │
+     │                │     │ Clear old   │                   │                   │
+     │                │<────┘ activities  │                   │                   │
+     │                │                   │                   │                   │
+     │                │ setMessages()     │                   │                   │
+     │                │─────┐ Add user    │                   │                   │
+     │                │<────┘ message     │                   │                   │
+     │                │                   │                   │                   │
+     │                │ ws.send()         │                   │                   │
+     │                │──────────────────>│                   │                   │
+     │                │                   │ JSON message      │                   │
+     │                │                   │──────────────────>│                   │
+     │                │                   │                   │                   │
+     │                │                   │ chat_start        │                   │
+     │                │<──────────────────│<──────────────────│                   │
+     │                │                   │                   │                   │
+     │                │ setIsLoading(true)│                   │                   │
+     │                │─────┐             │                   │                   │
+     │                │<────┘             │                   │                   │
+     │                │                   │                   │                   │
+     │                │                   │ agent_start       │                   │
+     │                │<──────────────────│<──────────────────│                   │
+     │                │                   │                   │                   │
+     │                │ setMessages()     │                   │ execute()         │
+     │                │─────┐ Add agent   │                   │──────────────────>│
+     │                │<────┘ (thinking)  │                   │                   │
+     │                │                   │                   │                   │
+     │                │                   │ thinking_start    │                   │
+     │                │<──────────────────│<──────────────────│<──────────────────│
+     │                │                   │                   │                   │
+     │                │                   │ thinking_delta    │                   │
+     │                │<──────────────────│<──────────────────│<─────(streaming)──│
+     │                │                   │        ...        │                   │
+     │                │                   │                   │                   │
+     │                │                   │ tool_start        │                   │
+     │                │<──────────────────│<──────────────────│<──────────────────│
+     │                │                   │                   │                   │
+     │                │                   │ tool_complete     │                   │
+     │                │<──────────────────│<──────────────────│<──────────────────│
+     │                │                   │                   │                   │
+     │                │                   │ agent_delta       │                   │
+     │                │<──────────────────│<──────────────────│<─────(streaming)──│
+     │                │                   │        ...        │                   │
+     │                │                   │                   │                   │
+     │                │                   │ agent_complete    │                   │
+     │                │<──────────────────│<──────────────────│                   │
+     │                │                   │                   │                   │
+     │                │ pendingMessageRef │                   │                   │
+     │                │─────┐ Store for   │                   │                   │
+     │                │<────┘ save        │                   │                   │
+     │                │                   │                   │                   │
+     │                │                   │ chat_complete     │                   │
+     │                │<──────────────────│<──────────────────│                   │
+     │                │                   │                   │                   │
+     │                │ setIsLoading(false)                   │                   │
+     │                │ saveMessage()     │                   │                   │
+     │                │─────┐             │                   │                   │
+     │                │<────┘             │                   │                   │
+     │                │                   │                   │                   │
+```
+
+---
+
+### STATE MANAGEMENT ANALYSIS
+
+#### Current State Variables
+
+| Component | State Variable | Type | Purpose | When Updated |
+|-----------|---------------|------|---------|--------------|
+| ChatPage | `isConnected` | boolean | WebSocket connection status | on ws.connect() success/failure, on disconnect event |
+| ChatPage | `isLoading` | boolean | Response in progress | `chat_start` → true, `chat_complete`/`error` → false |
+| ChatPage | `messages` | Message[] | Chat history | Multiple events update this |
+| Context | `panelAgentActivities` | PanelAgentActivity[] | Agent tracking for UI | `chat_start`, `agent_spawn`, `agent_complete_subagent`, `chat_complete` |
+| Context | `panelToolActivities` | PanelToolActivity[] | Tool tracking for UI | `tool_start`, `tool_complete`, `chat_complete` |
+
+#### State Transitions (isLoading)
+
+```
+IDLE (isLoading=false)
+    │
+    ▼ User sends message
+LOADING (isLoading=true) ◄───── chat_start event
+    │
+    │ (streaming events: thinking_*, agent_delta, tool_*)
+    │
+    ▼ 
+COMPLETE (isLoading=false) ◄── chat_complete OR error event
+```
+
+#### ISSUE: No `isWorking` or `isStreaming` State
+
+The current implementation only has `isLoading`. There is NO distinction between:
+1. **Waiting for first response** (loading spinner appropriate)
+2. **Actively streaming content** (show streaming indicator)
+3. **Agent doing work** (tools being called, show work indicator)
+
+**Recommendation**: Add granular states:
+```typescript
+type ChatState = 'idle' | 'waiting' | 'streaming' | 'working' | 'error'
+```
+
+---
+
+### WEBSOCKET/SSE HANDLING ANALYSIS
+
+#### Connection Lifecycle
+
+```
+                    ┌────────────┐
+                    │disconnected│◄─────────────────┐
+                    └─────┬──────┘                   │
+                          │ connect()               │ disconnect() or
+                          ▼                         │ max reconnect
+                    ┌────────────┐                  │
+                    │ connecting │──────────────────┤
+                    └─────┬──────┘                  │
+                          │ onopen                  │
+                          ▼                         │
+                    ┌────────────┐                  │
+             ┌─────►│ connected  │──────────────────┘
+             │      └─────┬──────┘        onclose
+             │            │
+             │            │ onclose (not intentional)
+             │            ▼
+             │      ┌────────────┐
+             └──────│reconnecting│
+                    └────────────┘
+                    (exponential backoff)
+```
+
+#### Fixed Issues (Already Addressed)
+
+1. **BUG 2 - FIXED**: `connect()` now guards against CONNECTING state
+2. **BUG 3 - MITIGATED**: AgentActivityContext no longer calls `connect()` - only ChatPage does
+3. **Connection ID tracking**: Stale callbacks are ignored via `connectionId` check
+
+#### Remaining Issues
+
+**ISSUE 1: React Strict Mode Double-Mount**
+- **File**: `frontend/next.config.js:3`
+- **Impact**: Development only, but causes confusing logs
+- **Status**: Documented but not fixed (acceptable for dev mode)
+
+**ISSUE 2: No disconnect() in ChatPage Cleanup**
+- **File**: `frontend/app/chat/page.tsx:484-488`
+- **Code**:
+  ```typescript
+  return () => {
+    mounted = false
+    ws.off('*', handleEvent)
+    ws.off('disconnected', handleDisconnect)
+    // Missing: ws.disconnect() consideration
+  }
+  ```
+- **Analysis**: This is actually CORRECT for a singleton WebSocket that should persist across navigation. The connection should remain open while the app is running.
+
+**ISSUE 3: Multiple Event Handlers Could Stack**
+- Both `AgentActivityContext` and `ChatPage` attach handlers to the same singleton
+- This is BY DESIGN - they handle different aspects (global activity tracking vs local message state)
+- Handlers properly clean up on unmount
+
+---
+
+### WORK EXECUTION FLOW ANALYSIS
+
+#### Agent Hierarchy Tracking
+
+```
+chat_start
+    │
+    ▼
+agent_start (Supreme Orchestrator)
+    │
+    ├── tool_start (Read, Glob, etc.)
+    │       └── tool_complete
+    │
+    ├── tool_start (Task) 
+    │       │
+    │       ├── agent_spawn (subagent: researcher)
+    │       │       ├── tool_start/complete (subagent tools)
+    │       │       └── agent_complete_subagent
+    │       │
+    │       └── tool_complete (Task)
+    │
+    └── agent_delta (streaming response)
+           │
+           ▼
+    agent_complete
+           │
+           ▼
+    chat_complete
+```
+
+#### Agent Stack Management (Backend)
+
+```python
+# In execute_coo_via_pool()
+agent_stack = ["Supreme Orchestrator"]
+
+# On Task tool_start
+if tool_name == "Task":
+    subagent = tool_input.get("subagent_type")
+    agent_stack.append(subagent)
+    # Send agent_spawn event
+
+# On Task tool_complete
+if tool_name == "Task" and len(agent_stack) > 1:
+    completed_agent = agent_stack.pop()
+    # Send agent_complete_subagent event
+```
+
+#### Frontend Agent Activity Updates
+
+| Event | ChatPage Action | Context Action |
+|-------|----------------|----------------|
+| `chat_start` | setIsLoading(true), add COO to activities | - |
+| `agent_spawn` | Update activities with new agent | Update activities |
+| `tool_start` | Add tool activity, set COO to 'working' | - |
+| `tool_complete` | Update tool status | - |
+| `agent_complete_subagent` | Mark subagent complete, restore parent status | Mark activity idle |
+| `chat_complete` | setIsLoading(false), mark all complete | Mark all activities idle/complete |
+
+---
+
+### IDENTIFIED ARCHITECTURAL ISSUES
+
+#### CRITICAL
+
+| ID | Issue | Location | Impact | Recommendation |
+|----|-------|----------|--------|----------------|
+| C1 | No streaming state distinction | ChatPage | Can't show proper UI for different phases | Add `chatState: 'idle' \| 'waiting' \| 'streaming' \| 'working'` |
+| C2 | Activity Panel spinner persists | AgentActivityContext | Fixed with chat_complete handler | RESOLVED |
+
+#### HIGH
+
+| ID | Issue | Location | Impact | Recommendation |
+|----|-------|----------|--------|----------------|
+| H1 | Message save race condition | ChatPage:446-450 | Message might not save if chat_complete arrives before agent_complete | Use pendingMessageRef (already implemented) |
+| H2 | No error state for partial failures | ChatPage | If tool fails but chat continues, no indication | Add per-tool error display |
+| H3 | Duplicate event handlers on hot reload | websocket.ts | Dev mode only - handlers may accumulate | Track handler count, warn if excessive |
+
+#### MEDIUM
+
+| ID | Issue | Location | Impact | Recommendation |
+|----|-------|----------|--------|----------------|
+| M1 | No offline queue | websocket.ts | Messages lost if sent while disconnected | Queue messages, send on reconnect |
+| M2 | Heartbeat doesn't ping server | websocket.ts | Only checks last message time | Send ping, expect pong |
+| M3 | No progress indicator for long tools | ChatPage | User sees nothing during 30s+ tool calls | Add tool duration display |
+
+#### LOW
+
+| ID | Issue | Location | Impact | Recommendation |
+|----|-------|----------|--------|----------------|
+| L1 | Console.log noise | websocket.ts | Dev experience | Add log levels |
+| L2 | Strict mode double-mount logs | next.config.js | Confusing logs in dev | Document as expected |
+
+---
+
+### RECOMMENDED IMPROVEMENTS
+
+#### 1. Granular Chat State Machine
+
+```typescript
+// New state machine in ChatPage
+type ChatPhase = 'idle' | 'sending' | 'thinking' | 'streaming' | 'working' | 'error'
+
+const [chatPhase, setChatPhase] = useState<ChatPhase>('idle')
+
+// Event handlers update phase:
+// handleSend()          → 'sending'
+// chat_start            → 'thinking'  
+// thinking_start        → 'thinking'
+// agent_delta (first)   → 'streaming'
+// tool_start            → 'working'
+// tool_complete (last)  → 'streaming'
+// chat_complete         → 'idle'
+// error                 → 'error'
+```
+
+#### 2. Tool Progress Tracking
+
+```typescript
+interface ActiveTool {
+  id: string
+  name: string
+  startTime: Date
+  description: string
+}
+
+const [activeTools, setActiveTools] = useState<ActiveTool[]>([])
+
+// Show "Running for X seconds" for each active tool
+```
+
+#### 3. Message Queue for Offline
+
+```typescript
+// In ChatWebSocket class
+private messageQueue: Array<{message: string, options: SendOptions}> = []
+
+send(message: string, options?: SendOptions) {
+  if (this.connectionState !== 'connected') {
+    this.messageQueue.push({message, options})
+    return // Don't throw, queue instead
+  }
+  this._doSend(message, options)
+}
+
+// On reconnect, flush queue
+private async flushQueue() {
+  while (this.messageQueue.length > 0) {
+    const {message, options} = this.messageQueue.shift()!
+    this._doSend(message, options)
+  }
+}
+```
+
+---
+
+### EVENT TYPE REFERENCE
+
+| Event Type | Direction | Fields | Purpose |
+|------------|-----------|--------|---------|
+| `chat_start` | S→C | message | Acknowledge message received |
+| `agent_start` | S→C | agent, agent_type | Agent beginning work |
+| `thinking_start` | S→C | agent | Extended thinking started |
+| `thinking_delta` | S→C | agent, delta | Thinking content stream |
+| `thinking_complete` | S→C | agent, thinking | Thinking finished |
+| `agent_delta` | S→C | agent, agent_type, delta | Response content stream |
+| `agent_complete` | S→C | agent, agent_type, content, thinking | Final response |
+| `agent_spawn` | S→C | agent, description, parentAgent | Subagent started via Task |
+| `agent_complete_subagent` | S→C | agent, success | Subagent finished |
+| `tool_start` | S→C | tool, description, input, agentName | Tool invocation |
+| `tool_complete` | S→C | tool, success, summary, agentName | Tool finished |
+| `chat_complete` | S→C | success | All processing done |
+| `error` | S→C | message | Error occurred |
+| `disconnected` | Internal | - | WebSocket closed |
+
+---
+
+### FILES ANALYZED
+
+1. `frontend/app/chat/page.tsx` - Main chat page (870 lines)
+2. `frontend/lib/websocket.ts` - WebSocket singleton (377 lines)
+3. `frontend/lib/AgentActivityContext.tsx` - Global activity context (259 lines)
+4. `backend/websocket/chat_handler.py` - Server chat handler (590 lines)
+5. `backend/websocket/connection_manager.py` - Connection tracking (69 lines)
+6. `shared/agent_executor_pool.py` - Agent execution (719 lines)
+
+---
+
+
+---
+
+## iOS/Apple Ecosystem Integration Research - 2026-01-06
+**Researcher**: Research Specialist Agent
+**Date**: 2026-01-06
+
+**Status**: COMPLETE
+
+### Key Findings
+
+1. **iMessage has NO official public API** - Apple keeps iMessage locked. Only viable approach is macOS bridges using AppleScript and local SQLite database (chat.db).
+
+2. **Apple Messages for Business** - Only official API for B2C messaging. Requires MSP approval from Apple, customers must initiate contact.
+
+3. **APNs (Push Notifications)** - Fully supported with token-based (.p8) authentication recommended. Libraries: aioapns (Python), node-apn (Node.js).
+
+4. **Apple Shortcuts/Siri** - Can trigger HTTP webhooks. Use Pushcut or native "Get Contents of URL" action for server-to-device automation.
+
+5. **macOS Bridge Solutions** - BlueBubbles, AirMessage, imsg CLI require dedicated Mac running 24/7.
+
+### Recommended Libraries
+
+**For APNs:**
+- Python: aioapns (PyPI) - 1.3k notifications/sec, async
+- Node.js: node-apn (npm) - Most popular, robust
+
+**For iMessage (macOS only):**
+- CLI: steipete/imsg - For automation/AI agents
+- Go: golift/imessage - Library for chat bots
+- Self-hosted relay: BlueBubbles (recommended over AirMessage)
+
+### Important 2025 APNs Changes
+- Token-based (.p8) authentication now has team-scoped and topic-specific keys
+- Certificate CA switched to USERTrust RSA (SHA-2 Root) - Feb 2025
+- Production servers MUST support new certificates
+
+### Alternatives to iMessage
+- Signal: Open protocol, end-to-end encrypted
+- Telegram: Full Bot API documented
+- WhatsApp Business API: Official, widely supported
+- SMS via Twilio/Vonage: Reliable fallback
+
+### Full Report Location
+See research response in conversation history for complete technical details, code examples, and source links.
+
+---
+
+---
+
+## PlanGrid & Autodesk Construction Cloud API Research - 2026-01-06
+**Researcher**: Research Specialist Agent
+
+### Executive Summary
+PlanGrid was acquired by Autodesk in 2018 and integrated into Autodesk Construction Cloud (ACC). The legacy PlanGrid API still exists at developer.plangrid.com but is being phased out. Current development should target Autodesk Platform Services (APS, formerly Forge) APIs for ACC/BIM 360.
+
+### Key Research Files
+- `/Users/jellingson/agent-swarm/workspace/research/plangrid_acc_api_research.md` - Full research document
+
+### Authentication Summary
+- 2-Legged OAuth: Server-to-server (Client Credentials grant)
+- 3-Legged OAuth: User authorization flow (Authorization Code grant + PKCE)
+- Most ACC APIs require 3-legged tokens
+- Issues API requires 3-legged token only
+- Some endpoints (Account Users) need 2-legged token
+- Key scopes: data:read, data:write, data:create, account:read, account:write
+
+### Key APIs Available
+1. Data Management API - Hubs, projects, folders, items, versions
+2. ACC Issues API - Issue tracking, annotations
+3. ACC RFIs API - Requests for information
+4. ACC Submittals API - Shop drawings, specs
+5. ACC Photos API - Progress photos, documentation
+6. Webhooks API - Real-time event notifications
+7. Data Connector API - Batch data extraction for BI
+
+### Rate Limits
+- 429 response with Retry-After header when exceeded
+- Free tier has monthly caps on rated APIs
+- Rate limit increases available via ADN support request
+
+
+---
+
+### 2026-01-06 - CoConstruct API Research Complete
+**Researcher**: Research Specialist Agent
+**Status**: COMPLETE
+
+**Research Summary**: Comprehensive investigation of CoConstruct construction management software API capabilities, integrations, and limitations.
+
+**Critical Finding**: CoConstruct API is currently in a PAUSED state - no new API endpoints or new user connections are being established. Existing connections are maintained but no changes will be made.
+
+**Key Findings**:
+1. OAuth 2.0 authentication with Client ID/Secret
+2. Developer portal exists at developer.coconstruct.com (but requires credentials to access details)
+3. Get Contractor List is the recommended starting endpoint
+4. Native QuickBooks Desktop/Online and Xero integrations available
+5. API development paused following Buildertrend acquisition (Feb 2021)
+
+**Full research document**: See detailed findings in conversation output
+
+
+---
+
+### 2026-01-06 - Construction PM Swarm Design Research
+**Researcher**: Research Specialist Agent
+**Status**: COMPLETE
+
+**Design Document**: `/Users/jellingson/agent-swarm/workspace/research/CONSTRUCTION_PM_SWARM_DESIGN.md`
+
+**Context**: Comprehensive research and design for a construction project management swarm targeting site superintendents managing low-rise apartment building construction.
+
+**Key Deliverables**:
+
+**6 Specialized Agents Designed**:
+1. **PM Orchestrator** - Central coordinator, routes tasks, synthesizes multi-domain intelligence
+2. **Daily Operations Agent** - Daily logs, progress tracking, weather impacts, manpower
+3. **Schedule Agent** - Master schedule, look-aheads, critical path, delay analysis
+4. **Subcontractor Coordinator Agent** - Trade management, performance tracking, coordination
+5. **Safety & Compliance Agent** - OSHA compliance, toolbox talks, incident tracking
+6. **Document Management Agent** - RFIs, submittals, punch lists, inspections
+7. **Finance & Budget Agent** - Budget tracking, change orders, cost forecasting
+
+**Templates Included**:
+- Daily Construction Report template
+- 2-Week Look-Ahead Schedule template
+- Subcontractor Performance Scorecard
+- Toolbox Talk template
+- Incident Report template
+- OSHA Compliance Checklist
+- RFI template
+- Submittal Log template
+- Punch List template
+- Inspection Log template
+- Budget Status Report template
+- Change Order Log and Request templates
+
+**Use Cases Documented**:
+1. Morning Site Briefing generation
+2. Delay Impact Analysis (multi-domain)
+3. Weekly Owner Report generation
+
+**Integration Architecture**:
+- Data flow diagram between agents
+- Cross-agent data dependencies mapped
+- External system integration points (Weather API, Scheduling SW, Accounting)
+- Life OS swarm integration pattern
+
+**Implementation Roadmap**: 10-week phased approach
+
+**Sources**: 30+ industry references cited including Procore, Autodesk, OSHA, and industry best practices
+
+---
+
+---
+
+## Research: Google Workspace API Integration for AI Agent System
+**Researcher**: Research Specialist Agent
+**Date**: 2026-01-06
+
+### Summary
+Completed comprehensive research on Google Workspace API integration (Gmail, Calendar, Drive, Tasks) for a single-user AI agent system. OAuth 2.0 with user consent flow is the recommended approach.
+
+### Key Finding
+For personal single-user systems: Use OAuth 2.0 Desktop App flow with the app published to "In Production" status. This avoids the 7-day token expiration while keeping setup simple. No verification needed for personal use - just click through the warning screen.
+
+### Detailed Findings Documented
+Full research report provided to user including:
+- Authentication comparison (OAuth 2.0 vs Service Account)
+- Complete scope requirements for Gmail/Calendar/Drive/Tasks
+- Step-by-step setup guide
+- Python code examples
+- Rate limits and quotas
+- Unverified app limitations and workarounds
+
+### Files Created
+None - research delivered directly to user
+
+### Next Steps
+1. User to create Google Cloud project and enable APIs
+2. Implement OAuth integration in agent-swarm backend
+3. Consider creating a Google Workspace integration module
+
+
+---
+
+## Research: AI-Corp Repository Memory Architecture Analysis
+**Researcher**: Research Specialist Agent
+**Date**: 2026-01-06
+**Repository**: https://github.com/JKILLR/ai-corp
+
+### Summary
+Comprehensive analysis of the ai-corp repository's memory/context management architecture. This is a multi-agent AI corporation system with a sophisticated file-based context management system inspired by Recursive Language Models (RLM).
+
+---
+
+### 1. Context/Memory Storage Architecture
+
+**No Database or Vector Store** - ai-corp uses a purely **file-based YAML/JSON storage system** with git-backing for persistence and audit trails.
+
+#### Storage Components:
+
+| System | Storage Format | Location | Purpose |
+|--------|---------------|----------|---------|
+| **Bead Ledger** | YAML | `.aicorp/beads/` | Git-backed audit trail for all state changes |
+| **Context Variables** | JSON | `.aicorp/memory/var_{id}.json` | Lazy-loaded context content |
+| **Memory State** | YAML | `.aicorp/memory/{agent_id}_state.yaml` | Agent memory environment state |
+| **Knowledge Base** | YAML/JSON | `.aicorp/knowledge/` | Scoped documents (foundation/project/task) |
+| **Organizational Memory** | YAML | `.aicorp/memory/organizational/` | Decisions, lessons, patterns |
+| **Molecules** | YAML | `.aicorp/molecules/active/` | Workflow state with checkpoints |
+| **Hooks** | YAML | `.aicorp/hooks/` | Agent work queues |
+
+#### Key Files (src/core/):
+- `memory.py` - RLM-inspired ContextEnvironment, ContextVariable, MemoryBuffer
+- `bead.py` - Git-backed BeadLedger for state persistence
+- `knowledge.py` - KnowledgeBase with 3-tier scoping
+- `ingest.py` - Document processing pipeline (chunking, fact extraction)
+
+---
+
+### 2. Context Retrieval & Agent Passing Mechanisms
+
+#### RLM-Inspired Context Operations:
+
+```
+ContextEnvironment (per agent)
+├── store()      - Persist content to memory
+├── get()        - Retrieve context variable
+├── peek()       - View portion WITHOUT full load (lazy)
+├── grep()       - Regex search within context
+├── chunk()      - Split for parallel processing
+└── search_all() - Search across all variables
+```
+
+#### Context Flow to Agents:
+
+1. **BaseAgent Initialization** (`src/agents/base.py:89-93`):
+   ```python
+   self.memory = create_agent_memory(corp_path, agent_id)
+   self.recursive_manager = RecursiveMemoryManager(corp_path)
+   self.compressor = ContextCompressor(self.memory)
+   self.org_memory = OrganizationalMemory(corp_path)
+   ```
+
+2. **Context Loading for Tasks** (`src/agents/base.py:690-705`):
+   - `load_molecule_context()` - Loads workflow into memory
+   - `load_bead_context()` - Loads bead history for entity
+   - Stored as ContextVariables with metadata
+
+3. **Knowledge Push/Pull** (`src/core/knowledge.py:354-409`):
+   - **PUSH**: `get_context_for_agent()` - Auto-includes relevant knowledge
+   - **PULL**: `search_relevant()` - Agent queries for specific info
+
+4. **Sub-Agent Spawning** (`src/core/memory.py:456-571`):
+   - `spawn_subagent()` - Creates focused sub-task with subset of context
+   - `batch_subcalls()` - Parallel sub-agent processing
+   - Results collected via `get_results()`
+
+---
+
+### 3. User Profile/Preference Management
+
+**No explicit user profile system exists.** Organization is configured via:
+
+1. **Presets** (`src/core/preset.py`):
+   - Industry templates (software-company, etc.)
+   - Configuration in `config/branding.yaml`, `config/models.yaml`
+   - Customizations applied at init time
+
+2. **Organizational Structure** (`templates/presets/{industry}/`):
+   - Hierarchy definitions
+   - Role configurations
+   - Department structures
+   - Capability-skill mappings
+
+3. **Agent Identity** (`src/agents/base.py:44-54`):
+   ```python
+   @dataclass
+   class AgentIdentity:
+       id: str
+       role_id: str
+       role_name: str
+       department: str
+       level: int
+       reports_to: Optional[str]
+       direct_reports: List[str]
+       skills: List[str]
+       capabilities: List[str]
+   ```
+
+---
+
+### 4. RAG/Embedding Systems
+
+**NO RAG or embedding systems implemented.** The codebase explicitly states this in comments:
+
+- `src/core/ingest.py:196-198`: "PDF extraction not yet implemented"
+- `src/core/ingest.py:206-208`: "Image description extraction pending vision integration"
+
+#### Alternative Context Management:
+
+Instead of embeddings, ai-corp uses:
+
+1. **Keyword-based fact extraction** (`src/core/ingest.py:291-341`):
+   - Regex patterns for definitions, entities, URLs, code refs
+   - No semantic similarity
+
+2. **Hierarchical chunking** (`src/core/ingest.py:211-271`):
+   - Fixed-size overlapping chunks (10KB default)
+   - Paragraph/sentence boundary detection
+   - No vector indexing
+
+3. **Navigable summaries** (`src/core/memory.py:574-702`):
+   - `ContextCompressor` creates summaries with pointers back to full content
+   - Three compression levels: light, moderate, aggressive
+   - Preserves access to original without lossy compression
+
+4. **Simple keyword search** (`src/core/memory.py:820-836`):
+   ```python
+   def get_relevant_lessons(context, max_results=5):
+       # Word overlap scoring, not semantic
+       context_words = set(re.findall(r'\b\w+\b', context.lower()))
+       # ...matches by overlap count
+   ```
+
+---
+
+### Key Architecture Decisions
+
+| Choice | Implementation | Trade-off |
+|--------|---------------|-----------|
+| **No Database** | YAML/JSON files | Simple, portable, git-trackable vs slower at scale |
+| **No Embeddings** | Keyword/regex search | Fast, deterministic vs limited semantic understanding |
+| **Lazy Loading** | Content loaded on demand | Memory efficient vs IO overhead |
+| **Git-backed** | Auto-commit on state changes | Full audit trail vs commit noise |
+| **Scoped Knowledge** | Foundation→Project→Task | Clean isolation vs manual scoping |
+
+---
+
+### Relevance to Agent-Swarm
+
+**Comparable patterns:**
+- File-based YAML state (similar to our swarms/)
+- Hierarchical organization (COO→VP→Director→Worker)
+- Work queues via "hooks" (similar to our task delegation)
+
+**Key differences:**
+- ai-corp: No embeddings, purely file-based
+- agent-swarm: Has embedding_service.py, semantic_index.py
+
+**Potential adoption:**
+- Their `ContextVariable.peek()/grep()` pattern for lazy context
+- `OrganizationalMemory` for decisions/lessons learned
+- Navigable summaries with back-pointers
+
+
+---
+
+## Context System Implementation Review - 2026-01-06
+**Reviewer**: Claude Code Review Agent
+**Status**: NEEDS_WORK (7/10)
+
+### Summary
+Reviewed RLM-inspired context system implementation against architecture spec.
+
+### Critical Issues Found
+| Priority | Issue | File |
+|----------|-------|------|
+| P0 | Lazy loading not truly lazy - peek/grep load full content | context_variable.py |
+| P1 | Memory budget manager not integrated | context_store.py |
+| P1 | Cache size not updated on peek/grep | context_store.py |
+| P1 | Long lock holding in search() | context_store.py |
+
+### Positive Findings
+- Excellent error handling
+- Good thread safety foundation  
+- Clean API design matching spec
+- Bonus features (reset_singletons, from_text, etc.)
+
+### Recommendation
+Address P0 and P1 issues before production integration. Current implementation works correctly but won't achieve memory efficiency goals.
+
+### Report Location
+`swarms/life_os/workspace/reviews/CONTEXT_SYSTEM_REVIEW.md`
+
+
+---
+
+## RLM Gap Analysis - HIGH Priority Implementation Complete
+**Implementer**: Claude Opus 4.5
+**Date**: 2026-01-06
+
+**Status**: COMPLETE
+
+### Summary
+Implemented HIGH priority gaps from `swarms/life_os/workspace/research/RLM_GAP_ANALYSIS.md`:
+1. Session state with result accumulation buffer
+2. Cross-call state persistence in ContextNavigator
+3. New buffer operation tools
+
+### Files Modified
+
+**`backend/services/context/context_navigator.py`**
+- Added `session_state: Dict[str, any]` for cross-call persistence
+- Added `_result_buffer: List[str]` for output accumulation
+- Added state methods: `set_state()`, `get_state()`, `list_state()`, `clear_state()`
+- Added buffer methods: `buffer_append()`, `buffer_read()`, `buffer_clear()`, `buffer_pop()`
+
+**`backend/services/context/context_tools.py`**
+- Added `STATE_TOOLS` list with 4 tool definitions
+- Added `BUFFER_TOOLS` list with 4 tool definitions
+- Updated `handle_context_tool()` to route new tools
+- Added `get_state_tools()`, `get_buffer_tools()`, `get_all_context_tools()` functions
+- Updated `is_context_tool()` to recognize state_ and buffer_ prefixes
+
+**`backend/services/context/__init__.py`**
+- Exported new tool lists and accessor functions
+
+### New Tools Available
+
+**Session State Tools** (Strategy C: Answer Verification)
+| Tool | Purpose |
+|------|---------|
+| `state_set` | Store key-value in session |
+| `state_get` | Retrieve stored value |
+| `state_list` | List all keys with previews |
+| `state_clear` | Clear all session state |
+
+**Buffer Tools** (Strategy D: Long Output Assembly)
+| Tool | Purpose |
+|------|---------|
+| `buffer_append` | Add content to buffer (with optional label) |
+| `buffer_read` | Read combined buffer contents |
+| `buffer_clear` | Clear the buffer |
+| `buffer_pop` | Remove and return entry |
+
+### RLM Gap Status Update
+
+| Gap | Status | Implementation |
+|-----|--------|----------------|
+| No Cross-Call State | **FIXED** | `session_state` dict |
+| No Output Buffering | **FIXED** | `_result_buffer` list |
+| Fixed Tool Schemas | Intentional | Now 14 tools vs 6 |
+| Batch Processing | Pending | Phase 2 roadmap |
+
+### Syntax Verification
+```bash
+python3 -m py_compile backend/services/context/context_navigator.py \
+  backend/services/context/context_tools.py \
+  backend/services/context/__init__.py
+# Result: PASSED
+```
+
+### Usage Example
+```python
+from backend.services.context import get_context_navigator
+
+nav = get_context_navigator()
+
+# Cross-call state persistence
+nav.set_state("candidates", ["item1", "item2"])
+# ... later in same session ...
+result = nav.get_state("candidates")  # {"value": ["item1", "item2"], "exists": True}
+
+# Output accumulation
+for chunk in chunks:
+    summary = process_chunk(chunk)
+    nav.buffer_append(summary, label=f"chunk_{i}")
+final_output = nav.buffer_read()  # Combined summaries
+```
+
+---
+
+---
+
+## Life OS - iMessage Reader - 2026-01-06
+
+**Status**: COMPLETE
+
+### Files Created
+- `backend/services/life_os/__init__.py` - Module exports
+- `backend/services/life_os/message_reader.py` - iMessage database reader
+
+### Features
+| Function | Description |
+|----------|-------------|
+| `get_recent_messages(limit=50)` | Get recent messages across all conversations |
+| `search_messages(query, limit=20)` | Search messages by text content |
+| `get_conversation(contact_id, limit=50)` | Get thread for specific contact |
+| `list_contacts(limit=100)` | List contacts with message counts |
+
+### Implementation Details
+- Reads from `~/Library/Messages/chat.db` (SQLite)
+- Read-only connection with `immutable=1` flag to avoid locking
+- Memory efficient: uses generators for streaming results
+- Converts Apple timestamps (nanoseconds since 2001-01-01)
+- Custom exceptions: `DatabaseNotFoundError`, `DatabaseAccessError`, `MessageReaderError`
+
+### Requirements
+- macOS with Messages app configured
+- Full Disk Access permission for the running process
+
+### Usage Example
+```python
+from backend.services.life_os import get_recent_messages, search_messages
+
+# Get last 50 messages
+messages = get_recent_messages(50)
+
+# Search for messages
+results = search_messages("meeting tomorrow")
+
+# Get conversation with contact
+thread = get_conversation("+15551234567", limit=100)
+```
+
+---
+
+## Life OS - FAISS Semantic Index - 2026-01-06
+
+**Status**: COMPLETE
+
+### Files Created
+- `backend/services/life_os/semantic_index.py` - FAISS-based vector similarity search
+
+### Dependencies
+- `faiss-cpu` - Vector similarity search
+- `sentence-transformers` (all-MiniLM-L6-v2) - Via existing EmbeddingService
+
+### Functions
+| Function | Description |
+|----------|-------------|
+| `build_index(documents)` | Build index from list of documents (replaces existing) |
+| `search(query, k=10)` | Search for similar documents by query text |
+| `add_documents(docs)` | Incrementally add new documents to index |
+| `remove_documents(doc_ids)` | Remove documents from index |
+| `get_stats()` | Get index statistics |
+
+### Implementation Details
+- Uses FAISS `IndexFlatIP` with L2-normalized vectors for cosine similarity
+- Batch embedding generation (100 docs/batch) for memory efficiency
+- Supports multiple document types (messages, notes, events, etc.)
+- Persistent storage to `memory/life_os/faiss.index` and `faiss_meta.json`
+- Thread-safe with lazy loading
+- Async variants for all main functions
+
+### Document Schema
+```python
+{
+    "id": "unique-doc-id",
+    "content": "Text content to embed",
+    "doc_type": "message" | "note" | "event" | etc.,
+    "metadata": {"any": "additional fields"}
+}
+```
+
+### Usage Example
+```python
+from backend.services.life_os import get_semantic_index
+
+index = get_semantic_index()
+
+# Build index from documents
+docs = [
+    {"id": "msg1", "content": "Meeting tomorrow at 3pm", "doc_type": "message"},
+    {"id": "note1", "content": "Project ideas for Q1", "doc_type": "note"},
+]
+result = index.build_index(docs)
+
+# Search
+results = index.search("meeting schedule", k=5)
+for r in results:
+    print(f"{r.doc_id}: {r.score:.3f} ({r.doc_type})")
+
+# Add more documents incrementally
+index.add_documents([{"id": "msg2", "content": "...", "doc_type": "message"}])
+```
+
+---
+
+## Life OS - REST API Endpoints - 2026-01-06
+
+**Status**: COMPLETE
+
+### Files Created
+- `backend/routes/life.py` - REST API endpoints for Life OS
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/life/messages/recent?limit=50` | Get recent messages across all conversations |
+| GET | `/api/life/messages/search?q=QUERY&limit=20` | Search messages by text content |
+| GET | `/api/life/messages/conversation/{contact_id}?limit=50` | Get conversation with specific contact |
+| GET | `/api/life/contacts` | List all contacts from address book |
+| GET | `/api/life/contacts/search?q=QUERY` | Search contacts by name, email, or phone |
+| POST | `/api/life/search` | Semantic search using FAISS index |
+| POST | `/api/life/index/build` | Trigger full index rebuild from messages |
+| GET | `/api/life/index/stats` | Get semantic index statistics |
+
+### Request/Response Examples
+
+**Semantic Search**
+```bash
+curl -X POST http://localhost:8000/api/life/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "meeting tomorrow", "k": 10}'
+```
+
+**Index Build**
+```bash
+curl -X POST http://localhost:8000/api/life/index/build
+```
+
+### Integration
+- Registered in `backend/main.py` via `app.include_router(life_router)`
+- Uses services from `backend/services/life_os/`:
+  - `MessageReader` - iMessage database access
+  - `ContactReader` - macOS Contacts access
+  - `FAISSSemanticIndex` - Vector similarity search
+
+
+---
+
+## Life OS Implementation Bug Review - 2026-01-06
+**Reviewer**: Code Review Agent (Claude Opus 4.5)
+**Date**: 2026-01-06
+
+### Summary
+Reviewed 5 files for bugs, security issues, memory efficiency, and design problems:
+- `backend/services/life_os/message_reader.py`
+- `backend/services/life_os/contact_reader.py`
+- `backend/services/life_os/semantic_index.py`
+- `backend/routes/life.py`
+- `backend/tools.py` (context tool wiring)
+
+---
+
+## P0 - Critical Bugs
+
+### BUG-001: SQL Injection in message_reader.py
+**File**: `backend/services/life_os/message_reader.py:164`
+**Severity**: P0 - CRITICAL SECURITY
+**Description**: The `search_messages()` method directly interpolates user input into LIKE query without escaping SQL special characters (`%`, `_`, `'`). While parameterized queries are used, the LIKE pattern itself is vulnerable to wildcard injection.
+```python
+cursor.execute(sql, (f"%{query}%", limit))  # query could contain % or _ wildcards
+```
+**Impact**: User can craft queries that bypass intended search behavior or cause performance issues with wildcard patterns.
+**Suggested Fix**: Escape `%` and `_` characters in the query parameter before interpolation:
+```python
+escaped_query = query.replace("%", r"\%").replace("_", r"\_")
+cursor.execute(sql, (f"%{escaped_query}%", limit))
+# Also add ESCAPE clause to SQL
+```
+
+### BUG-002: Resource Leak - Database Connections Not Closed on Generator Exit
+**File**: `backend/services/life_os/message_reader.py:124-135, 161-172, 201-213, 239-250`
+**Severity**: P0 - CRITICAL
+**Description**: All generator methods (`get_recent_messages`, `search_messages`, `get_conversation`, `list_contacts`) open database connections but only close them if the generator runs to completion. If a consumer stops iterating early (e.g., `next(generator)` or breaking from loop), the connection is never closed.
+```python
+try:
+    conn = self._get_connection()  # Connection opened
+    cursor = conn.cursor()
+    for row in cursor:
+        yield self._row_to_message(row)  # If consumer stops here...
+    cursor.close()
+    conn.close()  # ...these never execute!
+except sqlite3.Error as e:
+    raise MessageReaderError(f"...")
+```
+**Impact**: SQLite connection exhaustion, potential database locking issues.
+**Suggested Fix**: Use context managers or try/finally:
+```python
+conn = self._get_connection()
+try:
+    cursor = conn.cursor()
+    cursor.execute(query, (limit,))
+    for row in cursor:
+        yield self._row_to_message(row)
+finally:
+    conn.close()
+```
+
+### BUG-003: Import Path Mismatch in life.py Routes
+**File**: `backend/routes/life.py:73, 103, 134, 162, 193, 225, 265-266, 317`
+**Severity**: P0 - CRITICAL (Will cause ImportError at runtime)
+**Description**: Routes import from `services.life_os.*` but the actual path is `backend.services.life_os.*`. This will cause `ModuleNotFoundError` when endpoints are called.
+```python
+from services.life_os.message_reader import get_recent_messages  # WRONG
+# Should be:
+from backend.services.life_os.message_reader import get_recent_messages
+```
+**Impact**: All Life OS API endpoints will fail with ImportError at runtime.
+**Suggested Fix**: Add `backend.` prefix to all imports, or ensure the backend directory is in Python path when running.
+
+---
+
+## P1 - High Priority Bugs
+
+### BUG-004: Thread Safety Issue in ContactReader Cache Access
+**File**: `backend/services/life_os/contact_reader.py:233-235, 247-248, 257, 301-302, 331-332`
+**Severity**: P1 - HIGH
+**Description**: Methods check `_is_cache_valid()` and then access `self._cache` outside the lock. This creates a race condition where another thread could invalidate the cache between the check and access.
+```python
+def get_all_contacts(self) -> list[dict]:
+    if not self._is_cache_valid():  # Check outside lock
+        self._refresh_cache()
+    return self._cache or []  # Access outside lock - race condition!
+```
+**Impact**: Potential `NoneType` errors or stale data in concurrent access scenarios.
+**Suggested Fix**: Move cache access inside the lock or use double-checked locking pattern properly:
+```python
+def get_all_contacts(self) -> list[dict]:
+    with self._cache_lock:
+        if not self._is_cache_valid():
+            self._refresh_cache()
+        return list(self._cache) if self._cache else []  # Copy inside lock
+```
+
+### BUG-005: Deprecated asyncio.get_event_loop() Usage
+**File**: `backend/services/life_os/semantic_index.py:296-297, 383-387, 471-472`
+**Severity**: P1 - HIGH
+**Description**: `asyncio.get_event_loop()` is deprecated in Python 3.10+ and will raise `DeprecationWarning`. In Python 3.12+, it raises `RuntimeError` if no running event loop.
+```python
+loop = asyncio.get_event_loop()  # Deprecated
+return await loop.run_in_executor(None, self.build_index, documents)
+```
+**Impact**: Will break on Python 3.12+ or in contexts without a running event loop.
+**Suggested Fix**: Use `asyncio.get_running_loop()` or `asyncio.to_thread()`:
+```python
+# Option 1: get_running_loop()
+loop = asyncio.get_running_loop()
+return await loop.run_in_executor(None, self.build_index, documents)
+
+# Option 2: asyncio.to_thread() (Python 3.9+)
+return await asyncio.to_thread(self.build_index, documents)
+```
+
+### BUG-006: Index/Metadata Desync After remove_documents()
+**File**: `backend/services/life_os/semantic_index.py:474-530`
+**Severity**: P1 - HIGH
+**Description**: The `remove_documents()` method removes doc_ids from metadata but leaves orphaned vectors in the FAISS index. The warning is logged but the index becomes inconsistent - FAISS index size differs from doc_ids list size, causing search to potentially return invalid indices.
+```python
+# After removal:
+# self._doc_ids = ["doc2", "doc3"]  # 2 entries
+# self._index.ntotal = 3  # Still 3 vectors!
+# Search returning index 2 would be out of bounds for _doc_ids
+```
+**Impact**: `IndexError` when searching after document removal, corrupt search results.
+**Suggested Fix**: Either rebuild the index entirely after removal, or maintain a valid_indices bitmap to skip orphaned vectors during search.
+
+### BUG-007: Missing Input Validation on k Parameter
+**File**: `backend/routes/life.py:24-28` and `backend/services/life_os/semantic_index.py:299-305`
+**Severity**: P1 - HIGH
+**Description**: The `SemanticSearchRequest` accepts any integer for `k`, but FAISS search with `k > ntotal` causes issues, and `k <= 0` is meaningless.
+```python
+class SemanticSearchRequest(BaseModel):
+    query: str
+    k: int = 10  # No validation - could be -5 or 1000000
+```
+**Impact**: DoS via memory allocation (very large k), or runtime errors with invalid values.
+**Suggested Fix**: Add validation:
+```python
+k: int = Field(default=10, ge=1, le=1000)
+```
+
+---
+
+## P2 - Medium Priority Issues
+
+### BUG-008: Singleton Not Thread-Safe for Initial Creation
+**File**: `backend/services/life_os/message_reader.py:254-262`
+**Severity**: P2 - MEDIUM
+**Description**: The `_get_reader()` function uses a module-level singleton without thread locking. If multiple threads call it simultaneously before initialization, multiple instances could be created.
+```python
+def _get_reader() -> MessageReader:
+    global _reader
+    if _reader is None:  # Race condition here
+        _reader = MessageReader()  # Multiple threads could execute this
+    return _reader
+```
+**Impact**: Potential for multiple MessageReader instances, wasted resources.
+**Suggested Fix**: Add threading lock as done in `semantic_index.py`.
+
+### BUG-009: Memory Inefficiency - Full Contact List Loaded into Memory
+**File**: `backend/services/life_os/contact_reader.py:227-235`
+**Severity**: P2 - MEDIUM (8GB RAM constraint)
+**Description**: `get_all_contacts()` returns the entire cached contact list. With large address books (10k+ contacts with multiple phones/emails), this could consume significant memory.
+**Impact**: Memory pressure on 8GB Mac Mini with large contact databases.
+**Suggested Fix**: Add pagination support:
+```python
+def get_contacts_paginated(self, offset: int = 0, limit: int = 100) -> list[dict]:
+    ...
+```
+
+### BUG-010: Exception Type Too Broad in Error Handling
+**File**: `backend/routes/life.py:80-82, 111-113, 142-144, 169-171, 200-202, 246-248, 301-303, 326-328`
+**Severity**: P2 - MEDIUM
+**Description**: All route handlers catch bare `Exception` and return 500 with `str(e)`. This masks the actual error type and may leak sensitive information.
+```python
+except Exception as e:
+    raise HTTPException(status_code=500, detail=str(e))  # Could leak paths, etc.
+```
+**Impact**: Security (information leakage) and debugging difficulty.
+**Suggested Fix**: Catch specific exceptions and return appropriate status codes:
+```python
+except DatabaseNotFoundError:
+    raise HTTPException(status_code=503, detail="Message database not available")
+except DatabaseAccessError:
+    raise HTTPException(status_code=403, detail="Permission denied to access messages")
+except Exception as e:
+    logger.exception("Unexpected error")
+    raise HTTPException(status_code=500, detail="Internal server error")
+```
+
+### BUG-011: Contact handle_id Returns Internal Format
+**File**: `backend/services/life_os/message_reader.py:98`
+**Severity**: P2 - MEDIUM
+**Description**: `_row_to_message()` returns `contact_handle` as a string from `handle_id`, but `handle_id` is a ROWID integer in the schema, not the actual phone/email. Line 116 shows the correct field is `h.id`, but line 98 uses `row["handle_id"]` which may be the join result.
+```python
+"contact_handle": row["handle_id"] or "",  # Returns handle.id (correct) but naming implies ROWID
+```
+**Impact**: Confusion between internal ROWID and display handle; may cause contact resolution failures.
+**Suggested Fix**: Rename to `contact_identifier` or verify the query alias `handle_id` maps correctly.
+
+### BUG-012: Missing Context Tool Handler in ToolExecutor
+**File**: `backend/tools.py:550-551`
+**Severity**: P2 - MEDIUM
+**Description**: The code references `_execute_context_tool` method but it's not defined in the ToolExecutor class. The `is_context_tool` check passes but execution will fail with `AttributeError`.
+```python
+elif self.enable_context_tools and is_context_tool(tool_name):
+    result = await self._execute_context_tool(tool_name, tool_input)  # Method doesn't exist!
+```
+**Impact**: Context tools will fail at runtime with AttributeError.
+**Suggested Fix**: Implement the missing method:
+```python
+async def _execute_context_tool(self, tool_name: str, tool_input: dict[str, Any]) -> str:
+    """Execute a context navigation tool."""
+    return await handle_context_tool(tool_name, tool_input, self.context_navigator)
+```
+
+### BUG-013: No Rate Limiting on Index Build Endpoint
+**File**: `backend/routes/life.py:251-303`
+**Severity**: P2 - MEDIUM
+**Description**: The `/index/build` endpoint triggers expensive operations (reading 10k messages, generating embeddings) with no rate limiting or concurrency control.
+**Impact**: DoS vulnerability - repeated calls could exhaust CPU/memory on 8GB Mac Mini.
+**Suggested Fix**: Add rate limiting or a "build in progress" flag:
+```python
+_build_in_progress = False
+
+@router.post("/index/build")
+async def build_index():
+    global _build_in_progress
+    if _build_in_progress:
+        raise HTTPException(status_code=429, detail="Index build already in progress")
+    ...
+```
+
+---
+
+## Design Observations (Non-Blocking)
+
+### OBS-001: Consider Connection Pooling for MessageReader
+The current design creates a new SQLite connection per operation. For high-throughput scenarios, consider using a connection pool or context manager pattern.
+
+### OBS-002: FAISS Index Size Warning
+With 10,000 messages × 384 dimensions × 4 bytes = ~15MB for vectors alone, plus metadata. On 8GB RAM this is acceptable, but monitor if scaling to 100k+ messages.
+
+### OBS-003: Embedding Service Thread Pool
+The embedding service uses a ThreadPoolExecutor with max_workers=2, which is reasonable for the 8GB constraint but may become a bottleneck under concurrent search load.
+
+---
+
+## Required Actions Summary
+
+| Priority | Count | Immediate Action Needed |
+|----------|-------|------------------------|
+| P0 | 3 | YES - Blocks deployment |
+| P1 | 4 | YES - Fix before production |
+| P2 | 6 | Schedule for next sprint |
+
+**Recommended Fix Order**:
+1. BUG-003 (Import paths) - Blocks all functionality
+2. BUG-002 (Resource leak) - Database stability
+3. BUG-001 (SQL injection) - Security
+4. BUG-012 (Missing method) - Context tools broken
+5. Remaining P1s
+6. P2s as time permits
 
 ---

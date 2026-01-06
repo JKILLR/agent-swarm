@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "saved_at": "2026-01-05T00:46:02.095082",
+  "saved_at": "2026-01-05T09:27:49.304845",
   "nodes": [
     {
       "id": "mind-root",
@@ -10,7 +10,7 @@
       "color": "#8B5CF6",
       "source": "system",
       "created_at": "2026-01-04T19:37:45.916331",
-      "updated_at": "2026-01-05T00:46:02.095067",
+      "updated_at": "2026-01-05T09:27:49.304838",
       "provenance": {},
       "metadata": {},
       "children": [
@@ -18,7 +18,12 @@
         "node-1767584296373-582df",
         "node-1767596774923-f1003",
         "node-1767601914968-ff905",
-        "node-1767602762095-fcb74"
+        "node-1767602762095-fcb74",
+        "node-1767605152494-6424e",
+        "node-1767606147083-e26e7",
+        "node-1767607103205-f73cd",
+        "node-1767633281132-fee80",
+        "node-1767634069304-ef3f2"
       ],
       "edges": []
     },
@@ -479,6 +484,146 @@
           "target": "mind-root",
           "type": "parent",
           "created_at": "2026-01-05T00:46:02.095074",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "node-1767605152494-6424e",
+      "label": "test agents parallel work capabilities. start a task that runs multiple agents in parallel",
+      "description": "I want to test agents parallel work capabilities. start a task that runs multiple agents in parallel",
+      "node_type": "goal",
+      "color": "#8B5CF6",
+      "source": "conversation",
+      "created_at": "2026-01-05T01:25:52.494701",
+      "updated_at": "2026-01-05T01:25:52.494715",
+      "provenance": {
+        "session_id": "84f44e85-dd7b-4edf-a9e4-bbb770ffddc2",
+        "extraction_confidence": 0.9,
+        "importance": 3,
+        "source_excerpt": "Ok i'll work on this from the outside. \nIn the meantime I want to test agents parallel work capabilities. start a task that runs multiple agents in parallel"
+      },
+      "metadata": {
+        "importance": 3
+      },
+      "children": [],
+      "edges": [
+        {
+          "target": "mind-root",
+          "type": "parent",
+          "created_at": "2026-01-05T01:25:52.494713",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "node-1767606147083-e26e7",
+      "label": "everything with context",
+      "description": "remember everything with context",
+      "node_type": "fact",
+      "color": "#8B5CF6",
+      "source": "conversation",
+      "created_at": "2026-01-05T01:42:27.083322",
+      "updated_at": "2026-01-05T01:42:27.083332",
+      "provenance": {
+        "session_id": "42893e67-a81a-44f1-b036-d7b5496c1906",
+        "extraction_confidence": 0.9,
+        "importance": 5,
+        "source_excerpt": "See attached text\n\n--- Attached Text: Pasted Text (1316 chars) ---\nI want to build a native iOS/macOS app that lets users effortlessly capture their scattered thoughts, ideas, and goals through two-wa"
+      },
+      "metadata": {
+        "importance": 5
+      },
+      "children": [],
+      "edges": [
+        {
+          "target": "mind-root",
+          "type": "parent",
+          "created_at": "2026-01-05T01:42:27.083331",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "node-1767607103205-f73cd",
+      "label": "everything with context",
+      "description": "remember everything with context",
+      "node_type": "fact",
+      "color": "#8B5CF6",
+      "source": "conversation",
+      "created_at": "2026-01-05T01:58:23.205676",
+      "updated_at": "2026-01-05T01:58:23.205688",
+      "provenance": {
+        "session_id": "42893e67-a81a-44f1-b036-d7b5496c1906",
+        "extraction_confidence": 0.9,
+        "importance": 5,
+        "source_excerpt": "See attached text\n\n--- Attached Text: Pasted Text (1316 chars) ---\nI want to build a native iOS/macOS app that lets users effortlessly capture their scattered thoughts, ideas, and goals through two-wa"
+      },
+      "metadata": {
+        "importance": 5
+      },
+      "children": [],
+      "edges": [
+        {
+          "target": "mind-root",
+          "type": "parent",
+          "created_at": "2026-01-05T01:58:23.205687",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "node-1767633281132-fee80",
+      "label": "everything with context",
+      "description": "remember everything with context",
+      "node_type": "fact",
+      "color": "#8B5CF6",
+      "source": "conversation",
+      "created_at": "2026-01-05T09:14:41.132578",
+      "updated_at": "2026-01-05T09:14:41.132586",
+      "provenance": {
+        "session_id": "42893e67-a81a-44f1-b036-d7b5496c1906",
+        "extraction_confidence": 0.9,
+        "importance": 5,
+        "source_excerpt": "See attached text\n\n--- Attached Text: Pasted Text (1316 chars) ---\nI want to build a native iOS/macOS app that lets users effortlessly capture their scattered thoughts, ideas, and goals through two-wa"
+      },
+      "metadata": {
+        "importance": 5
+      },
+      "children": [],
+      "edges": [
+        {
+          "target": "mind-root",
+          "type": "parent",
+          "created_at": "2026-01-05T09:14:41.132585",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "node-1767634069304-ef3f2",
+      "label": "everything with context",
+      "description": "remember everything with context",
+      "node_type": "fact",
+      "color": "#8B5CF6",
+      "source": "conversation",
+      "created_at": "2026-01-05T09:27:49.304835",
+      "updated_at": "2026-01-05T09:27:49.304843",
+      "provenance": {
+        "session_id": "42893e67-a81a-44f1-b036-d7b5496c1906",
+        "extraction_confidence": 0.9,
+        "importance": 5,
+        "source_excerpt": "See attached text\n\n--- Attached Text: Pasted Text (1316 chars) ---\nI want to build a native iOS/macOS app that lets users effortlessly capture their scattered thoughts, ideas, and goals through two-wa"
+      },
+      "metadata": {
+        "importance": 5
+      },
+      "children": [],
+      "edges": [
+        {
+          "target": "mind-root",
+          "type": "parent",
+          "created_at": "2026-01-05T09:27:49.304842",
           "metadata": {}
         }
       ]

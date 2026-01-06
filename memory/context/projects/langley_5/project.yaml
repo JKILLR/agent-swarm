@@ -1,0 +1,79 @@
+# =============================================================================
+# Project: 53 North (Langley 5)
+# =============================================================================
+# Complete project context for J's current construction project.
+# This file contains all project-specific information that agents need
+# to provide relevant assistance and maintain project awareness.
+# =============================================================================
+
+# --- Project Identity ---
+project_name: 53 North
+internal_code: Langley 5
+status: active
+
+# --- Location ---
+location:
+  city: City of Langley
+  region: null
+    # Placeholder: Province/State
+  address: null
+    # Placeholder: Site address
+
+# --- Project Details ---
+project_type: Low-rise apartment building
+description: null
+  # Placeholder: Brief project description
+
+# --- Key Document Folders ---
+# Standard folder structure for construction documents
+key_folders:
+  - name: PO Summary
+    description: Purchase Order summaries and tracking
+    path: null
+
+  - name: SIs
+    description: Supplemental Instructions from architect/engineer
+    path: null
+
+  - name: IFCs
+    description: Issued For Construction drawings
+    path: null
+
+  - name: Shop Drawings
+    description: Trade-submitted shop drawings for review
+    path: null
+
+# --- Trades ---
+# Subcontractors and trade partners on the project
+trades:
+  # Placeholder: List of trades will be populated as learned
+  # Example structure:
+  # - trade: Electrical
+  #   company: null
+  #   contact: null
+  #   status: active
+  []
+
+# --- Key Contacts ---
+# Important people associated with this project
+contacts:
+  # Placeholder: Contact list will be populated as learned
+  # Example structure:
+  # - name: null
+  #   role: null
+  #   company: null
+  #   phone: null
+  #   email: null
+  #   priority: normal
+  []
+
+# --- Project Timeline ---
+timeline:
+  start_date: null
+  target_completion: null
+  current_phase: null
+  milestones: []
+
+# --- Notes ---
+project_notes: []
+  # Placeholder: Running notes about the project

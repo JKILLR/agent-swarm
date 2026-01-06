@@ -16,6 +16,14 @@ from typing import Any
 
 from memory import get_memory_manager
 
+# Context system imports for Life OS agents
+from backend.services.context import (
+    get_context_navigator,
+    get_all_context_tools,
+    handle_context_tool,
+    is_context_tool,
+)
+
 logger = logging.getLogger(__name__)
 
 # Project root for file operations
@@ -188,9 +196,17 @@ async def run_git_with_retry(
     return result
 
 
-def get_tool_definitions() -> list[dict[str, Any]]:
-    """Get tool definitions for Claude API."""
-    return [
+def get_tool_definitions(include_context_tools: bool = False) -> list[dict[str, Any]]:
+    """Get tool definitions for Claude API.
+
+    Args:
+        include_context_tools: If True, include context navigation tools for Life OS agents.
+                              These tools enable RLM-inspired context exploration.
+
+    Returns:
+        List of tool definitions for Claude API
+    """
+    base_tools = [
         {
             "name": "Task",
             "description": "Spawn a subagent to handle a task. Use this to delegate work to swarm agents.",
@@ -407,15 +423,30 @@ def get_tool_definitions() -> list[dict[str, Any]]:
         },
     ]
 
+    # Add context tools for Life OS agents if requested
+    if include_context_tools:
+        return base_tools + get_all_context_tools()
+    return base_tools
+
 
 class ToolExecutor:
     """Executes tools for agents."""
 
-    def __init__(self, orchestrator, websocket=None, manager=None):
+    def __init__(self, orchestrator, websocket=None, manager=None, enable_context_tools: bool = False):
         self.orchestrator = orchestrator
         self.websocket = websocket
         self.manager = manager
         self.background_tasks: dict[str, asyncio.Task] = {}
+        self.enable_context_tools = enable_context_tools
+        # Lazy-initialize context navigator only when needed
+        self._context_navigator = None
+
+    @property
+    def context_navigator(self):
+        """Lazy-load context navigator for Life OS agents."""
+        if self._context_navigator is None and self.enable_context_tools:
+            self._context_navigator = get_context_navigator()
+        return self._context_navigator
 
     async def send_event(self, event_type: str, data: dict[str, Any]):
         """Send event to websocket if available."""
@@ -431,6 +462,23 @@ class ToolExecutor:
             "Bash": lambda i: f"Running: {i.get('command', '')[:50]}...",
             "Glob": lambda i: f"Finding files matching {i.get('pattern', '*')}",
             "Grep": lambda i: f"Searching for '{i.get('pattern', '')}' in files",
+            # Context tools for Life OS agents
+            "context_list": lambda i: f"Listing contexts{' of type ' + i.get('type', '') if i.get('type') else ''}",
+            "context_peek": lambda i: f"Peeking at {i.get('context_id', 'context')}",
+            "context_grep": lambda i: f"Searching '{i.get('pattern', '')}' in {i.get('context_id', 'context')}",
+            "context_chunk": lambda i: f"Reading chunk {i.get('chunk_index', 0)} of {i.get('context_id', 'context')}",
+            "context_load": lambda i: f"Loading {i.get('context_id', 'context')}",
+            "context_search": lambda i: f"Searching all contexts for '{i.get('query', '')}'",
+            "state_set": lambda i: f"Setting state key '{i.get('key', '')}'",
+            "state_get": lambda i: f"Getting state key '{i.get('key', '')}'",
+            "state_list": lambda i: "Listing all state keys",
+            "state_clear": lambda i: "Clearing all state",
+            "buffer_append": lambda i: f"Appending to buffer{' [' + i.get('label', '') + ']' if i.get('label') else ''}",
+            "buffer_read": lambda i: "Reading buffer contents",
+            "buffer_pop": lambda i: "Popping from buffer",
+            "buffer_clear": lambda i: "Clearing buffer",
+            "context_batch_grep": lambda i: f"Batch grep on {len(i.get('queries', []))} contexts",
+            "context_batch_peek": lambda i: f"Batch peek on {len(i.get('context_ids', []))} contexts",
             "ListSwarms": lambda i: "Listing all swarms",
             "GetSwarmStatus": lambda i: f"Getting status of {i.get('swarm', 'swarm')}",
             "WebSearch": lambda i: f"Searching web for: {i.get('query', '')[:40]}",
@@ -498,6 +546,9 @@ class ToolExecutor:
                 result = await self._execute_git_status(tool_input)
             elif tool_name == "Edit":
                 result = await self._execute_edit(tool_input)
+            # Handle context tools for Life OS agents
+            elif self.enable_context_tools and is_context_tool(tool_name):
+                result = await self._execute_context_tool(tool_name, tool_input)
             else:
                 result = f"Unknown tool: {tool_name}"
 

@@ -1,0 +1,48 @@
+# =============================================================================
+# J's Communication Style Preferences
+# =============================================================================
+# Defines how J prefers to communicate across different channels.
+# This file is used by agents to match J's tone and style when drafting
+# communications or suggesting responses.
+# =============================================================================
+
+# --- Email Communication ---
+email:
+  tone: professional but direct
+  # J prefers clear, concise emails that get to the point without unnecessary
+  # formality while maintaining professionalism appropriate for construction industry.
+
+  formality_level: moderate
+  # Scale: casual | moderate | formal | very_formal
+
+# --- Common Phrases ---
+# Phrases J frequently uses in communication (learned over time)
+common_phrases:
+  greetings: []
+    # Placeholder: System will learn J's typical greetings
+  closings: []
+    # Placeholder: System will learn J's typical sign-offs
+  transitions: []
+    # Placeholder: Common transitional phrases J uses
+
+# --- Signature Patterns ---
+signature_patterns:
+  email_signature: null
+    # Placeholder: Will capture J's standard email signature
+  informal_sign_off: null
+    # Placeholder: How J signs off casual messages
+
+# --- Channel-Specific Preferences ---
+channel_preferences:
+  text_message:
+    tone: null
+    # Placeholder: Text messaging style
+  voice_call:
+    preferences: null
+    # Placeholder: Phone call preferences
+
+# --- Learning Notes ---
+# This section tracks patterns the system has observed
+learned_patterns:
+  last_updated: null
+  observations: []

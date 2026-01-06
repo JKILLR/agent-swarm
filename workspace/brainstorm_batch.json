@@ -1,0 +1,19 @@
+{
+  "agents": [
+    {
+      "swarm": "ASA Research",
+      "agent": "researcher",
+      "prompt": "CREATIVE BRAINSTORM - ROUND 1\n\nYour mission: Generate 7 WILD, CREATIVE ideas for ASA (Atomic Semantic Architecture).\n\nASA core concepts:\n- Concepts as atoms with inner shells (core meaning) and outer shells (context)\n- Relationships as positions/distances in semantic space\n- Bonding between concepts like chemistry\n- The map IS the brain\n\nYOUR ANGLE: Draw inspiration from PHYSICS, BIOLOGY, CHEMISTRY, NEUROSCIENCE.\n\nFor each idea:\n1. Give it a catchy name\n2. Explain the core mechanism (2-3 sentences)\n3. Why it could be revolutionary\n4. One wild speculation about emergent behavior\n\nBe BOLD. Think weird. No idea too crazy.\n\nWRITE YOUR IDEAS TO: swarms/asa_research/workspace/sessions/creative_brainstorm_2026-01-05/ROUND1_RESEARCHER.md"
+    },
+    {
+      "swarm": "ASA Research",
+      "agent": "implementer",
+      "prompt": "CREATIVE BRAINSTORM - ROUND 1\n\nYour mission: Generate 7 WILD, CREATIVE ideas for ASA (Atomic Semantic Architecture).\n\nASA core concepts:\n- Concepts as atoms with inner shells (core meaning) and outer shells (context)\n- Relationships as positions/distances in semantic space\n- Bonding between concepts like chemistry\n- The map IS the brain\n\nYOUR ANGLE: Think about NOVEL DATA STRUCTURES, ALGORITHMS, and IMPLEMENTATION PATTERNS.\n\nFor each idea:\n1. Give it a catchy name\n2. Explain the core mechanism (2-3 sentences)\n3. Why it could be revolutionary\n4. One wild speculation about emergent behavior\n\nBe BOLD. Think about what NO ONE has implemented before.\n\nWRITE YOUR IDEAS TO: swarms/asa_research/workspace/sessions/creative_brainstorm_2026-01-05/ROUND1_IMPLEMENTER.md"
+    },
+    {
+      "swarm": "ASA Research",
+      "agent": "orchestrator",
+      "prompt": "CREATIVE BRAINSTORM - ROUND 1\n\nYour mission: Generate 7 WILD, CREATIVE ideas for ASA (Atomic Semantic Architecture).\n\nASA core concepts:\n- Concepts as atoms with inner shells (core meaning) and outer shells (context)\n- Relationships as positions/distances in semantic space\n- Bonding between concepts like chemistry\n- The map IS the brain\n\nYOUR ANGLE: Think PHILOSOPHICALLY. Consciousness, emergence, meaning, identity, time.\n\nFor each idea:\n1. Give it a catchy name\n2. Explain the core mechanism (2-3 sentences)\n3. Why it could be revolutionary\n4. One wild speculation about emergent behavior\n\nBe BOLD. Challenge assumptions about what semantic systems should be.\n\nWRITE YOUR IDEAS TO: swarms/asa_research/workspace/sessions/creative_brainstorm_2026-01-05/ROUND1_ORCHESTRATOR.md"
+    }
+  ]
+}

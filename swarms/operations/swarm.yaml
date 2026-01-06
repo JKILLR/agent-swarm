@@ -31,6 +31,7 @@ managed_swarms:
   - asa_research
   - trading_bots
   - mynd_app
+  - life_os
 
 # Operational responsibilities
 responsibilities:
