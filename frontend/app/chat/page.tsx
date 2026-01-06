@@ -66,6 +66,39 @@ export default function ChatPage() {
     scrollToBottom()
   }, [messages])
 
+  // Loading timeout effect - reset loading state if stuck
+  useEffect(() => {
+    if (isLoading) {
+      // Start timeout when loading begins
+      loadingTimeoutRef.current = setTimeout(() => {
+        console.warn('Loading timeout reached, resetting state')
+        setIsLoading(false)
+        // Mark all non-complete agents as error
+        setAgentActivities((prev) =>
+          prev.map((a) =>
+            a.status !== 'complete'
+              ? { ...a, status: 'error' as const, endTime: new Date() }
+              : a
+          )
+        )
+      }, LOADING_TIMEOUT_MS)
+    } else {
+      // Clear timeout when loading ends
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
+    }
+  }, [isLoading, setAgentActivities, LOADING_TIMEOUT_MS])
+
   // Load sessions list
   const loadSessions = useCallback(async () => {
     try {
@@ -222,6 +255,23 @@ export default function ChatPage() {
             }
             return updated
           })
+          // Check if COO should go back to working (from delegating) when no subagents are working
+          setAgentActivities((prev) => {
+            const cooIdx = prev.findIndex(a => a.name.includes('COO'))
+            if (cooIdx !== -1 && prev[cooIdx].status === 'delegating') {
+              // Check if there are still active subagents
+              const hasActiveSubagents = prev.some(a =>
+                !a.name.includes('COO') &&
+                (a.status === 'working' || a.status === 'thinking')
+              )
+              if (!hasActiveSubagents) {
+                const updated = [...prev]
+                updated[cooIdx] = { ...updated[cooIdx], status: 'working' }
+                return updated
+              }
+            }
+            return prev
+          })
           break
 
         case 'agent_spawn':
@@ -368,16 +418,18 @@ export default function ChatPage() {
         case 'agent_delta':
           // Streaming text delta - append to current agent message
           setMessages((prev) => {
-            const lastMessage = prev[prev.length - 1]
-            if (lastMessage && lastMessage.type === 'agent' && lastMessage.status === 'thinking') {
+            // Find ANY message with status=thinking, not just the last one
+            const thinkingIdx = prev.findIndex(
+              (m) => m.type === 'agent' && m.status === 'thinking'
+            )
+            if (thinkingIdx !== -1) {
               // Update the thinking message with new content
-              return [
-                ...prev.slice(0, -1),
-                {
-                  ...lastMessage,
-                  content: lastMessage.content + (event.delta || ''),
-                },
-              ]
+              const updated = [...prev]
+              updated[thinkingIdx] = {
+                ...updated[thinkingIdx],
+                content: updated[thinkingIdx].content + (event.delta || ''),
+              }
+              return updated
             }
             return prev
           })
@@ -503,6 +555,11 @@ export default function ChatPage() {
       mounted = false
       ws.off('*', handleEvent)
       ws.off('disconnected', handleDisconnect)
+      // Clear loading timeout on cleanup
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
     }
   }, [setAgentActivities, setToolActivities]) // Removed saveMessage as it changes too often
 
