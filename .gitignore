@@ -57,6 +57,8 @@ Thumbs.db
 credentials.json
 secrets.yaml
 secrets.json
+config/google_credentials.json
+config/google_token.json
 
 # Testing
 .pytest_cache/

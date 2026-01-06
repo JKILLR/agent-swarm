@@ -1,0 +1,67 @@
+# =============================================================================
+# J's Personal Preferences
+# =============================================================================
+# Operational preferences that guide how agents interact with J and manage
+# tasks on their behalf. These preferences help prioritize and filter
+# information appropriately.
+# =============================================================================
+
+# --- Working Hours ---
+working_hours:
+  timezone: null
+    # Placeholder: J's primary timezone
+  typical_start: null
+    # Placeholder: When J typically starts work
+  typical_end: null
+    # Placeholder: When J typically ends work
+  days: []
+    # Placeholder: Working days (e.g., [Monday, Tuesday, ...])
+  notes: null
+    # Placeholder: Any special notes about schedule patterns
+
+# --- Priority Contacts ---
+# Contacts that should receive elevated priority for notifications/responses
+priority_contacts:
+  high_priority: []
+    # Placeholder: Names/roles that always get immediate attention
+  medium_priority: []
+    # Placeholder: Important but not urgent contacts
+  notes: null
+    # Placeholder: Context about priority decisions
+
+# --- Response Urgency Rules ---
+# Rules for determining how quickly something needs attention
+response_urgency_rules:
+  immediate:
+    # Conditions that trigger immediate notification
+    keywords: []
+    senders: []
+    conditions: []
+
+  same_day:
+    # Conditions that need response within the day
+    keywords: []
+    senders: []
+    conditions: []
+
+  standard:
+    # Normal response timeframe items
+    default_timeframe: null
+    conditions: []
+
+# --- Notification Preferences ---
+notification_preferences:
+  quiet_hours:
+    enabled: false
+    start: null
+    end: null
+
+  channel_preferences: {}
+    # Placeholder: How J prefers to receive different types of notifications
+
+# --- Information Preferences ---
+information_preferences:
+  summary_length: null
+    # Placeholder: preferred length for summaries (brief | moderate | detailed)
+  update_frequency: null
+    # Placeholder: how often J wants updates on ongoing items

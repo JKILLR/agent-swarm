@@ -1,0 +1,25 @@
+# =============================================================================
+# J's Personal Profile
+# =============================================================================
+# Core identity information for the personal context system.
+# This file contains foundational data about J that agents use to personalize
+# interactions and maintain continuity across sessions.
+# =============================================================================
+
+# --- Basic Identity ---
+name: J
+
+# --- Professional Context ---
+profession: Construction Project Manager / Site Superintendent
+employer: Contract work for developer building low-rise apartments
+role_description: Manages construction projects from planning through completion
+
+# --- Current Work ---
+current_project: Langley 5 (53 North)
+project_status: active
+
+# --- AI Partnership ---
+ai_partner:
+  name: Axel
+  platform: MYND app
+  relationship: Personal AI assistant and thought partner

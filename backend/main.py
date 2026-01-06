@@ -70,6 +70,9 @@ from services.chat_history import get_chat_history, ChatHistoryManager
 from services.memory_store import get_memory_store
 from routes.mind_graph import router as mind_graph_router
 from routes.chat import router as chat_router
+from routes.google import router as google_router
+from routes.context import router as context_router
+from routes.life import router as life_router
 
 # Configure logging - structured format with correlation IDs
 LOG_FILE = PROJECT_ROOT / "logs" / "backend.log"
@@ -317,6 +320,9 @@ app.add_middleware(
 # Include routers
 app.include_router(mind_graph_router)
 app.include_router(chat_router)
+app.include_router(google_router)
+app.include_router(context_router)
+app.include_router(life_router)
 
 
 class CorrelationIdMiddleware(BaseHTTPMiddleware):

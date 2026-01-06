@@ -163,8 +163,8 @@ class ConversationMemoryService:
 
         node_type = type_mapping.get(memory.category, NodeType.MEMORY)
 
-        # Find appropriate parent via semantic similarity
-        parent_id = self._find_parent(memory)
+        # Find appropriate parent via semantic similarity (async)
+        parent_id = await self._find_parent_async(memory)
 
         try:
             # Create node with full provenance
@@ -185,8 +185,8 @@ class ConversationMemoryService:
                 },
             )
 
-            # Link to semantically related nodes
-            self._link_related(node, memory.related_concepts)
+            # Link to semantically related nodes (async)
+            await self._link_related_async(node, memory.related_concepts)
 
             logger.debug(f"Created memory node: {memory.label} (type: {node_type.value})")
             return node
@@ -195,8 +195,8 @@ class ConversationMemoryService:
             logger.error(f"Failed to create node from memory: {e}")
             return None
 
-    def _find_parent(self, memory: "ExtractedMemory") -> Optional[str]:
-        """Find appropriate parent node via semantic similarity.
+    async def _find_parent_async(self, memory: "ExtractedMemory") -> Optional[str]:
+        """Find appropriate parent node via semantic similarity (async).
 
         Searches for existing nodes that are semantically similar to the
         memory description. If a highly similar node is found, it becomes
@@ -209,8 +209,8 @@ class ConversationMemoryService:
             Node ID of the parent, or None if no suitable parent found
         """
         try:
-            # Search for similar nodes using semantic similarity
-            results = self.graph.semantic_index.search(
+            # Search for similar nodes using semantic similarity (async)
+            results = await self.graph.semantic_index.search_async(
                 query=memory.description,
                 limit=5,
                 min_similarity=0.6,
@@ -234,8 +234,8 @@ class ConversationMemoryService:
             logger.warning(f"Failed to find parent: {e}")
             return None
 
-    def _link_related(self, node: MindNode, concepts: list[str]) -> None:
-        """Link node to related concepts via semantic search.
+    async def _link_related_async(self, node: MindNode, concepts: list[str]) -> None:
+        """Link node to related concepts via semantic search (async).
 
         For each concept in the memory's related_concepts list, searches
         for existing nodes that match and creates association edges.
@@ -249,8 +249,8 @@ class ConversationMemoryService:
 
         for concept in concepts:
             try:
-                # Search for existing node matching concept
-                results = self.graph.semantic_index.search(
+                # Search for existing node matching concept (async)
+                results = await self.graph.semantic_index.search_async(
                     query=concept,
                     limit=1,
                     min_similarity=0.7,

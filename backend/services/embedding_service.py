@@ -4,10 +4,16 @@
 
 Provides a thread-safe singleton for managing sentence-transformers
 embedding model with lazy loading and batch operations.
+
+IMPORTANT: All embedding operations are sync and should be run via
+asyncio.to_thread() when called from async contexts to avoid blocking
+the event loop.
 """
 
+import asyncio
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
@@ -16,6 +22,17 @@ if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
+
+# Dedicated thread pool for embedding operations
+_embedding_executor: Optional[ThreadPoolExecutor] = None
+
+
+def _get_executor() -> ThreadPoolExecutor:
+    """Get or create the embedding thread pool executor."""
+    global _embedding_executor
+    if _embedding_executor is None:
+        _embedding_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="embedding")
+    return _embedding_executor
 
 
 class EmbeddingService:
@@ -26,6 +43,7 @@ class EmbeddingService:
     - Configurable model (default: all-MiniLM-L6-v2)
     - Batch embedding for efficiency
     - Thread-safe singleton pattern
+    - Async wrappers for non-blocking usage
     """
 
     MODEL_NAME = "all-MiniLM-L6-v2"
@@ -48,14 +66,30 @@ class EmbeddingService:
         return self._model
 
     def embed(self, text: str) -> np.ndarray:
-        """Embed a single text. Returns 384-dim vector."""
+        """Embed a single text (sync). Returns 384-dim vector."""
         logger.debug(f"Embedding text of length {len(text)}")
         return self.model.encode(text, convert_to_numpy=True)
 
     def embed_batch(self, texts: list[str]) -> np.ndarray:
-        """Embed multiple texts. Returns (N, 384) array."""
+        """Embed multiple texts (sync). Returns (N, 384) array."""
         logger.debug(f"Batch embedding {len(texts)} texts")
         return self.model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+
+    async def embed_async(self, text: str) -> np.ndarray:
+        """Embed a single text (async). Returns 384-dim vector.
+
+        Runs embedding in thread pool to avoid blocking event loop.
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_get_executor(), self.embed, text)
+
+    async def embed_batch_async(self, texts: list[str]) -> np.ndarray:
+        """Embed multiple texts (async). Returns (N, 384) array.
+
+        Runs embedding in thread pool to avoid blocking event loop.
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_get_executor(), self.embed_batch, texts)
 
     def cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Compute cosine similarity between two vectors.
@@ -66,6 +100,15 @@ class EmbeddingService:
         if norm_a == 0 or norm_b == 0:
             return 0.0
         return float(np.dot(a, b) / (norm_a * norm_b))
+
+    def ensure_loaded(self) -> None:
+        """Pre-load the model (useful for startup)."""
+        _ = self.model
+
+    async def ensure_loaded_async(self) -> None:
+        """Pre-load the model asynchronously."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(_get_executor(), self.ensure_loaded)
 
 
 # Singleton
