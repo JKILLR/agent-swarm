@@ -53,6 +53,10 @@ export default function ChatPage() {
   const wsRef = useRef(getChatWebSocket())
   const pendingMessageRef = useRef<{ content: string; agent?: string; thinking?: string } | null>(null)
   const saveMessageRef = useRef<typeof saveMessage | null>(null)
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Loading timeout constant (5 minutes - long tasks are common with agents)
+  const LOADING_TIMEOUT_MS = 5 * 60 * 1000
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -169,7 +173,7 @@ export default function ChatPage() {
           setToolActivities([])
           // Add COO as the first active agent
           setAgentActivities([{
-            id: `agent-coo-${Date.now()}`,
+            id: crypto.randomUUID(),
             name: 'Supreme Orchestrator (COO)',
             status: 'thinking',
             startTime: new Date(),
@@ -181,7 +185,7 @@ export default function ChatPage() {
           setToolActivities((prev) => [
             ...prev,
             {
-              id: `tool-${Date.now()}-${event.tool}`,
+              id: crypto.randomUUID(),
               tool: event.tool || 'Unknown',
               description: event.description || '',
               status: 'running',
@@ -256,7 +260,7 @@ export default function ChatPage() {
             return [
               ...updated,
               {
-                id: `agent-${Date.now()}-${agentName}`,
+                id: crypto.randomUUID(),
                 name: agentName,
                 status: 'working' as const,
                 description: (event as { description?: string }).description?.substring(0, 100),
@@ -297,7 +301,7 @@ export default function ChatPage() {
           setMessages((prev) => [
             ...prev,
             {
-              id: `agent-${Date.now()}`,
+              id: crypto.randomUUID(),
               type: 'agent',
               content: '',
               agent: event.agent || 'Agent',
@@ -387,11 +391,12 @@ export default function ChatPage() {
             thinking: event.thinking,
           }
 
-          // Update or add agent response
+          // Always update the existing thinking message (regardless of agentType)
+          // This fixes duplicate responses when agentType doesn't match
           setMessages((prev) => {
-            // Find existing thinking message for this agent
+            // Find ANY existing thinking message (not filtered by agentType)
             const thinkingIdx = prev.findIndex(
-              (m) => m.type === 'agent' && m.status === 'thinking' && m.agentType === event.agent_type
+              (m) => m.type === 'agent' && m.status === 'thinking'
             )
 
             if (thinkingIdx !== -1) {
@@ -405,6 +410,8 @@ export default function ChatPage() {
                 thinking: finalThinking,
                 isThinking: false,
                 status: 'complete',
+                agent: event.agent || updated[thinkingIdx].agent,
+                agentType: event.agent_type || updated[thinkingIdx].agentType,
               }
               // Update pending message with actual content
               pendingMessageRef.current = {
@@ -419,7 +426,7 @@ export default function ChatPage() {
             return [
               ...prev,
               {
-                id: `agent-${Date.now()}-${event.agent}`,
+                id: crypto.randomUUID(),
                 type: 'agent',
                 content: event.content || '',
                 agent: event.agent || 'Agent',
@@ -430,6 +437,10 @@ export default function ChatPage() {
               },
             ]
           })
+
+          // Also set isLoading=false here as a fallback
+          // This fixes stuck loading state if chat_complete event is lost
+          setIsLoading(false)
           break
 
         case 'chat_complete':
@@ -452,6 +463,8 @@ export default function ChatPage() {
 
         case 'error':
           setIsLoading(false)
+          // Clear pending message on error to prevent leaks
+          pendingMessageRef.current = null
           // Mark agents as error
           setAgentActivities((prev) =>
             prev.map((a) =>
@@ -465,9 +478,14 @@ export default function ChatPage() {
 
     ws.on('*', handleEvent)
 
-    // Handle disconnected event to update UI
+    // Handle disconnected event to update UI and clean up state
     const handleDisconnect = () => {
-      if (mounted) setIsConnected(false)
+      if (mounted) {
+        setIsConnected(false)
+        setIsLoading(false)
+        // Clear pending message on disconnect to prevent leaks
+        pendingMessageRef.current = null
+      }
     }
     ws.on('disconnected', handleDisconnect)
 
@@ -511,7 +529,7 @@ export default function ChatPage() {
     setMessages((prev) => [
       ...prev,
       {
-        id: `user-${Date.now()}`,
+        id: crypto.randomUUID(),
         type: 'user',
         content,
         timestamp: new Date(),
