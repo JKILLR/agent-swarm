@@ -1386,6 +1386,9 @@ When the CEO asks you to do something that requires specialized work:
                 if not final_content:
                     final_content = "(No response generated)"
 
+                # Debug log before sending agent_complete
+                logger.info(f"Sending agent_complete with content length: {len(final_content)}, preview: {final_content[:200]}...")
+
                 await manager.send_event(
                     websocket,
                     "agent_complete",
@@ -1406,6 +1409,36 @@ When the CEO asks you to do something that requires specialized work:
                     },
                 )
 
+                # Save messages to chat history for conversation continuity
+                if session_id:
+                    try:
+                        # Ensure session exists (auto-create if needed)
+                        session = history.get_session(session_id)
+                        if not session:
+                            # Auto-create session
+                            session = {
+                                "id": session_id,
+                                "title": message[:50] + ("..." if len(message) > 50 else ""),
+                                "swarm": None,
+                                "created_at": datetime.now().isoformat(),
+                                "updated_at": datetime.now().isoformat(),
+                                "messages": [],
+                            }
+                            history._save_session(session)
+                            logger.info(f"Auto-created session: {session_id}")
+
+                        # Note: User message already saved by frontend via REST API
+                        # Only save assistant message here
+                        history.add_message(
+                            session_id,
+                            "assistant",
+                            final_content,
+                            agent="Supreme Orchestrator",
+                            thinking=result.get("thinking", ""),
+                        )
+                        logger.info(f"Saved messages to session: {session_id}")
+                    except Exception as save_err:
+                        logger.warning(f"Failed to save chat history: {save_err}")
                 # Save session summary to memory (lightweight, don't block)
                 try:
                     session_summary = f"**User**: {message[:200]}{'...' if len(message) > 200 else ''}\n\n**COO Response**: {final_content[:500]}{'...' if len(final_content) > 500 else ''}"

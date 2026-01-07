@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Corp - Command Terminal UI Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Dark Mode (Default) */
+            --bg-void: #0A0A0B;
+            --bg-surface: #121214;
+            --bg-elevated: #1A1A1D;
+            --bg-hover: #222226;
+
+            --terminal-green: #00FF88;
+            --terminal-amber: #FFB800;
+            --terminal-red: #FF3366;
+            --terminal-cyan: #00D4FF;
+            --terminal-purple: #A855F7;
+
+            --text-primary: #FFFFFF;
+            --text-secondary: #A1A1AA;
+            --text-tertiary: #71717A;
+            --text-muted: #52525B;
+
+            --border-subtle: #2A2A2F;
+            --border-emphasis: #3A3A42;
+
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+
+            --shadow-floating: 0 4px 12px rgba(0,0,0,0.3);
+            --shadow-modal: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        [data-theme="light"] {
+            --bg-void: #FAFBFC;
+            --bg-surface: #FFFFFF;
+            --bg-elevated: #F6F8FA;
+            --bg-hover: #F0F2F4;
+
+            --terminal-green: #059669;
+            --terminal-amber: #D97706;
+            --terminal-red: #DC2626;
+            --terminal-cyan: #2563EB;
+            --terminal-purple: #7C3AED;
+
+            --text-primary: #1F2937;
+            --text-secondary: #4B5563;
+            --text-tertiary: #6B7280;
+            --text-muted: #9CA3AF;
+
+            --border-subtle: #E1E4E8;
+            --border-emphasis: #D1D5DB;
+
+            --shadow-floating: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-modal: 0 8px 32px rgba(0,0,0,0.12);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--bg-void);
+            color: var(--text-primary);
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--terminal-green);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .logo-box {
+            width: 32px;
+            height: 32px;
+            background: var(--terminal-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bg-void);
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            color: var(--text-tertiary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+
+        .search-box:hover {
+            border-color: var(--terminal-green);
+        }
+
+        .theme-toggle {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-elevated);
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .theme-btn {
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 2px;
+            transition: all 0.15s;
+        }
+
+        .theme-btn.active {
+            background: var(--terminal-green);
+            color: var(--bg-void);
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            min-height: calc(100vh - 57px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 80px;
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border-subtle);
+            padding: 16px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-item {
+            padding: 12px 16px;
+            color: var(--text-tertiary);
+            font-size: 11px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            border-left: 2px solid transparent;
+        }
+
+        .nav-item:hover {
+            color: var(--text-secondary);
+            background: var(--bg-hover);
+        }
+
+        .nav-item.active {
+            color: var(--terminal-green);
+            border-left-color: var(--terminal-green);
+            background: var(--bg-hover);
+        }
+
+        /* Content Area */
+        .content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        /* Greeting */
+        .greeting {
+            margin-bottom: 24px;
+        }
+
+        .greeting-text {
+            font-family: var(--font-sans);
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .greeting-sub {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .greeting-meta {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 8px;
+        }
+
+        /* Section Header */
+        .section-header {
+            font-size: 12px;
+            color: var(--terminal-green);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-header::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-subtle);
+        }
+
+        /* Status Cards */
+        .status-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .status-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            padding: 16px;
+            transition: all 0.15s;
+        }
+
+        .status-card:hover {
+            border-color: var(--terminal-green);
+        }
+
+        .status-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: var(--terminal-green);
+            margin-top: 4px;
+        }
+
+        .status-value.amber { color: var(--terminal-amber); }
+        .status-value.cyan { color: var(--terminal-cyan); }
+        .status-value.purple { color: var(--terminal-purple); }
+
+        /* Gate Card (Floating) */
+        .gate-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-emphasis);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-floating);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .gate-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-modal);
+        }
+
+        .gate-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, rgba(255,184,0,0.15), rgba(255,184,0,0.05));
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+
+        .gate-icon {
+            font-size: 16px;
+        }
+
+        .gate-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--terminal-amber);
+        }
+
+        .gate-content {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .gate-info h3 {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .gate-meta {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .risk-assessment {
+            display: flex;
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .risk-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 12px;
+            background: var(--bg-surface);
+            border-radius: 4px;
+        }
+
+        .risk-icon { font-size: 16px; }
+        .risk-label { font-size: 10px; color: var(--text-tertiary); }
+
+        .risk-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .risk-bar-fill {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-hover);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .risk-bar-fill span {
+            display: block;
+            height: 100%;
+            width: 65%;
+            background: var(--terminal-amber);
+            border-radius: 3px;
+        }
+
+        .risk-level {
+            font-size: 12px;
+            color: var(--terminal-amber);
+        }
+
+        .gate-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .btn:hover {
+            border-color: var(--terminal-green);
+            color: var(--terminal-green);
+        }
+
+        .btn.primary {
+            background: var(--terminal-green);
+            color: var(--bg-void);
+            border-color: var(--terminal-green);
+        }
+
+        .btn.primary:hover {
+            background: #00cc6a;
+        }
+
+        .btn.danger {
+            color: var(--terminal-red);
+            border-color: var(--terminal-red);
+        }
+
+        .btn.danger:hover {
+            background: rgba(255,51,102,0.1);
+        }
+
+        /* Agent Cards */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .agent-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: all 0.15s;
+        }
+
+        .agent-card:hover {
+            border-color: var(--terminal-green);
+        }
+
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .agent-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--terminal-green);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.amber {
+            background: var(--terminal-amber);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        .status-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 2px;
+            background: rgba(0,255,136,0.15);
+            color: var(--terminal-green);
+        }
+
+        .status-badge.working {
+            background: rgba(168,85,247,0.15);
+            color: var(--terminal-purple);
+        }
+
+        .agent-body {
+            padding: 16px;
+        }
+
+        .agent-task {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .agent-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 8px;
+            background: var(--bg-elevated);
+            border-radius: 2px;
+        }
+
+        .stat-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 14px;
+            color: var(--terminal-cyan);
+            margin-top: 2px;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--bg-hover);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--terminal-green);
+            border-radius: 2px;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        /* Activity Log */
+        .activity-log {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .log-title {
+            font-size: 12px;
+            color: var(--terminal-green);
+        }
+
+        .log-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .log-entries {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            display: grid;
+            grid-template-columns: 80px 100px 1fr;
+            gap: 16px;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 12px;
+            transition: background 0.15s;
+        }
+
+        .log-entry:hover {
+            background: var(--bg-hover);
+        }
+
+        .log-time {
+            color: var(--text-muted);
+        }
+
+        .log-agent {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+        }
+
+        .log-message {
+            color: var(--text-primary);
+        }
+
+        .log-message.success { color: var(--terminal-green); }
+        .log-message.warning { color: var(--terminal-amber); }
+        .log-message.info { color: var(--terminal-cyan); }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background: var(--terminal-green);
+            animation: blink 1s infinite;
+            margin-left: 4px;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Footer */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border-subtle);
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .footer-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-status .status-dot {
+            width: 6px;
+            height: 6px;
+        }
+
+        /* Org Chart */
+        .org-chart {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .org-tree {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .org-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 24px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .org-node:hover {
+            border-color: var(--terminal-green);
+            box-shadow: 0 0 20px rgba(0,255,136,0.2);
+        }
+
+        .org-node.ceo {
+            border-color: var(--terminal-amber);
+        }
+
+        .org-node.ceo:hover {
+            box-shadow: 0 0 20px rgba(255,184,0,0.3);
+        }
+
+        .org-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .org-role {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .org-name {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .org-status {
+            font-size: 10px;
+            margin-top: 4px;
+        }
+
+        .org-status.active {
+            color: var(--terminal-green);
+        }
+
+        .org-status.online {
+            color: var(--terminal-amber);
+        }
+
+        .org-line {
+            width: 2px;
+            height: 20px;
+            background: var(--border-subtle);
+        }
+
+        .org-branches {
+            display: flex;
+            gap: 48px;
+            position: relative;
+        }
+
+        .org-branches::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 100px);
+            height: 2px;
+            background: var(--border-subtle);
+        }
+
+        .org-branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .org-branch::before {
+            content: '';
+            width: 2px;
+            height: 20px;
+            background: var(--border-subtle);
+        }
+
+        /* Neural connection animation */
+        .neural-dot {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--terminal-green);
+            border-radius: 50%;
+            animation: flow 2s linear infinite;
+        }
+
+        @keyframes flow {
+            0% { transform: translateY(-20px); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(20px); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-box">AI</div>
+            <span>AI CORP TERMINAL</span>
+        </div>
+        <div class="search-box">
+            <span>[⌘K]</span> Search commands...
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="theme-toggle">
+                <button class="theme-btn" onclick="setTheme('light')">LIGHT</button>
+                <button class="theme-btn active" onclick="setTheme('dark')">DARK</button>
+            </div>
+            <span style="color: var(--text-tertiary); font-size: 12px;">CEO: Jordan</span>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <nav class="sidebar">
+            <div class="nav-item active">DASH</div>
+            <div class="nav-item">PROJ</div>
+            <div class="nav-item">AGNT</div>
+            <div class="nav-item">GATE</div>
+            <div class="nav-item">LOGS</div>
+            <div class="nav-item">CONF</div>
+            <div style="flex: 1;"></div>
+            <div class="nav-item">[STAT]</div>
+            <div class="nav-item">[HELP]</div>
+        </nav>
+
+        <main class="content">
+            <div class="greeting">
+                <div class="greeting-text">Good evening, Jordan</div>
+                <div class="greeting-sub">Your agents have been busy. 12 tasks completed while you were away.</div>
+                <div class="greeting-meta">Session: 02:15:34 | $2.47 today</div>
+            </div>
+
+            <div class="section-header">> SYSTEM_STATUS</div>
+            <div class="status-row">
+                <div class="status-card">
+                    <div class="status-label">AGENTS ACTIVE</div>
+                    <div class="status-value">12/15</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-label">TASKS RUNNING</div>
+                    <div class="status-value cyan">47</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-label">QUEUE DEPTH</div>
+                    <div class="status-value purple">23</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-label">GATES PENDING</div>
+                    <div class="status-value amber">3</div>
+                </div>
+            </div>
+
+            <div class="section-header">> AWAITING_ACTION</div>
+            <div class="gate-card">
+                <div class="gate-header">
+                    <span class="gate-icon">⚡</span>
+                    <span class="gate-title">GATE: Production Deployment</span>
+                </div>
+                <div class="gate-content">
+                    <div class="gate-info">
+                        <h3>user-auth-system</h3>
+                        <div class="gate-meta">Requested by: Nova (dev-beta-3) · 5 minutes ago</div>
+
+                        <div class="risk-assessment">
+                            <div class="risk-item">
+                                <span class="risk-icon" style="color: var(--terminal-green);">✓</span>
+                                <span class="risk-label">Tests</span>
+                            </div>
+                            <div class="risk-item">
+                                <span class="risk-icon" style="color: var(--terminal-green);">✓</span>
+                                <span class="risk-label">Review</span>
+                            </div>
+                            <div class="risk-item">
+                                <span class="risk-icon" style="color: var(--terminal-amber);">⚠</span>
+                                <span class="risk-label">Size</span>
+                            </div>
+                            <div class="risk-item">
+                                <span class="risk-icon" style="color: var(--terminal-green);">✓</span>
+                                <span class="risk-label">Rollback</span>
+                            </div>
+                        </div>
+
+                        <div class="risk-bar">
+                            <span style="color: var(--text-tertiary); font-size: 11px;">RISK:</span>
+                            <div class="risk-bar-fill"><span></span></div>
+                            <span class="risk-level">MEDIUM</span>
+                        </div>
+                    </div>
+                    <div class="gate-actions">
+                        <button class="btn primary">✓ APPROVE</button>
+                        <button class="btn danger">✕ REJECT</button>
+                        <button class="btn">Details</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-header">> ACTIVE_AGENTS</div>
+            <div class="agent-grid">
+                <div class="agent-card">
+                    <div class="agent-header">
+                        <div class="agent-name">
+                            <span class="status-dot"></span>
+                            <span>COO Atlas (coo-alpha-7)</span>
+                        </div>
+                        <span class="status-badge working">WORKING</span>
+                    </div>
+                    <div class="agent-body">
+                        <div class="agent-task">Market Analysis Research</div>
+                        <div class="agent-stats">
+                            <div class="stat-box">
+                                <div class="stat-label">CPU</div>
+                                <div class="stat-value">23%</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">MEM</div>
+                                <div class="stat-value">1.2GB</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">TOKENS</div>
+                                <div class="stat-value">45.2K</div>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 67%;"></div>
+                        </div>
+                        <div class="progress-meta">
+                            <span>Runtime: 00:34:12</span>
+                            <span>67%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-header">
+                        <div class="agent-name">
+                            <span class="status-dot"></span>
+                            <span>Dev Nova (dev-beta-3)</span>
+                        </div>
+                        <span class="status-badge working">WORKING</span>
+                    </div>
+                    <div class="agent-body">
+                        <div class="agent-task">Implementing Auth Module</div>
+                        <div class="agent-stats">
+                            <div class="stat-box">
+                                <div class="stat-label">CPU</div>
+                                <div class="stat-value">45%</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">MEM</div>
+                                <div class="stat-value">2.1GB</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">TOKENS</div>
+                                <div class="stat-value">78.5K</div>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 34%;"></div>
+                        </div>
+                        <div class="progress-meta">
+                            <span>Runtime: 01:12:45</span>
+                            <span>34%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-header">> ORG_TOPOLOGY</div>
+            <div class="org-chart">
+                <div class="org-tree">
+                    <div class="org-node ceo">
+                        <span class="org-icon">👤</span>
+                        <span class="org-role">CEO (HUMAN)</span>
+                        <span class="org-name">Jordan</span>
+                        <span class="org-status online">● ONLINE</span>
+                    </div>
+                    <div class="org-line"></div>
+                    <div class="org-branches">
+                        <div class="org-branch">
+                            <div class="org-node">
+                                <span class="org-icon">🎯</span>
+                                <span class="org-role">COO</span>
+                                <span class="org-name">Atlas</span>
+                                <span class="org-status active">● WORKING</span>
+                            </div>
+                        </div>
+                        <div class="org-branch">
+                            <div class="org-node">
+                                <span class="org-icon">💻</span>
+                                <span class="org-role">CTO</span>
+                                <span class="org-name">cto-prime-1</span>
+                                <span class="org-status" style="color: var(--text-muted);">○ IDLE</span>
+                            </div>
+                        </div>
+                        <div class="org-branch">
+                            <div class="org-node">
+                                <span class="org-icon">📊</span>
+                                <span class="org-role">CPO</span>
+                                <span class="org-name">cpo-delta-2</span>
+                                <span class="org-status active">● WORKING</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-header">> ACTIVITY_LOG</div>
+            <div class="activity-log">
+                <div class="log-header">
+                    <span class="log-title">▸ LIVE_ACTIVITY ─────── tail -f</span>
+                    <span class="log-hint">[⌘L]</span>
+                </div>
+                <div class="log-entries">
+                    <div class="log-entry">
+                        <span class="log-time">[14:32:01]</span>
+                        <span class="log-agent"><span class="status-dot" style="width: 6px; height: 6px;"></span> dev-007</span>
+                        <span class="log-message success">✓ COMPLETE: Implement auth flow</span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time">[14:31:45]</span>
+                        <span class="log-agent"><span class="status-dot" style="width: 6px; height: 6px;"></span> qa-002</span>
+                        <span class="log-message info">▶ STARTED: review PR #234</span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time">[14:31:12]</span>
+                        <span class="log-agent"><span class="status-dot" style="width: 6px; height: 6px; background: var(--terminal-purple);"></span> dev-003</span>
+                        <span class="log-message" style="color: var(--terminal-purple);">◎ THINKING: Analyzing test failures...</span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time">[14:30:58]</span>
+                        <span class="log-agent"><span class="status-dot amber" style="width: 6px; height: 6px;"></span> gate</span>
+                        <span class="log-message warning">⚠ GATE: Quality gate triggered</span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time">[14:30:12]</span>
+                        <span class="log-agent"><span class="status-dot" style="width: 6px; height: 6px;"></span> arch-01</span>
+                        <span class="log-message success">✓ COMPLETE: API schema review</span>
+                    </div>
+                    <div class="log-entry">
+                        <span class="log-time"></span>
+                        <span class="log-agent"></span>
+                        <span class="log-message"><span class="cursor"></span></span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-status">
+            <span class="status-dot"></span>
+            <span>> READY</span>
+        </div>
+        <span>Session: 02:15:34 | Cost: $2.47</span>
+    </footer>
+
+    <script>
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent === theme.toUpperCase()) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // Add new log entries periodically
+        const messages = [
+            { agent: 'dev-007', msg: '▶ STARTED: Refactor auth module', type: 'info' },
+            { agent: 'qa-002', msg: '✓ COMPLETE: PR #234 approved', type: 'success' },
+            { agent: 'coo-alpha', msg: '◎ THINKING: Analyzing metrics...', type: 'thinking' },
+        ];
+
+        let msgIndex = 0;
+        setInterval(() => {
+            const entries = document.querySelector('.log-entries');
+            const cursorEntry = entries.lastElementChild;
+
+            const newEntry = document.createElement('div');
+            newEntry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false }).slice(0, 8);
+            const { agent, msg, type } = messages[msgIndex % messages.length];
+
+            let dotClass = '';
+            let msgClass = '';
+            if (type === 'success') { msgClass = 'success'; }
+            else if (type === 'info') { msgClass = 'info'; }
+            else if (type === 'thinking') { dotClass = 'style="background: var(--terminal-purple);"'; msgClass = 'style="color: var(--terminal-purple);"'; }
+
+            newEntry.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-agent"><span class="status-dot" style="width: 6px; height: 6px;" ${dotClass}></span> ${agent}</span>
+                <span class="log-message ${msgClass.includes('style') ? '' : msgClass}" ${msgClass.includes('style') ? msgClass : ''}>${msg}</span>
+            `;
+
+            entries.insertBefore(newEntry, cursorEntry);
+            msgIndex++;
+        }, 5000);
+    </script>
+</body>
+</html>

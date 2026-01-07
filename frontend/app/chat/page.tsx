@@ -1,360 +1,585 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { getChatWebSocket, type WebSocketEvent } from '@/lib/websocket'
-import {
-  getChatSessions,
-  getChatSession,
-  createChatSession,
-  deleteChatSession,
-  addChatMessage,
-  type ChatSessionSummary,
-} from '@/lib/api'
 import ChatInput, { type Attachment } from '@/components/ChatInput'
 import ChatMessage from '@/components/ChatMessage'
 import AgentResponse from '@/components/AgentResponse'
-import ActivityFeed, { type ActivityItem } from '@/components/ActivityFeed'
-import { Bot, WifiOff, Plus, MessageSquare, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
-
-interface Message {
-  id: string
-  type: 'user' | 'agent'
-  content: string
-  agent?: string
-  agentType?: string
-  status?: 'thinking' | 'complete'
-  timestamp: Date
-  attachments?: Attachment[]
-  thinking?: string
-  isThinking?: boolean  // True while actively receiving thinking content
-}
+import { useAgentActivity } from '@/lib/AgentActivityContext'
+import { useMobileLayout } from '@/components/MobileLayout'
+import MobileHistorySheet from '@/components/chat/MobileHistorySheet'
+import MobileActivitySheet from '@/components/chat/MobileActivitySheet'
+import { useChatSessions, type Message } from '@/hooks/useChatSessions'
+import { useWebSocketEvents } from '@/hooks/useWebSocketEvents'
+import { addChatMessage } from '@/lib/api'
+import SessionSidebar from '@/components/chat/SessionSidebar'
+import ChatHeader from '@/components/chat/ChatHeader'
+import EmptyState from '@/components/chat/EmptyState'
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
-  const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [sessions, setSessions] = useState<ChatSessionSummary[]>([])
   const [showSidebar, setShowSidebar] = useState(true)
-  const [activities, setActivities] = useState<ActivityItem[]>([])
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const wsRef = useRef(getChatWebSocket())
-  const pendingMessageRef = useRef<{ content: string; agent?: string; thinking?: string } | null>(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  // Session management via hook
+  const {
+    sessions,
+    sessionId,
+    sessionIdRef,
+    loadSessions,
+    loadSession,
+    createSession: createNewSession,
+    deleteSession: handleDeleteSession,
+    ensureSession,
+  } = useChatSessions({
+    onSessionLoad: (loadedMessages) => {
+      setMessages(loadedMessages)
+    },
+    onMessagesChange: (newMessages) => {
+      setMessages(newMessages)
+    },
+  })
+  const [showMobileHistory, setShowMobileHistory] = useState(false)
+  // Use global context for activity state (persists across navigation)
+  const {
+    panelAgentActivities: agentActivities,
+    panelToolActivities: toolActivities,
+    setPanelAgentActivities: setAgentActivities,
+    setPanelToolActivities: setToolActivities,
+    clearPanelActivities,
+    streamingMessage,
+    setStreamingMessage,
+    isStreaming,
+    setIsStreaming,
+  } = useAgentActivity()
+  const [showMobileActivity, setShowMobileActivity] = useState(false)
+  const { isMobile } = useMobileLayout()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const pendingMessageRef = useRef<{ content: string; agent?: string; thinking?: string } | null>(null)
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isInitialLoadRef = useRef(true) // Track if this is initial load
+
+  // Loading timeout constant (5 minutes - long tasks are common with agents)
+  const LOADING_TIMEOUT_MS = 5 * 60 * 1000
+
+  // Map backend agent names to display names
+  const getDisplayName = (name: string) => {
+    if (name === 'Supreme Orchestrator') return 'Axel'
+    return name
   }
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+  // WebSocket event handling via hook
+  const { isConnected, send } = useWebSocketEvents({
+    // Chat lifecycle
+    onChatStart: () => {
+      setIsLoading(true)
+      setIsStreaming(true)
+      // Clear activities for new chat
+      setAgentActivities([])
+      setToolActivities([])
+      // Add COO as the first active agent
+      setAgentActivities([{
+        id: crypto.randomUUID(),
+        name: 'Axel',
+        status: 'thinking',
+        startTime: new Date(),
+      }])
+      // Mark any stale thinking messages as complete before new response cycle
+      setMessages((prev) => prev.map((m) =>
+        m.type === 'agent' && m.status === 'thinking'
+          ? { ...m, status: 'complete' as const }
+          : m
+      ))
+    },
 
-  // Load sessions list
-  const loadSessions = useCallback(async () => {
-    try {
-      const sessionList = await getChatSessions()
-      setSessions(sessionList)
-    } catch (e) {
-      console.error('Failed to load sessions:', e)
-    }
-  }, [])
+    onChatComplete: () => {
+      setIsLoading(false)
+      setIsStreaming(false)
+      setStreamingMessage(null)
+      // Mark all agents as complete
+      setAgentActivities((prev) =>
+        prev.map((a) => ({
+          ...a,
+          status: 'complete' as const,
+          endTime: a.endTime || new Date(),
+        }))
+      )
+      // Clear pending message ref
+      pendingMessageRef.current = null
+    },
 
-  // Load a specific session
-  const loadSession = useCallback(async (id: string) => {
-    try {
-      const session = await getChatSession(id)
-      setSessionId(id)
-      // Convert API messages to local format
-      const loadedMessages: Message[] = session.messages.map((m) => ({
-        id: m.id,
-        type: m.role === 'user' ? 'user' : 'agent',
-        content: m.content,
-        agent: m.agent || 'Claude',
-        agentType: 'assistant',
-        status: 'complete' as const,
-        timestamp: new Date(m.timestamp),
-        thinking: m.thinking,
-      }))
-      setMessages(loadedMessages)
-    } catch (e) {
-      console.error('Failed to load session:', e)
-    }
-  }, [])
+    onError: (message) => {
+      setIsLoading(false)
+      // Clear pending message on error to prevent leaks
+      pendingMessageRef.current = null
+      // Mark agents as error
+      setAgentActivities((prev) =>
+        prev.map((a) =>
+          a.status !== 'complete' ? { ...a, status: 'error' as const, endTime: new Date() } : a
+        )
+      )
+      console.error('Chat error:', message)
+    },
 
-  // Create new session
-  const createNewSession = useCallback(async () => {
-    try {
-      const session = await createChatSession()
-      setSessionId(session.id)
-      setMessages([])
-      await loadSessions()
-    } catch (e) {
-      console.error('Failed to create session:', e)
-    }
-  }, [loadSessions])
+    // Agent messages
+    onAgentStart: (agent, agentType) => {
+      // Always create a fresh message for new agent_start
+      // First, ensure any existing thinking messages are marked complete
+      setMessages((prev) => {
+        // Mark any existing thinking messages as complete (they're stale)
+        const cleaned = prev.map((m) =>
+          m.type === 'agent' && m.status === 'thinking'
+            ? { ...m, status: 'complete' as const }
+            : m
+        )
 
-  // Delete a session
-  const handleDeleteSession = useCallback(async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    try {
-      await deleteChatSession(id)
-      if (sessionId === id) {
-        setSessionId(null)
-        setMessages([])
-      }
-      await loadSessions()
-    } catch (e) {
-      console.error('Failed to delete session:', e)
-    }
-  }, [sessionId, loadSessions])
+        // Create new thinking message
+        const newStreamingMsg = {
+          id: crypto.randomUUID(),
+          type: 'agent' as const,
+          content: '',
+          agent: agent,
+          agentType: agentType,
+          status: 'thinking' as const,
+          timestamp: new Date(),
+        }
+        // Store in context for persistence across navigation
+        setStreamingMessage(newStreamingMsg)
+        return [...cleaned, newStreamingMsg]
+      })
+    },
 
-  // Save message to backend
-  const saveMessage = useCallback(async (role: 'user' | 'assistant', content: string, agent?: string, thinking?: string) => {
-    if (!sessionId) return
-    try {
-      await addChatMessage(sessionId, role, content, agent, thinking)
-      await loadSessions() // Refresh list to update message counts
-    } catch (e) {
-      console.error('Failed to save message:', e)
-    }
-  }, [sessionId, loadSessions])
+    onAgentDelta: (delta) => {
+      setMessages((prev) => {
+        // Find the LAST message with status=thinking (most recent response)
+        const thinkingIdx = prev.map((m, i) => ({ m, i }))
+          .filter(({ m }) => m.type === 'agent' && m.status === 'thinking')
+          .pop()?.i ?? -1
 
-  // Initialize: load sessions and create/load initial session
-  useEffect(() => {
-    const init = async () => {
-      await loadSessions()
-      const sessionList = await getChatSessions()
-      if (sessionList.length > 0) {
-        // Load most recent session
-        await loadSession(sessionList[0].id)
-      } else {
-        // Create first session
-        await createNewSession()
-      }
-    }
-    init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Connect to WebSocket
-  useEffect(() => {
-    const ws = wsRef.current
-
-    const handleEvent = (event: WebSocketEvent) => {
-      switch (event.type) {
-        case 'chat_start':
-          setIsLoading(true)
-          setActivities([]) // Clear activities for new chat
-          break
-
-        case 'tool_start':
-          // Add new activity for tool starting
-          setActivities((prev) => [
-            ...prev,
-            {
-              id: `tool-${Date.now()}-${event.tool}`,
-              tool: event.tool || 'Unknown',
-              description: event.description || '',
-              status: 'running',
-              timestamp: new Date(),
-            },
-          ])
-          break
-
-        case 'tool_complete':
-          // Update activity status when tool completes
-          setActivities((prev) => {
-            // Find the most recent running activity for this tool
-            const idx = [...prev].reverse().findIndex(
-              (a) => a.tool === event.tool && a.status === 'running'
-            )
-            if (idx === -1) return prev
-            const actualIdx = prev.length - 1 - idx
-            const updated = [...prev]
-            updated[actualIdx] = {
-              ...updated[actualIdx],
-              status: event.success ? 'complete' : 'error',
-              summary: event.summary,
-            }
-            return updated
+        if (thinkingIdx !== -1) {
+          // Update the thinking message with new content
+          const updated = [...prev]
+          const msg = updated[thinkingIdx]
+          updated[thinkingIdx] = {
+            ...msg,
+            content: msg.content + delta,
+          }
+          // Cast to StreamingMessage
+          setStreamingMessage({
+            ...updated[thinkingIdx],
+            type: 'agent' as const,
+            agent: msg.agent || 'Agent',
+            agentType: msg.agentType || 'worker',
+            status: 'thinking' as const,
           })
-          break
+          return updated
+        }
 
-        case 'agent_start':
-          // Add thinking indicator for agent
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `agent-${Date.now()}`,
-              type: 'agent',
-              content: '',
-              agent: event.agent || 'Agent',
-              agentType: event.agent_type || 'worker',
-              status: 'thinking',
-              timestamp: new Date(),
-            },
-          ])
-          break
+        // No thinking message found - create one (delta arrived before agent_start)
+        const newStreamingMsg = {
+          id: crypto.randomUUID(),
+          type: 'agent' as const,
+          content: delta,
+          agent: 'Axel',
+          agentType: 'orchestrator',
+          status: 'thinking' as const,
+          timestamp: new Date(),
+        }
+        setStreamingMessage(newStreamingMsg)
+        return [...prev, newStreamingMsg]
+      })
+    },
 
-        case 'thinking_start':
-          // Claude is starting to think - mark the message as actively thinking
-          setMessages((prev) => {
-            const lastMessage = prev[prev.length - 1]
-            if (lastMessage && lastMessage.type === 'agent' && lastMessage.status === 'thinking') {
-              return [
-                ...prev.slice(0, -1),
-                {
-                  ...lastMessage,
-                  isThinking: true,
-                  thinking: '',
-                },
-              ]
-            }
-            return prev
-          })
-          break
+    onAgentComplete: (content, agent, agentType, thinking) => {
+      // Track message for saving
+      const completeContent = content
+      const completeAgent = agent
+      const completeThinking = thinking || ''
 
-        case 'thinking_delta':
-          // Streaming thinking content
-          setMessages((prev) => {
-            const lastMessage = prev[prev.length - 1]
-            if (lastMessage && lastMessage.type === 'agent' && lastMessage.isThinking) {
-              return [
-                ...prev.slice(0, -1),
-                {
-                  ...lastMessage,
-                  thinking: (lastMessage.thinking || '') + (event.delta || ''),
-                },
-              ]
-            }
-            return prev
-          })
-          break
+      console.log('[agent_complete] Received, content length:', completeContent.length)
 
-        case 'thinking_complete':
-          // Thinking is done, now waiting for response
-          setMessages((prev) => {
-            const lastMessage = prev[prev.length - 1]
-            if (lastMessage && lastMessage.type === 'agent' && lastMessage.isThinking) {
-              return [
-                ...prev.slice(0, -1),
-                {
-                  ...lastMessage,
-                  isThinking: false,
-                  thinking: event.thinking || lastMessage.thinking,
-                },
-              ]
-            }
-            return prev
-          })
-          break
+      // Update the existing thinking message to complete status
+      // IMPORTANT: Use the streamed content if available (it's more accurate)
+      setMessages((prev) => {
+        // Find the LAST existing thinking message (most recent response)
+        const thinkingIdx = prev.map((m, i) => ({ m, i }))
+          .filter(({ m }) => m.type === 'agent' && m.status === 'thinking')
+          .pop()?.i ?? -1
 
-        case 'agent_delta':
-          // Streaming text delta - append to current agent message
-          setMessages((prev) => {
-            const lastMessage = prev[prev.length - 1]
-            if (lastMessage && lastMessage.type === 'agent' && lastMessage.status === 'thinking') {
-              // Update the thinking message with new content
-              return [
-                ...prev.slice(0, -1),
-                {
-                  ...lastMessage,
-                  content: lastMessage.content + (event.delta || ''),
-                },
-              ]
-            }
-            return prev
-          })
-          break
+        if (thinkingIdx !== -1) {
+          // Update existing message to complete
+          const updated = [...prev]
+          const existingContent = updated[thinkingIdx].content
 
-        case 'agent_complete':
-          // Track message for saving
+          // Prefer existing (streamed) content if it exists, otherwise use event content
+          // This prevents duplication when content was already streamed via deltas
+          const finalContent = existingContent || completeContent
+          const finalThinking = completeThinking || updated[thinkingIdx].thinking
+
+          updated[thinkingIdx] = {
+            ...updated[thinkingIdx],
+            content: finalContent,
+            thinking: finalThinking,
+            isThinking: false,
+            status: 'complete',
+            agent: agent,
+            agentType: agentType,
+          }
+
+          // Update pending message ref for chat history saving
           pendingMessageRef.current = {
-            content: event.content || '',
-            agent: event.agent || 'Claude',
-            thinking: event.thinking,
+            content: finalContent,
+            agent: completeAgent,
+            thinking: finalThinking,
           }
 
-          // Update or add agent response
-          setMessages((prev) => {
-            // Find existing thinking message for this agent
-            const thinkingIdx = prev.findIndex(
-              (m) => m.type === 'agent' && m.status === 'thinking' && m.agentType === event.agent_type
-            )
+          console.log('[agent_complete] Updated existing message to complete')
+          return updated
+        }
 
-            if (thinkingIdx !== -1) {
-              // Update existing message to complete, preserving thinking
-              const updated = [...prev]
-              const finalContent = event.content || updated[thinkingIdx].content
-              const finalThinking = event.thinking || updated[thinkingIdx].thinking
-              updated[thinkingIdx] = {
-                ...updated[thinkingIdx],
-                content: finalContent,
-                thinking: finalThinking,
-                isThinking: false,
-                status: 'complete',
-              }
-              // Update pending message with actual content
-              pendingMessageRef.current = {
-                content: finalContent,
-                agent: event.agent || 'Claude',
-                thinking: finalThinking,
-              }
-              return updated
-            }
+        // No thinking message found - this shouldn't normally happen
+        // Only add a new message if we have content and there's no duplicate
+        if (completeContent) {
+          // Check if this content already exists in a recent message to prevent duplicates
+          const isDuplicate = prev.some(
+            (m) => m.type === 'agent' && m.content === completeContent
+          )
 
-            // No thinking message found, add new complete message
-            return [
-              ...prev,
-              {
-                id: `agent-${Date.now()}-${event.agent}`,
-                type: 'agent',
-                content: event.content || '',
-                agent: event.agent || 'Agent',
-                agentType: event.agent_type || 'worker',
-                status: 'complete',
-                timestamp: new Date(),
-                thinking: event.thinking,
-              },
-            ]
+          if (isDuplicate) {
+            console.log('[agent_complete] Skipping duplicate message')
+            return prev
+          }
+
+          console.log('[agent_complete] Adding new complete message')
+          pendingMessageRef.current = {
+            content: completeContent,
+            agent: completeAgent,
+            thinking: completeThinking,
+          }
+
+          return [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              type: 'agent',
+              content: completeContent,
+              agent: completeAgent,
+              agentType: agentType,
+              status: 'complete',
+              timestamp: new Date(),
+              thinking: completeThinking,
+            },
+          ]
+        }
+
+        return prev
+      })
+
+      // Also set isLoading=false here as a fallback
+      setIsLoading(false)
+      setIsStreaming(false)
+      setStreamingMessage(null)
+    },
+
+    // Thinking
+    onThinkingStart: () => {
+      setMessages((prev) => {
+        const lastMessage = prev[prev.length - 1]
+        if (lastMessage && lastMessage.type === 'agent' && lastMessage.status === 'thinking') {
+          const updated = { ...lastMessage, isThinking: true, thinking: '' }
+          setStreamingMessage({
+            ...updated,
+            type: 'agent' as const,
+            agent: updated.agent || 'Agent',
+            agentType: updated.agentType || 'worker',
+            status: 'thinking' as const,
           })
-          break
+          return [...prev.slice(0, -1), updated]
+        }
+        return prev
+      })
+    },
 
-        case 'chat_complete':
-          setIsLoading(false)
-          // Save the assistant message to backend
-          if (pendingMessageRef.current) {
-            const msg = pendingMessageRef.current
-            saveMessage('assistant', msg.content, msg.agent, msg.thinking)
-            pendingMessageRef.current = null
+    onThinkingDelta: (delta) => {
+      setMessages((prev) => {
+        const lastMessage = prev[prev.length - 1]
+        if (lastMessage && lastMessage.type === 'agent' && lastMessage.isThinking) {
+          const updated = { ...lastMessage, thinking: (lastMessage.thinking || '') + delta }
+          setStreamingMessage({
+            ...updated,
+            type: 'agent' as const,
+            agent: updated.agent || 'Agent',
+            agentType: updated.agentType || 'worker',
+            status: 'thinking' as const,
+          })
+          return [...prev.slice(0, -1), updated]
+        }
+        return prev
+      })
+    },
+
+    onThinkingComplete: (thinking) => {
+      setMessages((prev) => {
+        const lastMessage = prev[prev.length - 1]
+        if (lastMessage && lastMessage.type === 'agent' && lastMessage.isThinking) {
+          const updated = { ...lastMessage, isThinking: false, thinking: thinking || lastMessage.thinking }
+          setStreamingMessage({
+            ...updated,
+            type: 'agent' as const,
+            agent: updated.agent || 'Agent',
+            agentType: updated.agentType || 'worker',
+            status: 'thinking' as const,
+          })
+          return [...prev.slice(0, -1), updated]
+        }
+        return prev
+      })
+    },
+
+    // Tools (for panel activities)
+    onToolStart: (tool, description, agentName) => {
+      // Add new tool activity with agent attribution
+      setToolActivities((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          tool: tool,
+          description: description,
+          status: 'running',
+          timestamp: new Date(),
+          agentName: agentName,
+        },
+      ])
+      // Update COO status to working when tools are used
+      setAgentActivities((prev) => {
+        const updated = [...prev]
+        const cooIdx = updated.findIndex(a => a.name.includes('COO'))
+        if (cooIdx !== -1 && updated[cooIdx].status === 'thinking') {
+          updated[cooIdx] = { ...updated[cooIdx], status: 'working' }
+        }
+        return updated
+      })
+    },
+
+    onToolComplete: (tool, success, summary, agentName) => {
+      // Update tool activity status
+      setToolActivities((prev) => {
+        const idx = [...prev].reverse().findIndex(
+          (t) => t.tool === tool && t.status === 'running'
+        )
+        if (idx === -1) return prev
+        const actualIdx = prev.length - 1 - idx
+        const updated = [...prev]
+        updated[actualIdx] = {
+          ...updated[actualIdx],
+          status: success ? 'complete' : 'error',
+          summary: summary,
+          endTime: new Date(),
+          agentName: agentName || updated[actualIdx].agentName,
+        }
+        return updated
+      })
+      // Check if COO should go back to working (from delegating) when no subagents are working
+      setAgentActivities((prev) => {
+        const cooIdx = prev.findIndex(a => a.name.includes('COO'))
+        if (cooIdx !== -1 && prev[cooIdx].status === 'delegating') {
+          // Check if there are still active subagents
+          const hasActiveSubagents = prev.some(a =>
+            !a.name.includes('COO') &&
+            (a.status === 'working' || a.status === 'thinking')
+          )
+          if (!hasActiveSubagents) {
+            const updated = [...prev]
+            updated[cooIdx] = { ...updated[cooIdx], status: 'working' }
+            return updated
           }
-          break
+        }
+        return prev
+      })
+    },
 
-        case 'error':
-          setIsLoading(false)
-          console.error('Chat error:', event.message)
-          break
+    // Agent hierarchy (for panel activities)
+    onAgentSpawn: (agent, parentAgent, description) => {
+      setAgentActivities((prev) => {
+        // Check if this agent already exists
+        const existingIdx = prev.findIndex(a => a.name === agent)
+
+        // Mark parent agent as delegating
+        let updated = prev.map(a =>
+          a.name === parentAgent || (parentAgent === 'COO' && a.name.includes('COO'))
+            ? { ...a, status: 'delegating' as const }
+            : a
+        )
+
+        if (existingIdx !== -1) {
+          // Update existing agent entry instead of adding duplicate
+          updated = updated.map((a, idx) =>
+            idx === existingIdx
+              ? {
+                  ...a,
+                  status: 'working' as const,
+                  description: description?.substring(0, 100),
+                  startTime: new Date(),
+                  endTime: undefined,
+                }
+              : a
+          )
+          return updated
+        }
+
+        // Add new agent only if it doesn't exist
+        return [
+          ...updated,
+          {
+            id: crypto.randomUUID(),
+            name: agent,
+            status: 'working' as const,
+            description: description?.substring(0, 100),
+            startTime: new Date(),
+          },
+        ]
+      })
+    },
+
+    onAgentSubComplete: (agent) => {
+      setAgentActivities((prev) => {
+        return prev.map(a => {
+          if (a.name === agent) {
+            return { ...a, status: 'complete' as const, endTime: new Date() }
+          }
+          // If this was a delegating agent's child completing, restore working status
+          if (a.status === 'delegating') {
+            // Check if there are still other active children
+            const otherActive = prev.some(other =>
+              other.name !== agent &&
+              other.status !== 'complete' &&
+              other.status !== 'error' &&
+              !other.name.includes('COO')
+            )
+            if (!otherActive) {
+              return { ...a, status: 'working' as const }
+            }
+          }
+          return a
+        })
+      })
+    },
+
+    // Connection
+    onDisconnect: () => {
+      setIsLoading(false)
+      setIsStreaming(false)
+      setStreamingMessage(null)
+      // Clear pending message on disconnect to prevent leaks
+      pendingMessageRef.current = null
+    },
+  })
+
+  // Restore streaming message from context when navigating back
+  // This runs once on mount to restore any in-progress streaming
+  const hasRestoredRef = useRef(false)
+  useEffect(() => {
+    if (hasRestoredRef.current) return
+    if (isStreaming && streamingMessage) {
+      hasRestoredRef.current = true
+      setIsLoading(true)
+      // Add the streaming message to messages if not already there
+      setMessages((prev) => {
+        // Check if this message is already in the list
+        const exists = prev.some(m => m.id === streamingMessage.id)
+        if (exists) return prev
+        return [...prev, streamingMessage]
+      })
+    }
+  }, [isStreaming, streamingMessage])
+
+  // Keep messages in sync with streaming message updates from context
+  useEffect(() => {
+    if (!streamingMessage || !hasRestoredRef.current) return
+    setMessages((prev) => {
+      const idx = prev.findIndex(m => m.id === streamingMessage.id)
+      if (idx === -1) return prev
+      // Only update if content changed
+      if (prev[idx].content === streamingMessage.content &&
+          prev[idx].thinking === streamingMessage.thinking) {
+        return prev
+      }
+      const updated = [...prev]
+      updated[idx] = streamingMessage
+      return updated
+    })
+  }, [streamingMessage])
+
+  const scrollToBottom = useCallback((instant = false) => {
+    if (instant && messagesContainerRef.current) {
+      // Instant scroll for initial load
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    } else {
+      // Smooth scroll for new messages
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Use instant scroll on initial load, smooth scroll for subsequent updates
+      scrollToBottom(isInitialLoadRef.current)
+      isInitialLoadRef.current = false
+    }
+  }, [messages, scrollToBottom])
+
+  // Loading timeout effect - reset loading state if stuck
+  useEffect(() => {
+    if (isLoading) {
+      // Start timeout when loading begins
+      loadingTimeoutRef.current = setTimeout(() => {
+        console.warn('Loading timeout reached, resetting state')
+        setIsLoading(false)
+        // Mark all non-complete agents as error
+        setAgentActivities((prev) =>
+          prev.map((a) =>
+            a.status !== 'complete'
+              ? { ...a, status: 'error' as const, endTime: new Date() }
+              : a
+          )
+        )
+      }, LOADING_TIMEOUT_MS)
+    } else {
+      // Clear timeout when loading ends
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
       }
     }
 
-    ws.on('*', handleEvent)
-
-    ws.connect()
-      .then(() => setIsConnected(true))
-      .catch(() => setIsConnected(false))
-
-    ws.on('disconnected', () => setIsConnected(false))
-
+    // Cleanup on unmount
     return () => {
-      ws.off('*', handleEvent)
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
     }
-  }, [saveMessage])
+  }, [isLoading, setAgentActivities, LOADING_TIMEOUT_MS])
 
   const handleSend = useCallback(async (content: string, attachments: Attachment[]) => {
+    // Clear old completed activities when starting a new message
+    setAgentActivities((prev) => prev.filter(a => a.status !== 'complete' && a.status !== 'error'))
+    setToolActivities((prev) => prev.filter(t => t.status === 'running'))
+
+    // Get or create session (race condition protected)
+    let currentSessionId: string
+    try {
+      currentSessionId = await ensureSession()
+    } catch (e) {
+      console.error('Failed to ensure session:', e)
+      return
+    }
+
     // Add user message with attachments
     setMessages((prev) => [
       ...prev,
       {
-        id: `user-${Date.now()}`,
+        id: crypto.randomUUID(),
         type: 'user',
         content,
         timestamp: new Date(),
@@ -362,151 +587,118 @@ export default function ChatPage() {
       },
     ])
 
-    // Save user message to backend
-    await saveMessage('user', content)
+    // Save user message to backend (use currentSessionId directly)
+    try {
+      await addChatMessage(currentSessionId, 'user', content)
+      await loadSessions()
+    } catch (e) {
+      console.error('Failed to save message:', e)
+    }
 
-    // Build message with attachment context for the AI
+    // Build message with text attachments inline
     let fullMessage = content
 
+    // Prepare image attachments to send to backend
+    const imageAttachments = attachments.filter(a => a.type === 'image').map(a => ({
+      type: a.type,
+      name: a.name,
+      content: a.content,
+      mimeType: a.mimeType,
+    }))
+
+    // Add text attachments inline in the message
     if (attachments.length > 0) {
-      const attachmentDescriptions = attachments.map((a) => {
+      const descriptions = attachments.map((a) => {
         if (a.type === 'text') {
           return `\n\n--- Attached Text: ${a.name} ---\n${a.content}\n--- End Attachment ---`
         } else if (a.type === 'image') {
-          return `\n\n[Attached Image: ${a.name}]`
+          return `\n\n[Image attached: ${a.name}]`
         } else {
-          return `\n\n[Attached Document: ${a.name}]`
+          return `\n\n[Document: ${a.name}]`
         }
       })
-      fullMessage += attachmentDescriptions.join('')
+      fullMessage += descriptions.join('')
     }
 
-    // Send via WebSocket with session context
+    // Send via WebSocket with session context and image data
     try {
-      wsRef.current.send(fullMessage, { session_id: sessionId || undefined })
+      send(fullMessage, {
+        session_id: currentSessionId,
+        attachments: imageAttachments.length > 0 ? imageAttachments : undefined,
+      })
     } catch (e) {
       console.error('Failed to send message:', e)
       setIsLoading(false)
     }
-  }, [saveMessage, sessionId])
+  }, [ensureSession, loadSessions, send, setAgentActivities, setToolActivities])
 
   // Simplified send for suggestion buttons
   const handleQuickSend = useCallback((content: string) => {
     handleSend(content, [])
   }, [handleSend])
 
+  // Activity state for mobile panel
+  const hasActivity = agentActivities.length > 0 || toolActivities.length > 0
+  const isActivityProcessing = agentActivities.some(
+    (a) => a.status !== 'complete' && a.status !== 'error'
+  )
+
   return (
-    <div className="flex h-full">
-      {/* Session Sidebar */}
-      <div className={`${showSidebar ? 'w-64' : 'w-0'} transition-all duration-200 overflow-hidden border-r border-zinc-800 flex flex-col bg-zinc-900/50`}>
-        <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
-          <span className="text-sm font-medium text-zinc-400">History</span>
-          <button
-            onClick={createNewSession}
-            className="p-1.5 hover:bg-zinc-800 rounded transition-colors"
-            title="New chat"
-          >
-            <Plus className="w-4 h-4 text-zinc-400" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-auto">
-          {sessions.map((session) => (
-            <button
-              key={session.id}
-              onClick={() => loadSession(session.id)}
-              className={`w-full px-3 py-2 text-left hover:bg-zinc-800/50 transition-colors group flex items-center gap-2 ${
-                sessionId === session.id ? 'bg-zinc-800' : ''
-              }`}
-            >
-              <MessageSquare className="w-4 h-4 text-zinc-500 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-zinc-300 truncate">{session.title}</p>
-                <p className="text-xs text-zinc-600">{session.message_count} messages</p>
-              </div>
-              <button
-                onClick={(e) => handleDeleteSession(session.id, e)}
-                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-700 rounded transition-all"
-                title="Delete"
-              >
-                <Trash2 className="w-3 h-3 text-zinc-500" />
-              </button>
-            </button>
-          ))}
-          {sessions.length === 0 && (
-            <p className="text-xs text-zinc-600 p-3">No chat history yet</p>
-          )}
-        </div>
-      </div>
+    <div className="flex h-full relative bg-[#0d0d0d] overflow-hidden">
+      {/* Session Sidebar - Hidden on mobile, use bottom sheet instead */}
+      <SessionSidebar
+        sessions={sessions}
+        currentSessionId={sessionId}
+        showSidebar={showSidebar}
+        onSessionClick={loadSession}
+        onNewSession={createNewSession}
+        onDeleteSession={handleDeleteSession}
+      />
+
+      {/* Mobile History Bottom Sheet */}
+      {isMobile && (
+        <MobileHistorySheet
+          isOpen={showMobileHistory}
+          onClose={() => setShowMobileHistory(false)}
+          sessions={sessions}
+          currentSessionId={sessionId}
+          onSessionClick={loadSession}
+          onNewSession={createNewSession}
+          onDeleteSession={handleDeleteSession}
+        />
+      )}
+
+      {/* Mobile Activity Bottom Sheet */}
+      {isMobile && (
+        <MobileActivitySheet
+          isOpen={showMobileActivity}
+          onClose={() => setShowMobileActivity(false)}
+          agents={agentActivities}
+          tools={toolActivities}
+          isProcessing={isActivityProcessing}
+          onClear={clearPanelActivities}
+        />
+      )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#0d0d0d]">
+        {/* Chat area uses base #0d0d0d */}
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowSidebar(!showSidebar)}
-              className="p-1 hover:bg-zinc-800 rounded transition-colors"
-              title={showSidebar ? 'Hide history' : 'Show history'}
-            >
-              {showSidebar ? (
-                <ChevronLeft className="w-5 h-5 text-zinc-400" />
-              ) : (
-                <ChevronRight className="w-5 h-5 text-zinc-400" />
-              )}
-            </button>
-            <Bot className="w-6 h-6 text-purple-500" />
-            <div>
-              <h1 className="font-semibold text-white">Chat with COO</h1>
-              <p className="text-xs text-zinc-500">Supreme Orchestrator - Chief Operating Officer</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isConnected ? (
-              <span className="flex items-center gap-1 text-xs text-green-400">
-                <span className="w-2 h-2 rounded-full bg-green-400" />
-                Connected
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-xs text-red-400">
-                <WifiOff className="w-3 h-3" />
-                Disconnected
-              </span>
-            )}
-          </div>
-        </div>
+        <ChatHeader
+          isConnected={isConnected}
+          isMobile={isMobile}
+          showSidebar={showSidebar}
+          hasActivity={hasActivity}
+          isActivityProcessing={isActivityProcessing}
+          onToggleSidebar={() => setShowSidebar(!showSidebar)}
+          onShowHistory={() => setShowMobileHistory(true)}
+          onShowActivity={() => setShowMobileActivity(true)}
+        />
 
         {/* Messages */}
-        <div className="flex-1 overflow-auto p-6 space-y-6 relative">
+        <div ref={messagesContainerRef} className="flex-1 overflow-auto p-3 md:p-6 space-y-4 md:space-y-6 relative">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <Bot className="w-16 h-16 text-purple-700 mb-4" />
-              <h2 className="text-xl font-semibold text-zinc-400 mb-2">
-                Chat with the COO
-              </h2>
-              <p className="text-sm text-zinc-500 max-w-md">
-                You are connected to the Supreme Orchestrator (COO). Ask about your swarms,
-                request research, or coordinate tasks. The COO will route your request to
-                the appropriate team or agent.
-              </p>
-              <div className="mt-6 space-y-2 text-left">
-                <p className="text-xs text-zinc-600">Try asking:</p>
-                <div className="space-y-1">
-                  <button
-                    onClick={() => handleQuickSend('What is the current status of the ASA project?')}
-                    className="block text-sm text-zinc-400 hover:text-blue-400 transition-colors"
-                  >
-                    → What is the current status of the ASA project?
-                  </button>
-                  <button
-                    onClick={() => handleQuickSend('Research sparse attention implementations for ASA')}
-                    className="block text-sm text-zinc-400 hover:text-blue-400 transition-colors"
-                  >
-                    → Research sparse attention implementations for ASA
-                  </button>
-                </div>
-              </div>
-            </div>
+            <EmptyState onQuickSend={handleQuickSend} />
           ) : (
             messages.map((message) => (
               message.type === 'user' ? (
@@ -530,26 +722,19 @@ export default function ChatPage() {
             ))
           )}
 
-          {/* Live Activity Feed - shows during loading */}
-          {isLoading && activities.length > 0 && (
-            <div className="sticky bottom-0 pt-4">
-              <ActivityFeed activities={activities} maxItems={8} />
-            </div>
-          )}
-
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="p-4 border-t border-zinc-800">
+        {/* Input - Full width on mobile with safe area padding */}
+        <div className="p-2 md:p-4 border-t border-zinc-800/50 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-4 bg-[#0a0a0a]">
           <ChatInput
             onSend={handleSend}
-            disabled={isLoading || !isConnected}
+            disabled={!isConnected}
             placeholder={
               !isConnected
                 ? 'Connecting...'
                 : isLoading
-                ? 'Waiting for response...'
+                ? 'Type to interject...'
                 : 'Type a message...'
             }
           />

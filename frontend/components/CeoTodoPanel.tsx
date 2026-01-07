@@ -74,7 +74,7 @@ export default function CeoTodoPanel() {
   const completedCount = todos.filter((t) => t.completed).length
 
   return (
-    <div className="border-t border-zinc-800">
+    <div className="border-t border-zinc-800 bg-[#0a0a0a]">
       {/* Header */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -89,7 +89,7 @@ export default function CeoTodoPanel() {
           My TODOs
         </span>
         {pendingCount > 0 && (
-          <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[10px] font-medium">
+          <span className="px-1.5 py-0.5 bg-violet-500/20 text-violet-400 rounded text-[10px] font-medium">
             {pendingCount}
           </span>
         )}
@@ -113,7 +113,7 @@ export default function CeoTodoPanel() {
                 >
                   <button
                     onClick={() => toggleTodo(todo.id)}
-                    className="flex-shrink-0 text-zinc-500 hover:text-blue-400 transition-colors"
+                    className="flex-shrink-0 text-zinc-500 hover:text-violet-400 transition-colors"
                   >
                     <Square className="w-3.5 h-3.5" />
                   </button>
@@ -169,13 +169,13 @@ export default function CeoTodoPanel() {
                 onChange={(e) => setNewTodo(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter task..."
-                className="flex-1 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
+                className="flex-1 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
                 autoFocus
               />
               <button
                 onClick={addTodo}
                 disabled={!newTodo.trim()}
-                className="p-1 text-blue-400 hover:text-blue-300 disabled:text-zinc-600 transition-colors"
+                className="p-1 text-violet-400 hover:text-violet-300 disabled:text-zinc-600 transition-colors"
               >
                 <Plus className="w-4 h-4" />
               </button>

@@ -1,51 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 24, 24, 27;
-  --background-end-rgb: 9, 9, 11;
+  --background-rgb: 13, 13, 13;
+  /* Primary accent: Terminal green (was orange) */
+  --accent-primary: #00ff41;
+  --accent-primary-light: #39ff14;
+  /* Secondary accent: Deep purple (was green) */
+  --accent-secondary: #7C3AED;
+  --accent-secondary-light: #8B5CF6;
+  --accent-secondary-dark: #6d28d9;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: rgb(var(--background-rgb));
   min-height: 100vh;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - minimal dark style with purple accent on hover */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #27272a;
-  border-radius: 4px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #52525b;
-  border-radius: 4px;
+  background: #27272a;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #71717a;
+  background: #8B5CF6;
 }
 
-/* Agent type border colors */
+/* Agent type border colors - terminal green as primary */
 .border-agent-orchestrator {
-  border-color: #3b82f6;
+  border-color: #00ff41;
 }
 
 .border-agent-researcher {
-  border-color: #22c55e;
+  border-color: #7C3AED;
 }
 
 .border-agent-implementer {
@@ -68,13 +71,17 @@ body {
   border-color: #14b8a6;
 }
 
-/* Text colors for agent types */
+.border-agent-worker {
+  border-color: #6b7280;
+}
+
+/* Text colors for agent types - terminal green as primary */
 .text-agent-orchestrator {
-  color: #3b82f6;
+  color: #00ff41;
 }
 
 .text-agent-researcher {
-  color: #22c55e;
+  color: #7C3AED;
 }
 
 .text-agent-implementer {
@@ -97,6 +104,10 @@ body {
   color: #14b8a6;
 }
 
+.text-agent-worker {
+  color: #6b7280;
+}
+
 /* Thinking animation */
 @keyframes thinking {
   0%, 80%, 100% {
@@ -117,4 +128,158 @@ body {
 
 .thinking-dot:nth-child(2) {
   animation-delay: -0.16s;
+}
+
+/* Terminal cursor blink */
+@keyframes cursor-blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+.cursor-blink {
+  animation: cursor-blink 1s infinite;
+}
+
+/* Mobile-friendly utilities */
+@layer utilities {
+  /* Touch-friendly interaction */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Safe area insets for notched devices */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Bottom sheet slide-up animation */
+@keyframes slideUpSheet {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUpSheet 0.3s ease-out forwards;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* Purple glow effect for focus/hover states */
+.purple-glow {
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3);
+}
+
+.purple-glow-hover:hover {
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.4), 0 0 20px rgba(139, 92, 246, 0.15);
+}
+
+.purple-glow-focus:focus-within {
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.5), 0 0 20px rgba(139, 92, 246, 0.2);
+}
+
+/* Purple accent border */
+.border-purple-accent {
+  border-color: var(--accent-purple);
+}
+
+/* Purple text accent */
+.text-purple-accent {
+  color: var(--accent-purple);
+}
+
+/* Prevent text selection on interactive elements */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Better scrolling on iOS */
+.overflow-auto,
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Terminal prompt style */
+.terminal-prompt::before {
+  content: '>';
+  color: #00ff41;
+  margin-right: 0.5rem;
+  font-weight: 600;
+}
+
+/* Animated progress bar for agent activity */
+@keyframes progressBar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-progress-bar {
+  animation: progressBar 1.5s ease-in-out infinite;
+  width: 100%;
+}
+
+/* Glow pulse animation for active items */
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.6);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+/* Scale in animation for notifications */
+@keyframes scaleIn {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out forwards;
 }

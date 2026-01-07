@@ -67,3 +67,5 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+config/google_token.json
+config/google_credentials.json
