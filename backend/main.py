@@ -1491,6 +1491,13 @@ When the CEO asks you to do something that requires specialized work:
         manager.disconnect(websocket)
 
 
+@app.websocket("/ws/jobs")
+async def websocket_jobs_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for job updates."""
+    from websocket.job_updates import websocket_jobs
+    await websocket_jobs(websocket)
+
+
 if __name__ == "__main__":
     import uvicorn
 
