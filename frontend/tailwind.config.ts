@@ -10,13 +10,15 @@ const config: Config = {
     extend: {
       colors: {
         // Agent type colors
-        'agent-orchestrator': '#3b82f6', // blue
-        'agent-researcher': '#22c55e',   // green
+        'agent-orchestrator': '#00ff41', // terminal green (was blue)
+        'agent-researcher': '#7C3AED',   // deep purple (was green)
         'agent-implementer': '#eab308',  // yellow
         'agent-critic': '#ef4444',       // red
         'agent-benchmarker': '#a855f7',  // purple
         'agent-monitor': '#06b6d4',      // cyan
         'agent-worker': '#6b7280',       // gray
+        // Terminal green for specific accents
+        'terminal-green': '#00ff41',
       },
       animation: {
         'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',

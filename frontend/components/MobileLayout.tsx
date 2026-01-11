@@ -87,7 +87,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
                 <Menu className="w-6 h-6 text-zinc-400" />
               )}
             </button>
-            <Terminal className="ml-3 w-5 h-5 text-orange-500" />
+            <Terminal className="ml-3 w-5 h-5 text-emerald-400" />
             <span className="ml-2 font-semibold text-zinc-100">Agent Swarm</span>
           </header>
         )}

@@ -1,0 +1,1327 @@
+2026-01-02 12:12:03,100 [INFO] ✅ py-clob-client available
+2026-01-02 12:12:03,101 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 12:12:03,101 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 12:12:03,450 [INFO] ✅ Discovered 4 markets
+2026-01-02 12:12:03,450 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 3:00PM-3:15PM ET
+2026-01-02 12:12:03,451 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 3:00PM-3:15PM ET
+2026-01-02 12:12:03,451 [INFO]    • SOL 15m - Solana Up or Down - January 2, 3:00PM-3:15PM ET
+2026-01-02 12:12:03,451 [INFO]    • XRP 15m - XRP Up or Down - January 2, 3:00PM-3:15PM ET
+2026-01-02 12:12:03,451 [INFO] ⚡ Starting scanner with 4 markets...
+2026-01-02 12:12:03,451 [INFO] 📈 Expected: ~100 opportunities per day
+
+2026-01-02 12:12:49,732 [INFO] 
+⚠️  Shutting down gracefully...
+2026-01-02 12:13:13,254 [INFO] ✅ py-clob-client available
+2026-01-02 12:13:45,700 [INFO] ✅ py-clob-client available
+2026-01-02 12:13:45,910 [INFO] HTTP Request: POST https://clob.polymarket.com/auth/api-key "HTTP/2 400 Bad Request"
+2026-01-02 12:13:46,070 [INFO] HTTP Request: GET https://clob.polymarket.com/auth/derive-api-key "HTTP/2 200 OK"
+2026-01-02 12:13:46,071 [INFO] ✅ Execution engine initialized
+2026-01-02 12:13:46,071 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 12:13:46,072 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 12:13:46,510 [INFO] ✅ Discovered 4 markets
+2026-01-02 12:13:46,510 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 3:00PM-3:15PM ET
+2026-01-02 12:13:46,510 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 3:00PM-3:15PM ET
+2026-01-02 12:13:46,510 [INFO]    • SOL 15m - Solana Up or Down - January 2, 3:00PM-3:15PM ET
+2026-01-02 12:13:46,510 [INFO]    • XRP 15m - XRP Up or Down - January 2, 3:00PM-3:15PM ET
+2026-01-02 12:13:46,510 [INFO] ⚡ Starting scanner with 4 markets...
+2026-01-02 12:13:46,510 [INFO] 📈 Expected: ~100 opportunities per day
+
+2026-01-02 12:14:14,597 [INFO] 
+⚠️  Shutting down gracefully...
+2026-01-02 12:17:30,195 [INFO] ✅ py-clob-client available
+2026-01-02 12:18:12,402 [INFO] ✅ py-clob-client available
+2026-01-02 12:18:20,716 [INFO] ✅ py-clob-client available
+2026-01-02 12:18:36,058 [INFO] ✅ py-clob-client available
+2026-01-02 13:13:25,768 [INFO] ✅ py-clob-client available
+2026-01-02 13:13:26,027 [INFO] HTTP Request: POST https://clob.polymarket.com/auth/api-key "HTTP/2 400 Bad Request"
+2026-01-02 13:13:26,196 [INFO] HTTP Request: GET https://clob.polymarket.com/auth/derive-api-key "HTTP/2 200 OK"
+2026-01-02 13:13:26,197 [INFO] ✅ Execution engine initialized
+2026-01-02 13:13:26,197 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:13:26,197 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:13:26,573 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:13:26,573 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:13:26,573 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:13:26,573 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:13:26,573 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:13:26,573 [INFO] ⚡ Starting scanner with 4 markets...
+2026-01-02 13:13:26,573 [INFO] 📈 Expected: ~100 opportunities per day
+
+2026-01-02 13:18:27,153 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:18:27,155 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:18:27,156 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:18:27,156 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:18:27,156 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:18:27,156 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:18:27,156 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:23:27,582 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:23:27,584 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:23:27,584 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:23:27,585 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:23:27,585 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:23:27,585 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:23:27,585 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:28:27,893 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:28:27,895 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:28:27,896 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:28:27,896 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:28:27,896 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:28:27,896 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:28:27,896 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:00PM-4:15PM ET
+2026-01-02 13:33:27,959 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:33:27,961 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:33:28,344 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:33:28,344 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:33:28,344 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:33:28,344 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:33:28,344 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:38:29,106 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:38:29,108 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:38:29,109 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:38:29,109 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:38:29,109 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:38:29,109 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:38:29,109 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:43:29,641 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:43:29,644 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:43:29,644 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:43:29,644 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:43:29,645 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:43:29,645 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:43:29,645 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:48:30,058 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:48:30,060 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:48:30,061 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:48:30,061 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:48:30,061 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:48:30,061 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:48:30,061 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:53:30,724 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:53:30,725 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:53:30,726 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:53:30,726 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:53:30,726 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:53:30,726 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:53:30,726 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:58:30,771 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 13:58:30,772 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 13:58:30,773 [INFO] ✅ Discovered 4 markets
+2026-01-02 13:58:30,773 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:58:30,773 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:58:30,773 [INFO]    • SOL 15m - Solana Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 13:58:30,773 [INFO]    • XRP 15m - XRP Up or Down - January 2, 4:30PM-4:45PM ET
+2026-01-02 14:03:30,799 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:03:30,800 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:03:31,517 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:03:31,518 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:03:31,518 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:03:31,518 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:15PM-5:30PM ET
+2026-01-02 14:03:31,518 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:08:31,841 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:08:31,842 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:08:32,049 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:08:32,049 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:08:32,049 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:08:32,049 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:08:32,049 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:10:28,260 [ERROR] Parallel book fetch error: 
+2026-01-02 14:10:30,579 [ERROR] Parallel book fetch error: 
+2026-01-02 14:13:32,676 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:13:32,677 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:13:32,677 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:13:32,677 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:13:32,677 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:13:32,677 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:13:32,677 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:18:33,413 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:18:33,415 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:18:33,416 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:18:33,416 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:18:33,416 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:18:33,416 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:18:33,416 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:23:33,820 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:23:33,822 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:23:33,822 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:23:33,822 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:23:33,822 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:23:33,822 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:23:33,823 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:28:34,533 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:28:34,535 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:28:34,536 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:28:34,536 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:28:34,536 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:28:34,536 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:28:34,536 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:00PM-5:15PM ET
+2026-01-02 14:33:34,933 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:33:34,935 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:33:35,316 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:33:35,316 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:33:35,316 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:33:35,316 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:33:35,317 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:38:35,605 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:38:35,607 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:38:35,608 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:38:35,608 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:38:35,608 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:38:35,609 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:38:35,609 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:43:36,116 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:43:36,118 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:43:36,118 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:43:36,118 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:43:36,119 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:43:36,119 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:43:36,119 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:48:36,211 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:48:36,213 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:48:36,214 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:48:36,214 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:48:36,214 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:48:36,214 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:48:36,214 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:53:36,866 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:53:36,868 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:53:36,869 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:53:36,869 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:53:36,870 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:53:36,870 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:53:36,870 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:58:36,995 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 14:58:36,997 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 14:58:36,998 [INFO] ✅ Discovered 4 markets
+2026-01-02 14:58:36,998 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:58:36,998 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:58:36,998 [INFO]    • SOL 15m - Solana Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 14:58:36,998 [INFO]    • XRP 15m - XRP Up or Down - January 2, 5:30PM-5:45PM ET
+2026-01-02 15:03:37,236 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:03:37,238 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:03:37,629 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:03:37,629 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:03:37,629 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:03:37,629 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:03:37,629 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:08:38,033 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:08:38,035 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:08:38,035 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:08:38,036 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:08:38,036 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:08:38,036 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:08:38,036 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:13:38,528 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:13:38,530 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:13:38,530 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:13:38,530 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:13:38,530 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:13:38,531 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:13:38,531 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:18:38,576 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:18:38,578 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:18:38,578 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:18:38,579 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:18:38,579 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:18:38,579 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:18:38,579 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:23:38,772 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:23:38,774 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:23:38,775 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:23:38,775 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:23:38,775 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:23:38,775 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:23:38,775 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:28:38,830 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:28:38,832 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:28:38,832 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:28:38,833 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:28:38,833 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:28:38,833 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:28:38,833 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:00PM-6:15PM ET
+2026-01-02 15:33:39,468 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:33:39,470 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:33:39,857 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:33:39,857 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:33:39,857 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:33:39,857 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:33:39,857 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:38:40,160 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:38:40,160 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:38:40,161 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:38:40,161 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:38:40,161 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:38:40,161 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:38:40,161 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:43:40,284 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:43:40,285 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:43:40,285 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:43:40,286 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:43:40,286 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:43:40,286 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:43:40,286 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:48:40,458 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:48:40,459 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:48:40,459 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:48:40,459 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:48:40,459 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:48:40,460 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:48:40,460 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:53:40,663 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:53:40,665 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:53:40,665 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:53:40,665 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:53:40,666 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:53:40,666 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:53:40,666 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:58:41,387 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 15:58:41,389 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 15:58:41,390 [INFO] ✅ Discovered 4 markets
+2026-01-02 15:58:41,390 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:58:41,390 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:58:41,390 [INFO]    • SOL 15m - Solana Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 15:58:41,390 [INFO]    • XRP 15m - XRP Up or Down - January 2, 6:30PM-6:45PM ET
+2026-01-02 16:03:41,842 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:03:41,845 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:03:42,834 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:03:42,834 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:03:42,834 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:03:42,834 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:03:42,834 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:08:43,124 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:08:43,125 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:08:43,125 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:08:43,126 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:08:43,126 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:08:43,126 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:08:43,126 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:13:43,674 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:13:43,676 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:13:43,676 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:13:43,677 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:13:43,677 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:13:43,677 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:13:43,677 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:18:44,013 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:18:44,015 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:18:44,016 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:18:44,016 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:18:44,016 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:18:44,016 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:18:44,017 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:23:44,108 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:23:44,110 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:23:44,110 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:23:44,110 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:23:44,111 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:23:44,111 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:23:44,111 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:25:56,416 [ERROR] Parallel book fetch error: 
+2026-01-02 16:28:44,351 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:28:44,354 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:28:44,354 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:28:44,355 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:28:44,355 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:28:44,355 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:28:44,355 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:00PM-7:15PM ET
+2026-01-02 16:33:44,694 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:33:44,696 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:33:45,073 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:33:45,073 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:33:45,073 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:33:45,073 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:33:45,073 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:38:45,156 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:38:45,158 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:38:45,158 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:38:45,158 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:38:45,158 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:38:45,158 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:38:45,159 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:43:45,455 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:43:45,458 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:43:45,459 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:43:45,459 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:43:45,459 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:43:45,459 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:43:45,459 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:48:45,889 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:48:45,891 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:48:45,891 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:48:45,891 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:48:45,892 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:48:45,892 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:48:45,892 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:53:46,486 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:53:46,487 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:53:46,487 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:53:46,487 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:53:46,488 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:53:46,488 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:53:46,488 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:58:46,900 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 16:58:46,901 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 16:58:46,902 [INFO] ✅ Discovered 4 markets
+2026-01-02 16:58:46,902 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:58:46,902 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:58:46,902 [INFO]    • SOL 15m - Solana Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 16:58:46,902 [INFO]    • XRP 15m - XRP Up or Down - January 2, 7:30PM-7:45PM ET
+2026-01-02 17:03:47,613 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:03:47,615 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:03:47,963 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:03:47,963 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:03:47,964 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:03:47,964 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:03:47,964 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:08:48,038 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:08:48,039 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:08:48,040 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:08:48,040 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:08:48,040 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:08:48,040 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:08:48,040 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:13:48,284 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:13:48,286 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:13:48,287 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:13:48,287 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:13:48,287 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:13:48,287 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:13:48,287 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:18:48,601 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:18:48,603 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:18:48,604 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:18:48,604 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:18:48,604 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:18:48,604 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:18:48,604 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:23:48,970 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:23:48,973 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:23:48,973 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:23:48,973 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:23:48,974 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:23:48,974 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:23:48,974 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:28:49,473 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:28:49,475 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:28:49,476 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:28:49,476 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:28:49,476 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:28:49,476 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:28:49,476 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:00PM-8:15PM ET
+2026-01-02 17:33:49,896 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:33:49,897 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:33:50,296 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:33:50,296 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:33:50,296 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:33:50,296 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:33:50,296 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:38:51,183 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:38:51,185 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:38:51,186 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:38:51,186 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:38:51,186 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:38:51,186 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:38:51,186 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:43:51,755 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:43:51,757 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:43:51,757 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:43:51,757 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:43:51,757 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:43:51,758 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:43:51,758 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:48:51,771 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:48:51,772 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:48:51,772 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:48:51,772 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:48:51,773 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:48:51,773 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:48:51,773 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:53:51,855 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:53:51,857 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:53:51,858 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:53:51,858 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:53:51,858 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:53:51,859 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:53:51,859 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:58:51,881 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 17:58:51,884 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 17:58:51,884 [INFO] ✅ Discovered 4 markets
+2026-01-02 17:58:51,884 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:58:51,885 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:58:51,885 [INFO]    • SOL 15m - Solana Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 17:58:51,885 [INFO]    • XRP 15m - XRP Up or Down - January 2, 8:30PM-8:45PM ET
+2026-01-02 18:03:52,042 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:03:52,044 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:03:52,528 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:03:52,529 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:03:52,529 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:03:52,529 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:03:52,529 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:08:53,238 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:08:53,242 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:08:53,243 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:08:53,243 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:08:53,243 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:08:53,243 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:08:53,243 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:13:53,465 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:13:53,467 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:13:53,467 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:13:53,467 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:13:53,468 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:13:53,468 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:13:53,468 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:18:53,875 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:18:53,877 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:18:53,877 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:18:53,877 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:18:53,877 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:18:53,877 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:18:53,877 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:23:54,394 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:23:54,396 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:23:54,397 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:23:54,397 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:23:54,397 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:23:54,397 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:23:54,397 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:28:55,111 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:28:55,112 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:28:55,113 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:28:55,113 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:28:55,113 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:28:55,113 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:28:55,113 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:00PM-9:15PM ET
+2026-01-02 18:33:55,633 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:33:55,635 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:33:56,381 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:33:56,382 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:33:56,382 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:33:56,382 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:33:56,382 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:38:57,116 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:38:57,117 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:38:57,118 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:38:57,118 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:38:57,118 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:38:57,118 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:38:57,118 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:43:57,801 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:43:57,803 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:43:57,803 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:43:57,803 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:43:57,804 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:43:57,804 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:43:57,804 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:48:57,832 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:48:57,833 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:48:57,834 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:48:57,834 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:48:57,834 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:48:57,834 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:48:57,834 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:53:58,119 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:53:58,121 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:53:58,121 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:53:58,121 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:53:58,121 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:53:58,121 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:53:58,122 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:58:58,190 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 18:58:58,192 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 18:58:58,192 [INFO] ✅ Discovered 4 markets
+2026-01-02 18:58:58,192 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:58:58,193 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:58:58,193 [INFO]    • SOL 15m - Solana Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 18:58:58,193 [INFO]    • XRP 15m - XRP Up or Down - January 2, 9:30PM-9:45PM ET
+2026-01-02 19:03:58,733 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:03:58,735 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:03:59,224 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:03:59,224 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:03:59,224 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:03:59,224 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:03:59,224 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:08:59,427 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:08:59,429 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:08:59,429 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:08:59,429 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:08:59,429 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:08:59,430 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:08:59,430 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:13:59,436 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:13:59,438 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:13:59,439 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:13:59,439 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:13:59,439 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:13:59,439 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:13:59,439 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:19:00,112 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:19:00,114 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:19:00,114 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:19:00,114 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:19:00,115 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:19:00,115 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:19:00,115 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:24:00,276 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:24:00,278 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:24:00,279 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:24:00,279 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:24:00,279 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:24:00,279 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:24:00,279 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:29:00,959 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:29:00,960 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:29:00,961 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:29:00,961 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:29:00,961 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:29:00,961 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:29:00,962 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:00PM-10:15PM ET
+2026-01-02 19:34:01,542 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:34:01,544 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:34:01,940 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:34:01,941 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:34:01,941 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:34:01,941 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:34:01,941 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:39:02,504 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:39:02,506 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:39:02,507 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:39:02,507 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:39:02,508 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:39:02,508 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:39:02,508 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:44:02,845 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:44:02,847 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:44:02,848 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:44:02,848 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:44:02,848 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:44:02,848 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:44:02,848 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:49:02,988 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:49:02,991 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:49:02,991 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:49:02,991 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:49:02,991 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:49:02,991 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:49:02,992 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:54:03,175 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:54:03,177 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:54:03,177 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:54:03,178 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:54:03,178 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:54:03,178 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:54:03,178 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:59:03,977 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 19:59:03,979 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 19:59:03,980 [INFO] ✅ Discovered 4 markets
+2026-01-02 19:59:03,980 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:59:03,980 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:59:03,980 [INFO]    • SOL 15m - Solana Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 19:59:03,980 [INFO]    • XRP 15m - XRP Up or Down - January 2, 10:30PM-10:45PM ET
+2026-01-02 20:04:04,139 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:04:04,141 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:04:04,551 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:04:04,551 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:04:04,551 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:04:04,551 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:04:04,552 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:09:04,759 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:09:04,761 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:09:04,762 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:09:04,762 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:09:04,762 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:09:04,762 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:09:04,762 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:14:04,828 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:14:04,830 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:14:04,831 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:14:04,831 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:14:04,831 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:14:04,831 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:14:04,831 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:19:04,895 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:19:04,896 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:19:04,896 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:19:04,896 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:19:04,896 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:19:04,896 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:19:04,896 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:24:04,937 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:24:04,939 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:24:04,939 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:24:04,939 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:24:04,939 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:24:04,939 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:24:04,939 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:29:05,479 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:29:05,481 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:29:05,482 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:29:05,482 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:29:05,482 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:29:05,482 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:29:05,483 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:00PM-11:15PM ET
+2026-01-02 20:34:05,884 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:34:05,885 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:34:06,322 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:34:06,323 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:34:06,323 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:34:06,323 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:34:06,323 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:39:07,132 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:39:07,134 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:39:07,135 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:39:07,135 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:39:07,135 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:39:07,135 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:39:07,135 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:44:07,501 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:44:07,503 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:44:07,503 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:44:07,504 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:44:07,504 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:44:07,504 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:44:07,504 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:49:08,001 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:49:08,002 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:49:08,003 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:49:08,003 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:49:08,003 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:49:08,003 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:49:08,003 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:54:08,506 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:54:08,507 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:54:08,508 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:54:08,508 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:54:08,508 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:54:08,508 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:54:08,508 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:59:09,129 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 20:59:09,130 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 20:59:09,130 [INFO] ✅ Discovered 4 markets
+2026-01-02 20:59:09,131 [INFO]    • BTC 15m - Bitcoin Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:59:09,131 [INFO]    • ETH 15m - Ethereum Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:59:09,131 [INFO]    • SOL 15m - Solana Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 20:59:09,131 [INFO]    • XRP 15m - XRP Up or Down - January 2, 11:30PM-11:45PM ET
+2026-01-02 21:04:09,192 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:04:09,193 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:04:09,606 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:04:09,606 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:04:09,606 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:04:09,606 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:04:09,606 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:09:09,727 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:09:09,729 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:09:09,729 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:09:09,729 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:09:09,729 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:09:09,729 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:09:09,730 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:14:09,982 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:14:09,984 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:14:09,985 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:14:09,985 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:14:09,985 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:14:09,985 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:14:09,985 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:19:10,505 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:19:10,507 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:19:10,507 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:19:10,507 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:19:10,508 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:19:10,508 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:19:10,508 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:24:10,916 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:24:10,918 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:24:10,919 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:24:10,919 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:24:10,919 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:24:10,919 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:24:10,919 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:29:11,282 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:29:11,285 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:29:11,285 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:29:11,286 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:29:11,286 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:29:11,286 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:29:11,286 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:00AM-12:15AM ET
+2026-01-02 21:34:11,902 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:34:11,905 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:34:12,391 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:34:12,391 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:34:12,391 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:34:12,391 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:34:12,391 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:39:12,807 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:39:12,808 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:39:12,808 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:39:12,809 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:39:12,809 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:39:12,809 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:39:12,809 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:44:13,413 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:44:13,415 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:44:13,415 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:44:13,416 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:44:13,416 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:44:13,416 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:44:13,416 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:49:13,672 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:49:13,674 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:49:13,675 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:49:13,675 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:49:13,675 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:49:13,675 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:49:13,675 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:54:13,918 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:54:13,919 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:54:13,920 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:54:13,920 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:54:13,920 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:54:13,920 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:54:13,920 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:59:14,408 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 21:59:14,411 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 21:59:14,411 [INFO] ✅ Discovered 4 markets
+2026-01-02 21:59:14,412 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:59:14,412 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:59:14,412 [INFO]    • SOL 15m - Solana Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 21:59:14,412 [INFO]    • XRP 15m - XRP Up or Down - January 3, 12:30AM-12:45AM ET
+2026-01-02 22:04:14,804 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:04:14,806 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:04:15,275 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:04:15,275 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:04:15,275 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:04:15,275 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:04:15,275 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:09:16,098 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:09:16,100 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:09:16,101 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:09:16,101 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:09:16,101 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:09:16,101 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:09:16,101 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:14:16,276 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:14:16,279 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:14:16,280 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:14:16,280 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:14:16,280 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:14:16,280 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:14:16,280 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:19:16,451 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:19:16,454 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:19:16,454 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:19:16,455 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:19:16,455 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:19:16,455 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:19:16,455 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:24:16,898 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:24:16,900 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:24:16,901 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:24:16,901 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:24:16,901 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:24:16,901 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:24:16,902 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:29:17,638 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:29:17,641 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:29:17,641 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:29:17,641 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:29:17,641 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:29:17,641 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:29:17,641 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:00AM-1:15AM ET
+2026-01-02 22:34:18,177 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:34:18,179 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:34:18,671 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:34:18,671 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:34:18,671 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:34:18,671 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:34:18,671 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:39:18,987 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:39:18,989 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:39:18,990 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:39:18,990 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:39:18,990 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:39:18,990 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:39:18,990 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:44:19,472 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:44:19,474 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:44:19,475 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:44:19,475 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:44:19,475 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:44:19,475 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:44:19,475 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:49:19,856 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:49:19,858 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:49:19,859 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:49:19,859 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:49:19,859 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:49:19,859 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:49:19,859 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:54:20,406 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:54:20,409 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:54:20,409 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:54:20,409 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:54:20,409 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:54:20,410 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:54:20,410 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:59:20,551 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 22:59:20,552 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 22:59:20,553 [INFO] ✅ Discovered 4 markets
+2026-01-02 22:59:20,553 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:59:20,553 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:59:20,553 [INFO]    • SOL 15m - Solana Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 22:59:20,553 [INFO]    • XRP 15m - XRP Up or Down - January 3, 1:30AM-1:45AM ET
+2026-01-02 23:04:21,008 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:04:21,010 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:04:21,384 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:04:21,384 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:04:21,384 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:04:21,384 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:04:21,384 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:09:21,910 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:09:21,911 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:09:21,912 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:09:21,912 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:09:21,912 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:09:21,912 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:09:21,912 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:14:22,554 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:14:22,555 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:14:22,555 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:14:22,555 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:14:22,555 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:14:22,555 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:14:22,556 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:19:22,758 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:19:22,760 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:19:22,761 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:19:22,761 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:19:22,761 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:19:22,761 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:19:22,761 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:24:23,336 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:24:23,338 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:24:23,339 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:24:23,339 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:24:23,339 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:24:23,339 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:24:23,339 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:29:23,681 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:29:23,684 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:29:23,684 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:29:23,684 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:29:23,684 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:29:23,684 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:29:23,685 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:00AM-2:15AM ET
+2026-01-02 23:34:24,214 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:34:24,216 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:34:25,177 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:34:25,177 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:34:25,177 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:34:25,178 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:34:25,178 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:39:25,253 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:39:25,254 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:39:25,255 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:39:25,255 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:39:25,256 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:39:25,256 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:39:25,256 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:44:25,411 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:44:25,413 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:44:25,414 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:44:25,414 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:44:25,414 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:44:25,414 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:44:25,414 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:49:25,972 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:49:25,974 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:49:25,975 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:49:25,975 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:49:25,975 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:49:25,975 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:49:25,976 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:54:25,981 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:54:25,982 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:54:25,983 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:54:25,983 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:54:25,983 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:54:25,983 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:54:25,983 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:59:26,091 [INFO] 
+🔄 Refreshing markets...
+2026-01-02 23:59:26,093 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-02 23:59:26,093 [INFO] ✅ Discovered 4 markets
+2026-01-02 23:59:26,093 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:59:26,094 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:59:26,094 [INFO]    • SOL 15m - Solana Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-02 23:59:26,094 [INFO]    • XRP 15m - XRP Up or Down - January 3, 2:30AM-2:45AM ET
+2026-01-03 00:00:00,471 [INFO] 📊 Daily stats reset at 2026-01-03 00:00:00.471267
+2026-01-03 00:04:26,809 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:04:26,811 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:04:27,334 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:04:27,334 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:04:27,334 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:04:27,334 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:04:27,335 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:09:27,796 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:09:27,798 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:09:27,799 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:09:27,799 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:09:27,799 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:09:27,799 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:09:27,799 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:14:28,648 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:14:28,650 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:14:28,650 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:14:28,651 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:14:28,651 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:14:28,651 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:14:28,651 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:19:28,883 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:19:28,885 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:19:28,886 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:19:28,886 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:19:28,886 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:19:28,886 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:19:28,886 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:24:29,455 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:24:29,456 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:24:29,457 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:24:29,457 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:24:29,457 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:24:29,457 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:24:29,457 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:29:29,459 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:29:29,461 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:29:29,461 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:29:29,461 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:29:29,462 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:29:29,462 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:29:29,462 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:00AM-3:15AM ET
+2026-01-03 00:34:30,040 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:34:30,042 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:34:30,524 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:34:30,524 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:34:30,524 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:34:30,524 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:34:30,524 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:39:30,999 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:39:31,001 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:39:31,002 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:39:31,002 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:39:31,002 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:39:31,002 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:39:31,002 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:44:31,658 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:44:31,660 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:44:31,661 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:44:31,661 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:44:31,661 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:44:31,661 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:44:31,661 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:49:32,025 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:49:32,027 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:49:32,027 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:49:32,027 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:49:32,028 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:49:32,028 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:49:32,028 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:54:32,548 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:54:32,549 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:54:32,549 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:54:32,550 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:54:32,550 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:54:32,550 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:54:32,550 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:59:33,060 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 00:59:33,061 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 00:59:33,062 [INFO] ✅ Discovered 4 markets
+2026-01-03 00:59:33,062 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:59:33,062 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:59:33,062 [INFO]    • SOL 15m - Solana Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 00:59:33,063 [INFO]    • XRP 15m - XRP Up or Down - January 3, 3:30AM-3:45AM ET
+2026-01-03 01:04:33,663 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:04:33,664 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:04:34,023 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:04:34,023 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:04:34,023 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:04:34,023 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:04:34,023 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:09:34,428 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:09:34,430 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:09:34,431 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:09:34,431 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:09:34,431 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:09:34,431 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:09:34,431 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:14:35,078 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:14:35,080 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:14:35,081 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:14:35,081 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:14:35,081 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:14:35,081 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:14:35,081 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:19:35,643 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:19:35,646 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:19:35,647 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:19:35,647 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:19:35,647 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:19:35,647 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:19:35,647 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:24:36,294 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:24:36,295 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:24:36,296 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:24:36,296 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:24:36,296 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:24:36,296 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:24:36,297 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:29:36,579 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:29:36,582 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:29:36,584 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:29:36,584 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:29:36,584 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:29:36,584 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:29:36,584 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:00AM-4:15AM ET
+2026-01-03 01:34:36,827 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:34:36,829 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:34:37,231 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:34:37,231 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:34:37,231 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:34:37,231 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:34:37,231 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:39:37,284 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:39:37,287 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:39:37,287 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:39:37,287 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:39:37,288 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:39:37,288 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:39:37,288 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:44:37,424 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:44:37,426 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:44:37,427 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:44:37,427 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:44:37,428 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:44:37,428 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:44:37,428 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:49:37,494 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:49:37,496 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:49:37,497 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:49:37,497 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:49:37,497 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:49:37,497 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:49:37,498 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:54:37,816 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:54:37,817 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:54:37,818 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:54:37,818 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:54:37,818 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:54:37,819 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:54:37,819 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:59:38,444 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 01:59:38,446 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 01:59:38,446 [INFO] ✅ Discovered 4 markets
+2026-01-03 01:59:38,447 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:59:38,447 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:59:38,447 [INFO]    • SOL 15m - Solana Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 01:59:38,447 [INFO]    • XRP 15m - XRP Up or Down - January 3, 4:30AM-4:45AM ET
+2026-01-03 02:04:38,853 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 02:04:38,855 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 02:04:39,336 [INFO] ✅ Discovered 4 markets
+2026-01-03 02:04:39,336 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:04:39,336 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:04:39,336 [INFO]    • SOL 15m - Solana Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:04:39,336 [INFO]    • XRP 15m - XRP Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:09:39,904 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 02:09:39,906 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 02:09:39,906 [INFO] ✅ Discovered 4 markets
+2026-01-03 02:09:39,906 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:09:39,906 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:09:39,907 [INFO]    • SOL 15m - Solana Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:09:39,907 [INFO]    • XRP 15m - XRP Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:14:40,713 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 02:14:40,715 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 02:14:40,716 [INFO] ✅ Discovered 4 markets
+2026-01-03 02:14:40,716 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:14:40,716 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:14:40,716 [INFO]    • SOL 15m - Solana Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:14:40,716 [INFO]    • XRP 15m - XRP Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:19:40,875 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 02:19:40,885 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 02:19:40,885 [INFO] ✅ Discovered 4 markets
+2026-01-03 02:19:40,886 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:19:40,886 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:19:40,886 [INFO]    • SOL 15m - Solana Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:19:40,886 [INFO]    • XRP 15m - XRP Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:24:41,015 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 02:24:41,017 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 02:24:41,017 [INFO] ✅ Discovered 4 markets
+2026-01-03 02:24:41,017 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:24:41,017 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:24:41,017 [INFO]    • SOL 15m - Solana Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:24:41,017 [INFO]    • XRP 15m - XRP Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:29:41,647 [INFO] 
+🔄 Refreshing markets...
+2026-01-03 02:29:41,648 [INFO] 🔍 Discovering markets for 4 assets...
+2026-01-03 02:29:41,649 [INFO] ✅ Discovered 4 markets
+2026-01-03 02:29:41,649 [INFO]    • BTC 15m - Bitcoin Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:29:41,649 [INFO]    • ETH 15m - Ethereum Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:29:41,649 [INFO]    • SOL 15m - Solana Up or Down - January 3, 5:00AM-5:15AM ET
+2026-01-03 02:29:41,649 [INFO]    • XRP 15m - XRP Up or Down - January 3, 5:00AM-5:15AM ET

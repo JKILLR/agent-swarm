@@ -225,7 +225,7 @@ export default function ChatInput({
       {/* Input Area - Terminal style */}
       <form onSubmit={handleSubmit} className="flex items-end gap-1.5 md:gap-2">
         <div className="flex-1 bg-[#0d0d0d] rounded-lg border border-zinc-800/50 focus-within:border-violet-500/50 transition-all duration-200 flex items-center purple-glow-focus">
-          <span className="pl-3 text-orange-500 font-medium select-none">&gt;</span>
+          <span className="pl-3 text-emerald-400 font-medium select-none">&gt;</span>
           <textarea
             ref={textareaRef}
             value={message}
@@ -275,7 +275,7 @@ export default function ChatInput({
             'p-3 rounded-lg transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center',
             disabled || (!message.trim() && attachments.length === 0)
               ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800/50'
-              : 'bg-orange-600 text-white hover:bg-orange-500 active:bg-orange-700 border border-orange-600'
+              : 'bg-emerald-500 text-white hover:bg-emerald-400 active:bg-emerald-600 border border-emerald-500'
           )}
         >
           {disabled ? (

@@ -20,6 +20,50 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# Simple Voice Chat Endpoint
+# =============================================================================
+
+from pydantic import BaseModel
+
+class SimpleChat(BaseModel):
+    message: str
+    system: Optional[str] = None
+
+
+@router.post("/simple")
+async def simple_chat(data: SimpleChat) -> Dict[str, Any]:
+    """Simple chat endpoint for voice assistant - bypasses orchestrator.
+
+    Uses Claude API directly for fast, lightweight responses.
+    """
+    import anthropic
+    import os
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set")
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    system_prompt = data.system or "You are a helpful voice assistant. Keep responses concise and conversational - they will be spoken aloud. Aim for 1-3 sentences unless more detail is needed."
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=500,
+            system=system_prompt,
+            messages=[{"role": "user", "content": data.message}]
+        )
+        return {
+            "success": True,
+            "response": response.content[0].text
+        }
+    except Exception as e:
+        logger.error(f"Simple chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("")
 async def chat(data: ChatMessage) -> Dict[str, Any]:
     """Send a chat message (non-streaming).

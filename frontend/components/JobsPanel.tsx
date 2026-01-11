@@ -186,7 +186,7 @@ export default function JobsPanel({ expanded: defaultExpanded = false }: JobsPan
   }
 
   return (
-    <div className="border-t border-zinc-800">
+    <div className="border-t border-zinc-800 bg-[#0c0c0c]">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}

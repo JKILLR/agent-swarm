@@ -5162,3 +5162,71 @@ The embedding service uses a ThreadPoolExecutor with max_workers=2, which is rea
 6. P2s as time permits
 
 ---
+<<<<<<< HEAD
+=======
+
+---
+
+## AI-Corp Critical Review - 2026-01-07
+**Agent**: Research Specialist
+**Task**: Deep critical analysis of ai-corp as universal problem-solving platform
+
+### Review Status: COMPLETE
+
+### Key Findings Summary
+- Impressive architectural vision but significant implementation gaps
+- Most "complete" components exist only as designs, not real LLM-tested implementations
+- Critical missing pieces for production use
+- Significant scalability and cost concerns
+
+Full analysis provided in conversation response.
+
+---
+
+## Memory System Bug Report - 2026-01-07
+**Researcher**: Research Specialist Agent
+
+### Critical Findings
+
+#### BUG 1: MindGraph Never Loaded (HIGH)
+- `memory/graph/mind_graph.json` contains 20KB of semantic data
+- Never loaded into COO system prompt
+- Methods exist but unused: `mind_graph.py:512-569`
+- **Files**: `chat_handler.py:408-444`, `main.py:3222-3230`
+
+#### BUG 2: Memory Extraction Never Auto-Triggered (HIGH)
+- `/api/chat/sessions/{id}/extract-memories` requires manual calls
+- `process_conversation()` never called automatically
+- **File**: `routes/chat.py:192-250`
+
+#### BUG 3: Session Summary Path Mismatch (MEDIUM)
+- Save: `memory/sessions/{id}.md`
+- Load: `memory/sessions/summaries/{id}.md`
+- **File**: `memory.py:274 vs 410`
+
+#### BUG 4: SQLite Tri-Memory Never Initialized (MEDIUM)
+- `memory/cognitive/memory.db` never created
+- `episodic_memory.py` and `semantic_memory.py` unused
+- **File**: `memory_db.py:496`
+
+#### BUG 5: Duplicate Facts (No Key Normalization)
+- `j_profession` vs `J Profession` duplicated
+- **File**: `memory_store.py:75-90`
+
+### Architecture Issue: 5 Parallel Memory Systems
+| System | Storage | Status |
+|--------|---------|--------|
+| MemoryStore | logs/memory/core_facts.json | Active, loaded |
+| MindGraph | memory/graph/mind_graph.json | Active, NOT loaded |
+| MemoryManager | memory/sessions/*.md | Partial |
+| EpisodicMemory | memory/cognitive/memory.db | Never created |
+| SemanticMemory | memory/cognitive/memory.db | Never created |
+
+### Recommended Fixes (Priority Order)
+1. Load MindGraph into COO context
+2. Auto-trigger memory extraction after 5+ messages
+3. Fix session summary paths
+4. Add key normalization for facts
+5. Add session size limits
+
+>>>>>>> 68754a95aff6985058f80cbbd84f0a2a2755c095
