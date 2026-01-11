@@ -69,3 +69,19 @@ htmlcov/
 .ipynb_checkpoints/
 config/google_token.json
 config/google_credentials.json
+
+# Node modules - NEVER commit
+node_modules/
+**/node_modules/
+
+# Memory/session artifacts
+memory/sessions/*
+logs/chat/.locks/*
+
+# Large data files in workspaces (bloat)
+**/polymarket_batch*.json
+**/*.pdf
+**/*.zip
+
+# Workspace - exclude only specific bloat patterns
+# (We WANT to track code, docs, and demos in workspaces)

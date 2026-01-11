@@ -1,8 +1,3 @@
----
-created: 2024-12-31 00:00
-updated: 2026-01-02
----
-
 # ASA v2.2 Empirical Results
 
 ## Executive Summary
