@@ -5,33 +5,41 @@
 const DEBUG_ENABLED = process.env.NODE_ENV === 'development'
 
 /**
- * WebSocket debug logger
+ * WebSocket debug logger object with log and error methods
  */
-export function wsDebug(category: string, message: string, data?: unknown): void {
-  if (!DEBUG_ENABLED) return
+export const wsDebug = {
+  log: (message: string, ...args: unknown[]): void => {
+    if (!DEBUG_ENABLED) return
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, 12)
+    console.log(`${timestamp} [WS] ${message}`, ...args)
+  },
 
-  const timestamp = new Date().toISOString().split('T')[1].slice(0, 12)
-  const prefix = `[WS:${category}]`
+  error: (message: string, ...args: unknown[]): void => {
+    if (!DEBUG_ENABLED) return
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, 12)
+    console.error(`${timestamp} [WS:ERROR] ${message}`, ...args)
+  },
 
-  if (data !== undefined) {
-    console.log(`${timestamp} ${prefix} ${message}`, data)
-  } else {
-    console.log(`${timestamp} ${prefix} ${message}`)
-  }
+  warn: (message: string, ...args: unknown[]): void => {
+    if (!DEBUG_ENABLED) return
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, 12)
+    console.warn(`${timestamp} [WS:WARN] ${message}`, ...args)
+  },
 }
 
 /**
  * General debug logger
  */
-export function debug(category: string, message: string, data?: unknown): void {
-  if (!DEBUG_ENABLED) return
+export const debug = {
+  log: (category: string, message: string, ...args: unknown[]): void => {
+    if (!DEBUG_ENABLED) return
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, 12)
+    console.log(`${timestamp} [${category}] ${message}`, ...args)
+  },
 
-  const timestamp = new Date().toISOString().split('T')[1].slice(0, 12)
-  const prefix = `[${category}]`
-
-  if (data !== undefined) {
-    console.log(`${timestamp} ${prefix} ${message}`, data)
-  } else {
-    console.log(`${timestamp} ${prefix} ${message}`)
-  }
+  error: (category: string, message: string, ...args: unknown[]): void => {
+    if (!DEBUG_ENABLED) return
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, 12)
+    console.error(`${timestamp} [${category}:ERROR] ${message}`, ...args)
+  },
 }
