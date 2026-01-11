@@ -52,11 +52,11 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   }
 
   return (
-    <aside className="w-64 md:w-64 h-full bg-[#0d0d0d] border-r border-zinc-800/50 flex flex-col">
+    <aside className="w-64 md:w-64 h-full bg-[#080808] border-r border-zinc-800/50 flex flex-col">
       {/* Logo - hidden on mobile since header shows title */}
       <div className="p-4 border-b border-zinc-800/50 hidden md:block">
         <Link href="/" className="flex items-center gap-2" onClick={handleLinkClick}>
-          <Terminal className="w-8 h-8 text-orange-500" />
+          <Terminal className="w-8 h-8 text-emerald-400" />
           <span className="font-bold text-lg text-zinc-100">Agent Swarm</span>
         </Link>
       </div>
@@ -71,7 +71,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 md:py-2 rounded-lg text-sm transition-all duration-200 touch-manipulation min-h-[44px] md:min-h-0',
               pathname === item.href
-                ? 'bg-zinc-800/50 text-orange-500 border-l-2 border-l-orange-500'
+                ? 'bg-zinc-800/50 text-emerald-400 border-l-2 border-l-emerald-400'
                 : 'text-zinc-500 hover:bg-violet-500/5 hover:text-zinc-300 hover:border-l-violet-500/50 active:bg-zinc-800/50 border-l-2 border-l-transparent'
             )}
           >
@@ -104,20 +104,20 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
                   className={cn(
                     'flex items-center justify-between px-3 py-2.5 md:py-2 rounded-lg text-sm transition-all duration-200 touch-manipulation min-h-[44px] md:min-h-0',
                     pathname === `/swarm/${encodedName}`
-                      ? 'bg-zinc-800/50 text-zinc-100 border-l-2 border-l-orange-500'
+                      ? 'bg-zinc-800/50 text-zinc-100 border-l-2 border-l-emerald-400'
                       : 'text-zinc-500 hover:bg-violet-500/5 hover:text-zinc-300 active:bg-zinc-800/50 border-l-2 border-l-transparent',
                     activeCount > 0 && 'border border-violet-500/30'
                   )}
                 >
                   <span className="flex items-center gap-2 truncate">
                     {activeCount > 0 && (
-                      <Loader2 className="w-3 h-3 text-orange-500 animate-spin flex-shrink-0" />
+                      <Loader2 className="w-3 h-3 text-emerald-400 animate-spin flex-shrink-0" />
                     )}
                     {swarm.name}
                   </span>
                   <span className={cn(
                     'text-xs',
-                    activeCount > 0 ? 'text-orange-500' : getStatusColor(swarm.status)
+                    activeCount > 0 ? 'text-emerald-400' : 'text-violet-400'
                   )}>
                     {activeCount > 0 ? `${activeCount} active` : swarm.agent_count}
                   </span>
@@ -130,7 +130,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
 
       {/* Activity Panel - Global agent activity */}
       {(isProcessing || hasActivity) && (
-        <div className="p-2 border-t border-zinc-800/50">
+        <div className="p-2 border-t border-zinc-800/50 bg-[#0a0a0a]">
           <ActivityPanel
             agents={panelAgentActivities}
             tools={panelToolActivities}
@@ -147,7 +147,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       <JobsPanel />
 
       {/* Footer */}
-      <div className="p-2 border-t border-zinc-800/50">
+      <div className="p-2 border-t border-zinc-800/50 bg-[#0c0c0c]">
         <button className="flex items-center gap-3 px-3 py-2.5 md:py-2 w-full rounded-lg text-sm text-zinc-500 hover:bg-violet-500/5 hover:text-zinc-300 active:bg-zinc-800/50 transition-all duration-200 touch-manipulation min-h-[44px] md:min-h-0">
           <Settings className="w-5 h-5 md:w-4 md:h-4" />
           Settings

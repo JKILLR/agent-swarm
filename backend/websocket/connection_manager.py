@@ -40,6 +40,7 @@ class ConnectionManager:
         """
         try:
             if websocket not in self.active_connections:
+                logger.warning(f"Tried to send {event_type} but WebSocket not in active connections")
                 return  # Connection already closed
             await websocket.send_json(
                 {
@@ -47,11 +48,15 @@ class ConnectionManager:
                     **data,
                 }
             )
+            # Log important events
+            if event_type in ("agent_complete", "chat_complete", "agent_start"):
+                content_preview = str(data.get("content", ""))[:100] if "content" in data else ""
+                logger.info(f"Sent {event_type}: content_len={len(data.get('content', ''))} preview={content_preview}")
         except (RuntimeError, Exception) as e:
             if "close message" in str(e).lower():
                 logger.debug(f"Skipped send to closed WebSocket: {e}")
             else:
-                logger.error(f"Error sending event: {e}")
+                logger.error(f"Error sending {event_type} event: {e}")
 
     async def broadcast(self, event_type: str, data: dict[str, Any]):
         """Broadcast an event to all connected clients.

@@ -518,9 +518,8 @@ async def websocket_chat(websocket: WebSocket, project_root: Path):
                             import json
                             session_path.write_text(json.dumps(session_data, indent=2))
 
-                        # Save user message
-                        history.add_message(session_id, "user", message)
-                        # Save assistant response
+                        # Note: User message already saved by frontend via REST API
+                        # Only save assistant response here
                         history.add_message(
                             session_id,
                             "assistant",

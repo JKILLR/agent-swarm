@@ -42,18 +42,18 @@ interface ActivityPanelProps {
 
 const toolIcons: Record<string, React.ReactNode> = {
   Task: <Users className="w-3.5 h-3.5" />,
-  Agent: <Bot className="w-3.5 h-3.5 text-orange-500" />,
+  Agent: <Bot className="w-3.5 h-3.5 text-emerald-400" />,
   Read: <Eye className="w-3.5 h-3.5 text-blue-400" />,
-  Write: <Pencil className="w-3.5 h-3.5 text-green-400" />,
+  Write: <Pencil className="w-3.5 h-3.5 text-violet-400" />,
   Edit: <FileEdit className="w-3.5 h-3.5 text-yellow-400" />,
   Bash: <Terminal className="w-3.5 h-3.5 text-purple-400" />,
   Glob: <Search className="w-3.5 h-3.5" />,
   Grep: <Search className="w-3.5 h-3.5" />,
   WebSearch: <Globe className="w-3.5 h-3.5 text-cyan-400" />,
   WebFetch: <Globe className="w-3.5 h-3.5 text-cyan-400" />,
-  GitCommit: <GitBranch className="w-3.5 h-3.5 text-orange-400" />,
-  GitSync: <GitBranch className="w-3.5 h-3.5 text-orange-400" />,
-  GitStatus: <GitBranch className="w-3.5 h-3.5 text-orange-400" />,
+  GitCommit: <GitBranch className="w-3.5 h-3.5 text-emerald-400" />,
+  GitSync: <GitBranch className="w-3.5 h-3.5 text-emerald-400" />,
+  GitStatus: <GitBranch className="w-3.5 h-3.5 text-emerald-400" />,
 }
 
 // Get file path from tool description
@@ -127,8 +127,8 @@ function StatusIndicator({
     case 'running':
       return (
         <div className="flex items-center gap-1">
-          <Loader2 className="w-3.5 h-3.5 text-orange-500 animate-spin" />
-          <span className="text-orange-500 text-xs">Working</span>
+          <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+          <span className="text-emerald-400 text-xs">Working</span>
         </div>
       )
     case 'delegating':
@@ -161,7 +161,7 @@ function StatusIndicator({
 function ToolProgressBar() {
   return (
     <div className="h-0.5 bg-zinc-800 rounded-full overflow-hidden mt-1">
-      <div className="h-full bg-gradient-to-r from-orange-500 via-violet-500 to-orange-500 animate-progress-bar" />
+      <div className="h-full bg-gradient-to-r from-emerald-400 via-violet-500 to-emerald-400 animate-progress-bar" />
     </div>
   )
 }
@@ -178,7 +178,7 @@ function FileActivity({ tool, description }: { tool: string; description: string
   return (
     <span className={`text-xs px-1.5 py-0.5 rounded ${
       isRead ? 'bg-blue-500/10 text-blue-400' :
-      isWrite ? 'bg-green-500/10 text-green-400' :
+      isWrite ? 'bg-violet-500/10 text-violet-400' :
       isEdit ? 'bg-yellow-500/10 text-yellow-400' :
       'bg-zinc-800 text-zinc-400'
     }`}>
@@ -218,12 +218,7 @@ export default function ActivityPanel({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Auto-scroll to bottom when new items added
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [tools.length])
+  // No auto-scroll - let users control scroll position manually
 
   // Detect completion and show notification
   useEffect(() => {
@@ -324,7 +319,7 @@ export default function ActivityPanel({
           onClick={() => !isFullscreen && setIsExpanded(!isExpanded)}
           className="flex items-center gap-2 flex-1"
         >
-          <Activity className="w-4 h-4 text-orange-500" />
+          <Activity className="w-4 h-4 text-emerald-400" />
           <span className="text-sm font-medium text-zinc-400">Activity</span>
           {totalActive > 0 && (
             <span className="px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-medium animate-pulse">
@@ -332,7 +327,7 @@ export default function ActivityPanel({
             </span>
           )}
           {isProcessing && totalActive === 0 && (
-            <span className="flex items-center gap-1 text-xs text-orange-400">
+            <span className="flex items-center gap-1 text-xs text-emerald-400">
               <Loader2 className="w-3 h-3 animate-spin" />
               Processing
             </span>
@@ -359,7 +354,7 @@ export default function ActivityPanel({
             onClick={() => setIsFullscreen(!isFullscreen)}
             className={`p-1.5 rounded transition-all ${
               isProcessing
-                ? 'bg-orange-500/20 hover:bg-orange-500/30 animate-pulse'
+                ? 'bg-emerald-400/20 hover:bg-emerald-400/30 animate-pulse'
                 : 'hover:bg-zinc-800/50'
             }`}
             title={isFullscreen ? 'Minimize' : 'Watch activity live'}
@@ -367,7 +362,7 @@ export default function ActivityPanel({
             {isFullscreen ? (
               <Minimize2 className="w-4 h-4 text-zinc-400" />
             ) : (
-              <Maximize2 className={`w-4 h-4 ${isProcessing ? 'text-orange-400' : 'text-zinc-500'}`} />
+              <Maximize2 className={`w-4 h-4 ${isProcessing ? 'text-emerald-400' : 'text-zinc-500'}`} />
             )}
           </button>
 
@@ -398,10 +393,10 @@ export default function ActivityPanel({
                 ) : (
                   <ChevronRight className="w-3 h-3" />
                 )}
-                <Bot className="w-3 h-3 text-orange-500" />
+                <Bot className="w-3 h-3 text-emerald-400" />
                 <span>Agents ({agents.length})</span>
                 {activeAgents.length > 0 && (
-                  <span className="ml-auto text-xs text-orange-400">
+                  <span className="ml-auto text-xs text-emerald-400">
                     {activeAgents.length} working
                   </span>
                 )}
@@ -416,13 +411,13 @@ export default function ActivityPanel({
                         isFullscreen ? 'bg-zinc-900/50 rounded-lg border border-zinc-800/50' : ''
                       } ${
                         agent.status !== 'complete' && agent.status !== 'error'
-                          ? 'bg-orange-500/5 border-l-2 border-l-orange-500'
+                          ? 'bg-emerald-400/5 border-l-2 border-l-emerald-400'
                           : 'border-l-2 border-l-transparent'
                       }`}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <Bot className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                          <Bot className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
                           <span className="text-sm font-medium text-zinc-300 truncate">
                             {agent.name}
                           </span>
@@ -459,10 +454,10 @@ export default function ActivityPanel({
                 ) : (
                   <ChevronRight className="w-3 h-3" />
                 )}
-                <Zap className="w-3 h-3 text-orange-400" />
+                <Zap className="w-3 h-3 text-emerald-400" />
                 <span>Tools ({tools.length})</span>
                 {activeTools.length > 0 && (
-                  <span className="ml-auto text-xs text-orange-400">
+                  <span className="ml-auto text-xs text-emerald-400">
                     {activeTools.length} running
                   </span>
                 )}
@@ -475,7 +470,7 @@ export default function ActivityPanel({
                     {Object.entries(toolsByAgent).map(([agentName, agentTools]) => (
                       <div key={agentName} className="bg-zinc-900/50 rounded-lg border border-zinc-800/50 overflow-hidden">
                         <div className="px-3 py-2 bg-zinc-900/80 border-b border-zinc-800/50 flex items-center gap-2">
-                          <Bot className="w-3 h-3 text-orange-500" />
+                          <Bot className="w-3 h-3 text-emerald-400" />
                           <span className="text-xs font-medium text-zinc-400">{agentName}</span>
                           <span className="text-xs text-zinc-600">({agentTools.length} tools)</span>
                         </div>
@@ -485,7 +480,7 @@ export default function ActivityPanel({
                               key={tool.id}
                               className={`px-3 py-2 flex items-start gap-2 text-xs ${
                                 tool.status === 'running'
-                                  ? 'bg-orange-500/5 border-l-2 border-l-orange-500'
+                                  ? 'bg-emerald-400/5 border-l-2 border-l-emerald-400'
                                   : tool.status === 'error'
                                     ? 'bg-red-500/5 border-l-2 border-l-red-500'
                                     : 'border-l-2 border-l-green-500/30'
@@ -493,7 +488,7 @@ export default function ActivityPanel({
                             >
                               <div className="flex-shrink-0 mt-0.5">
                                 {tool.status === 'running' ? (
-                                  <Loader2 className="w-3 h-3 text-orange-500 animate-spin" />
+                                  <Loader2 className="w-3 h-3 text-emerald-400 animate-spin" />
                                 ) : tool.status === 'error' ? (
                                   <X className="w-3 h-3 text-red-500" />
                                 ) : (
@@ -528,7 +523,7 @@ export default function ActivityPanel({
                         key={tool.id}
                         className={`px-3 py-2 flex items-start gap-2 text-xs ${
                           tool.status === 'running'
-                            ? 'bg-orange-500/5 border-l-2 border-l-orange-500'
+                            ? 'bg-emerald-400/5 border-l-2 border-l-emerald-400'
                             : tool.status === 'error'
                               ? 'bg-red-500/5 border-l-2 border-l-red-500'
                               : 'border-l-2 border-l-green-500/30'
@@ -537,7 +532,7 @@ export default function ActivityPanel({
                         {/* Status indicator */}
                         <div className="flex-shrink-0 mt-0.5">
                           {tool.status === 'running' ? (
-                            <Loader2 className="w-3 h-3 text-orange-500 animate-spin" />
+                            <Loader2 className="w-3 h-3 text-emerald-400 animate-spin" />
                           ) : tool.status === 'error' ? (
                             <X className="w-3 h-3 text-red-500" />
                           ) : (
@@ -581,7 +576,7 @@ export default function ActivityPanel({
           {/* Empty state while processing */}
           {isProcessing && agents.length === 0 && tools.length === 0 && (
             <div className="px-3 py-4 flex items-center justify-center gap-2 text-sm text-zinc-600">
-              <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
               <span>Initializing...</span>
             </div>
           )}
@@ -620,7 +615,7 @@ export default function ActivityPanel({
         {/* Panel Header */}
         <div className="px-4 py-3 border-b border-zinc-800/50 flex items-center justify-between bg-[#0d0d0d]">
           <div className="flex items-center gap-3">
-            <Activity className={`w-5 h-5 ${isProcessing ? 'text-orange-500 animate-pulse' : 'text-orange-500/70'}`} />
+            <Activity className={`w-5 h-5 ${isProcessing ? 'text-emerald-400 animate-pulse' : 'text-emerald-400/70'}`} />
             <span className="text-lg font-medium text-zinc-300">Live Activity Monitor</span>
             {isProcessing && totalActive > 0 && (
               <span className="px-2 py-1 rounded-full bg-violet-500/20 text-violet-400 text-sm font-medium animate-pulse">
@@ -651,10 +646,10 @@ export default function ActivityPanel({
           {agents.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <Bot className="w-4 h-4 text-orange-500" />
+                <Bot className="w-4 h-4 text-emerald-400" />
                 <h3 className="text-sm font-medium text-zinc-400">Agents ({agents.length})</h3>
                 {activeAgents.length > 0 && (
-                  <span className="text-xs text-orange-400 ml-auto">{activeAgents.length} working</span>
+                  <span className="text-xs text-emerald-400 ml-auto">{activeAgents.length} working</span>
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -663,7 +658,7 @@ export default function ActivityPanel({
                     key={agent.id}
                     className={`p-3 rounded-lg border ${
                       agent.status !== 'complete' && agent.status !== 'error'
-                        ? 'bg-orange-500/5 border-orange-500/30'
+                        ? 'bg-emerald-400/5 border-emerald-400/30'
                         : agent.status === 'error'
                           ? 'bg-red-500/5 border-red-500/30'
                           : 'bg-zinc-900/50 border-zinc-800/50'
@@ -671,7 +666,7 @@ export default function ActivityPanel({
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                        <Bot className="w-3.5 h-3.5 text-orange-500" />
+                        <Bot className="w-3.5 h-3.5 text-emerald-400" />
                         {agent.name}
                       </span>
                       <StatusIndicator status={agent.status} />
@@ -693,17 +688,17 @@ export default function ActivityPanel({
           {tools.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4 text-orange-400" />
+                <Zap className="w-4 h-4 text-emerald-400" />
                 <h3 className="text-sm font-medium text-zinc-400">Tool Activity ({tools.length})</h3>
                 {activeTools.length > 0 && (
-                  <span className="text-xs text-orange-400 ml-auto">{activeTools.length} running</span>
+                  <span className="text-xs text-emerald-400 ml-auto">{activeTools.length} running</span>
                 )}
               </div>
               <div className="space-y-4">
                 {Object.entries(toolsByAgent).map(([agentName, agentTools]) => (
                   <div key={agentName} className="bg-zinc-900/50 rounded-lg border border-zinc-800/50 overflow-hidden">
                     <div className="px-3 py-2 bg-zinc-900/80 border-b border-zinc-800/50 flex items-center gap-2">
-                      <Bot className="w-3 h-3 text-orange-500" />
+                      <Bot className="w-3 h-3 text-emerald-400" />
                       <span className="text-sm font-medium text-zinc-400">{agentName}</span>
                       <span className="text-xs text-zinc-600">({agentTools.length} tools)</span>
                     </div>
@@ -713,7 +708,7 @@ export default function ActivityPanel({
                           key={tool.id}
                           className={`px-3 py-2 flex items-start gap-2 text-xs ${
                             tool.status === 'running'
-                              ? 'bg-orange-500/5 border-l-2 border-l-orange-500'
+                              ? 'bg-emerald-400/5 border-l-2 border-l-emerald-400'
                               : tool.status === 'error'
                                 ? 'bg-red-500/5 border-l-2 border-l-red-500'
                                 : 'border-l-2 border-l-green-500/30'
@@ -721,7 +716,7 @@ export default function ActivityPanel({
                         >
                           <div className="flex-shrink-0 mt-0.5">
                             {tool.status === 'running' ? (
-                              <Loader2 className="w-3 h-3 text-orange-500 animate-spin" />
+                              <Loader2 className="w-3 h-3 text-emerald-400 animate-spin" />
                             ) : tool.status === 'error' ? (
                               <X className="w-3 h-3 text-red-500" />
                             ) : (

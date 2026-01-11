@@ -65,7 +65,7 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
           onClick={() => setExpanded(!expanded)}
         >
           <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-orange-500" />
+            <FileText className="w-4 h-4 text-emerald-400" />
             <span className="text-sm text-zinc-300">{attachment.name}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -106,12 +106,12 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
 export default function ChatMessage({ content, timestamp, attachments }: ChatMessageProps) {
   return (
     <div className="flex items-start gap-3 animate-fade-in">
-      <div className="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center flex-shrink-0">
+      <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
         <User className="w-4 h-4 text-white" />
       </div>
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
-          <span className="font-medium text-sm text-orange-500">You</span>
+          <span className="font-medium text-sm text-emerald-400">You</span>
           {timestamp && (
             <span className="text-xs text-zinc-600">
               {timestamp.toLocaleTimeString()}

@@ -10,9 +10,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-# Python build artifacts (not frontend/lib)
-/lib/
-/lib64/
+lib/
+lib64/
 parts/
 sdist/
 var/
@@ -43,7 +42,6 @@ env/
 logs/**/*.json
 logs/**/*.jsonl
 logs/**/*.log
-logs/**/*.db
 !logs/.gitkeep
 !logs/consensus/.gitkeep
 
@@ -57,8 +55,6 @@ Thumbs.db
 credentials.json
 secrets.yaml
 secrets.json
-config/google_credentials.json
-config/google_token.json
 
 # Testing
 .pytest_cache/
@@ -71,9 +67,21 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
-.claude/coordination.db
+config/google_token.json
+config/google_credentials.json
 
-# Swarm workspaces - ignore agent work products but track STATE.md
-swarms/*/workspace/*
-!swarms/*/workspace/STATE.md
-!swarms/*/workspace/.gitkeep
+# Node modules - NEVER commit
+node_modules/
+**/node_modules/
+
+# Memory/session artifacts
+memory/sessions/*
+logs/chat/.locks/*
+
+# Large data files in workspaces (bloat)
+**/polymarket_batch*.json
+**/*.pdf
+**/*.zip
+
+# Workspace - exclude only specific bloat patterns
+# (We WANT to track code, docs, and demos in workspaces)

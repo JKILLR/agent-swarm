@@ -119,7 +119,7 @@ export default function OrgChart({ onSelectNode, selectedNodeId }: OrgChartProps
     // Build COO node
     const cooNode: OrgNode = {
       id: 'coo',
-      name: 'Supreme Orchestrator',
+      name: 'Axel',
       type: 'coo',
       description: 'COO - Manages all swarms',
       children: [vpNode],

@@ -28,6 +28,8 @@ export type WebSocketEventType =
   | 'agent_spawn'
   | 'executor_pool_status'
   | 'error'
+  | 'disconnected'
+  | 'max_reconnect_reached'
 
 export interface WebSocketEvent {
   type: WebSocketEventType
@@ -163,6 +165,12 @@ export class ChatWebSocket {
 
           try {
             const data = JSON.parse(event.data) as WebSocketEvent
+            // Log ALL events for debugging (temporary)
+            console.log(`[WS Event] ${data.type}:`, data.type === 'agent_complete'
+              ? { agent: data.agent, contentLen: data.content?.length, contentPreview: data.content?.substring(0, 100) }
+              : data.type === 'agent_delta'
+              ? { agent: data.agent, deltaLen: data.delta?.length }
+              : data)
             this.emit(data.type, data)
             this.emit('*', data) // Wildcard handler
           } catch (e) {
@@ -181,7 +189,8 @@ export class ChatWebSocket {
           this.connectionState = 'disconnected'
           this.connectionPromise = null
           this.stopHeartbeat()
-          this.emit('disconnected', { type: 'error', message: 'Disconnected' })
+          // Use 'disconnected' as type instead of 'error' to prevent triggering error handlers
+          this.emit('disconnected', { type: 'disconnected', message: 'Disconnected' })
 
           // Only reconnect if not intentionally disconnected
           if (!this.isIntentionalDisconnect) {
@@ -249,7 +258,8 @@ export class ChatWebSocket {
   private attemptReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log('Max reconnection attempts reached')
-      this.emit('max_reconnect_reached', { type: 'error', message: 'Max reconnection attempts reached' })
+      // Use 'max_reconnect_reached' as type instead of 'error' to prevent triggering error handlers
+      this.emit('max_reconnect_reached', { type: 'max_reconnect_reached', message: 'Max reconnection attempts reached' })
       return
     }
 

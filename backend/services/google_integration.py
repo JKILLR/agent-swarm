@@ -5,6 +5,7 @@ Provides OAuth 2.0 authentication and API access for:
 - Google Calendar (read/create events)
 - Google Drive (read/upload files)
 - Google Tasks (read/create tasks)
+- Google Forms (read forms and responses)
 
 Usage:
     from services.google_integration import get_google_service
@@ -54,6 +55,9 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/tasks.readonly",
     "https://www.googleapis.com/auth/tasks",
+    "https://www.googleapis.com/auth/forms.body.readonly",
+    "https://www.googleapis.com/auth/forms.responses.readonly",
+    "https://www.googleapis.com/auth/spreadsheets.readonly",
 ]
 
 # File paths
@@ -647,6 +651,88 @@ class GoogleIntegrationService:
             data={"status": "completed"}
         )
         return result is not None
+
+    # ==================== FORMS API ====================
+
+    async def get_form(self, form_id: str) -> Optional[Dict]:
+        """Get form structure/schema.
+
+        Args:
+            form_id: The Google Form ID (from URL)
+
+        Returns:
+            Form object with questions, title, etc.
+        """
+        return await self._api_request(
+            f"https://forms.googleapis.com/v1/forms/{form_id}"
+        )
+
+    async def get_form_responses(
+        self,
+        form_id: str,
+        page_size: int = 50,
+        page_token: Optional[str] = None
+    ) -> Optional[Dict]:
+        """Get responses submitted to a form.
+
+        Args:
+            form_id: The Google Form ID
+            page_size: Number of responses per page
+            page_token: Token for pagination
+
+        Returns:
+            Dict with responses and nextPageToken
+        """
+        params = {"pageSize": page_size}
+        if page_token:
+            params["pageToken"] = page_token
+
+        return await self._api_request(
+            f"https://forms.googleapis.com/v1/forms/{form_id}/responses",
+            params=params
+        )
+
+    async def list_forms_in_drive(self, max_results: int = 20) -> List[Dict]:
+        """List Google Forms from Drive.
+
+        Args:
+            max_results: Maximum number of forms to return
+
+        Returns:
+            List of form files with id, name, webViewLink
+        """
+        return await self.list_drive_files(
+            query="mimeType='application/vnd.google-apps.form'",
+            max_results=max_results
+        )
+
+    # ==================== SHEETS API ====================
+
+    async def get_spreadsheet_values(
+        self,
+        spreadsheet_id: str,
+        range_name: str = "Sheet1"
+    ) -> List[List[str]]:
+        """Get values from a Google Spreadsheet.
+
+        Args:
+            spreadsheet_id: The spreadsheet ID
+            range_name: The A1 notation range (e.g., "Sheet1!A1:E10" or just "Sheet1")
+
+        Returns:
+            2D list of cell values
+        """
+        result = await self._api_request(
+            f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{range_name}"
+        )
+        return result.get("values", []) if result else []
+
+    async def get_spreadsheet_metadata(self, spreadsheet_id: str) -> Optional[Dict]:
+        """Get spreadsheet metadata including sheet names."""
+        return await self._api_request(
+            f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}",
+            params={"fields": "properties,sheets.properties"}
+        )
 
     # ==================== PROFILE INFO ====================
 

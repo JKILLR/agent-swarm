@@ -1,5 +1,20 @@
 # Swarm Dev - STATE.md
-## Last Updated: 2026-01-03
+## Last Updated: 2026-01-07
+
+---
+
+## High Priority TODOs
+
+| Priority | Task | Status |
+|----------|------|--------|
+| 1 | *(Your next focus - TBD)* | Pending |
+| 2 | Context Enhancement Phase 1 - Additive memory improvements | Queued |
+
+**Context Enhancement Details** (queued):
+- Research complete: `workspace/research/context_advancements.md`
+- Brainstorm rounds complete: `workspace/research/brainstorm_r1_*.md`, `brainstorm_r2_*.md`
+- Phase 1 scope: STATE.md compression, session persistence, memory API enhancements
+- Won't regress existing context window - purely additive
 
 ---
 
@@ -14,6 +29,301 @@ Make the agent-swarm system fully self-developing - as capable as Claude Code in
 ---
 
 ## Progress Log
+
+### 2026-01-06: AI Context Storage & Retrieval Advancements Research - COO
+
+- **COO** completed comprehensive research on latest AI memory and context management advances (2024-2025)
+- **Research Document**: `workspace/research/context_advancements.md`
+
+#### Key Research Areas Covered
+
+| Area | Key Findings |
+|------|--------------|
+| **Long-Term Memory** | Titans (Google), MemGPT/Letta, Mem0 lead the field; Mem0 shows 26% accuracy improvement |
+| **RAG Improvements** | GraphRAG, RAPTOR, Self-RAG, Corrective RAG; Tool RAG emerging for agent scaling |
+| **Context Optimization** | RCC achieves 32x compression; KVzip 3-4x; hierarchical summarization recommended |
+| **Semantic Memory** | A-Mem (Zettelkasten-inspired), MemGPT tiered architecture; vector + graph hybrid optimal |
+| **Multi-Agent Memory** | MCP protocol for standardization; hybrid centralized/distributed recommended |
+
+#### Top Recommendations for Agent-Swarm
+
+| Priority | Recommendation | Effort | Impact |
+|----------|----------------|--------|--------|
+| 1 | Add compression to STATE.md (summarize older entries) | Low | High |
+| 2 | Confidence scoring for auto-escalation (0.8 threshold) | Low | High |
+| 3 | Session memory persistence | Low | Medium |
+| 4 | Vector search for workspace (Ollama embeddings) | Medium | High |
+| 5 | Hybrid retrieval pipeline (BM25 + vectors + reranker) | Medium | High |
+| 6 | Hierarchical memory structure (MemGPT pattern) | Medium | High |
+| 7 | Graph-based entity memory (Mem0g pattern) | High | Transformative |
+| 8 | Self-editing memory tools for agents | High | Transformative |
+
+#### Key Industry Stats (2024-2025)
+
+- **1,200+** RAG papers on arXiv in 2024 alone
+- **51%** of organizations using AI agents in production
+- **128K-10M** tokens now standard context windows (vs 4K in 2022)
+- **Mem0**: 41K GitHub stars, 186M API calls Q3 2025, AWS exclusive partner
+
+#### Relevance to Existing Work
+
+- **Validates MYND v3 approach**: Knowledge distillation from Claude responses matches industry patterns
+- **Extends LOCAL_NEURAL_BRAIN_DESIGN.md**: Confirms embeddings-only approach (not generation) is correct
+- **Supports Knowledge Layer design**: Hybrid retrieval (BM25 + vectors) confirmed as best practice
+- **MCP aligns with Agent Mailbox**: Consider adopting MCP standard for future interoperability
+
+#### Gap Analysis Summary
+
+| Current | Industry Best Practice | Priority to Address |
+|---------|----------------------|---------------------|
+| STATE.md flat file | Graph-based memory | Medium-term |
+| No semantic search | Vector + BM25 hybrid | High priority |
+| Single context tier | Hierarchical (MemGPT) | Medium priority |
+| Manual escalation | Confidence-scored auto | Quick win |
+| Session-based memory | Persistent cross-session | Quick win |
+
+#### Status
+- **Research Document**: COMPLETE - `workspace/research/context_advancements.md`
+- **Next Steps**: Implement quick wins (compression, confidence scoring, session persistence)
+
+---
+
+### 2026-01-06: MYND v3 LocalBrain Learning System Research - COO
+
+- **COO** researched the MYND v3 LocalBrain learning system from GitHub
+- **Repository**: https://github.com/JKILLR/mynd-v3
+
+#### MYND v3 Architecture Overview
+
+**Infrastructure**:
+- Local Mac machine at `/Users/jellingson/Dev/mynd-server`
+- Runpod GPU pod for inference (ztbjpe1pv628kq)
+- Browser frontend → Local file server → Runpod brain server → Claude CLI
+
+**Core Components**:
+
+| Component | Purpose | Parameters |
+|-----------|---------|------------|
+| **UnifiedBrain** | Central orchestrator with 4 subsystems | N/A |
+| **EmbeddingEngine** | Semantic understanding | all-MiniLM-L6-v2 (384-dim) |
+| **Graph Transformer** | Connection prediction | 11.5M params, 8 attention heads |
+| **VoiceTranscriber** | Audio to text | Whisper base |
+| **VisionEngine** | Image understanding | CLIP ViT-B-32 |
+
+#### Local Model Usage Patterns
+
+1. **Multi-Model Architecture**: MYND uses multiple specialized small models instead of one general model
+   - Embeddings for semantic search (not generation)
+   - Graph Transformer for relationship prediction (not chat)
+   - Whisper/CLIP for multimodal input processing
+
+2. **Claude CLI Integration**: Uses Max subscription via subprocess, not API
+   ```python
+   axel_response = await call_claude_cli_with_conversation(
+       messages=messages,
+       system_prompt=system_prompt,
+       timeout=300.0,
+       enable_tools=True
+   )
+   ```
+
+3. **Context Synthesis**: Single `/brain/context` endpoint assembles all context (~2,500 tokens)
+   - Self-awareness document (identity, capabilities, limitations)
+   - Distilled knowledge from previous Claude responses
+   - Meta-learning insights about source effectiveness
+   - Map state and neural predictions
+
+#### Feedback Learning Loop with Claude
+
+**Four Learning Loops Identified**:
+
+| Loop | Trigger | Action |
+|------|---------|--------|
+| **Feedback** | User accepts/rejects suggestion | Trains preference model (GT weights) |
+| **Correction** | User corrects Claude response | Stores correction in memory |
+| **Pattern Extraction** | Session end | Extracts behavioral patterns |
+| **Code Analysis** | Code changes detected | Regenerates self-awareness document |
+
+**Bidirectional Learning**:
+- **Claude → Brain**: `receive_from_claude()` extracts high-confidence insights (≥0.8), patterns, corrections
+- **Brain → Claude**: `get_context()` includes distilled knowledge in every prompt
+
+**Knowledge Distillation**:
+```python
+# From UnifiedBrain
+result = unified_brain.receive_from_claude(data)
+# Extracts: insights, patterns, corrections, explanations
+# Stores in bounded collections (200 insights, 100 corrections)
+```
+
+**Meta-Learning**:
+- Tracks which knowledge sources are most effective
+- Adjusts attention weights dynamically
+- Monitors confidence calibration across three buckets
+
+#### Architecture Patterns Adoptable for Agent-Swarm
+
+| Pattern | MYND Implementation | Agent-Swarm Opportunity |
+|---------|---------------------|------------------------|
+| **Unified Context Endpoint** | `/brain/context` returns everything | Create `/api/context` that merges memory, escalations, work ledger |
+| **Self-Awareness Document** | Identity + capabilities + limitations | Generate agent capability manifest from .md files |
+| **Knowledge Distillation** | Extract insights from Claude responses | Parse agent outputs for learnings, store in memory |
+| **Meta-Learning** | Track source effectiveness | Track which agents/approaches succeed for which tasks |
+| **Evolution Daemon** | Background insight generation | Auto-spawn on work detection (already planned) |
+| **Three-Layer Memory** | Short-term → Working → Long-term | Session → Swarm STATE.md → Core memory |
+| **Bounded Storage** | Max 200 insights, 100 corrections | Prevent unbounded growth in memory files |
+
+#### Lessons Learned & Best Practices
+
+1. **Don't Fine-Tune for Generation** - MYND uses local models for classification/prediction, NOT chat
+   - Graph Transformer predicts connections (should A link to B?)
+   - Embeddings enable semantic search
+   - Claude handles all natural language generation
+
+2. **Separate Concerns by Model** - Instead of one model trying everything:
+   - Embeddings: semantic similarity
+   - GT: relationship prediction
+   - Claude: reasoning and generation
+
+3. **Incremental Learning** - Real-time training without full retraining:
+   ```python
+   gt.train_connection_step(
+       source_embedding=user_emb,
+       target_embedding=ai_emb,
+       should_connect=True,
+       weight=0.5
+   )
+   ```
+
+4. **Confidence Thresholds** - Only distill high-confidence (≥0.8) insights
+   - Prevents noise accumulation
+   - Self-correcting via meta-learning
+
+5. **Local-First with Cloud Backup** - Learning happens on-device, syncs to cloud
+   - Network failures don't lose learning
+   - Personal data stays local
+
+#### Comparison with LOCAL_NEURAL_BRAIN_DESIGN.md
+
+| Aspect | MYND v3 (Actual) | Our Design (Proposed) | Gap Analysis |
+|--------|------------------|----------------------|--------------|
+| **Model Purpose** | Classification/prediction only | Generation + classification | MYND approach is simpler, more reliable |
+| **Fine-Tuning** | None (uses GT training) | LoRA on Qwen2.5-3B | MYND avoids fine-tuning complexity |
+| **Claude Integration** | Distillation + meta-learning | Query routing | MYND's bidirectional learning is more sophisticated |
+| **Memory Structure** | 3-layer with bounded storage | Session-based | MYND has better memory architecture |
+| **Confidence Scoring** | Yes (0.8 threshold) | Missing | Critical gap in our design |
+| **Background Learning** | Evolution daemon | Not specified | Missing autonomous learning |
+
+#### Recommended Improvements to LOCAL_NEURAL_BRAIN_DESIGN.md
+
+**High Priority**:
+1. **Adopt multi-model approach** - Use small models for specific tasks, not general generation
+   - Embeddings for semantic search (already in Knowledge Layer design)
+   - Don't try to replace Claude for chat
+
+2. **Add Knowledge Distillation** - Extract learnings from every Claude response
+   - Parse structured data from agent outputs
+   - Store patterns, corrections, successful approaches
+   - Include in future context
+
+3. **Implement Meta-Learning** - Track what works
+   - Which agents succeed for which task types?
+   - Which context sources improve outcomes?
+   - Adjust weighting dynamically
+
+4. **Add Confidence Thresholds** - Don't learn from everything
+   - Only distill high-confidence insights
+   - Require user confirmation for uncertain patterns
+
+5. **Implement Evolution Daemon** - Background autonomous learning
+   - Already aligns with "Auto-Spawn on Work Detection" priority
+   - Generate insights about codebase patterns overnight
+
+**Medium Priority**:
+6. **Unify the Two Designs** - Merge Neural Brain and Knowledge Layer
+   - Single "Local Intelligence Layer"
+   - Embeddings for search (Knowledge Layer)
+   - Pattern learning from interactions (Neural Brain concepts)
+   - Skip fine-tuning entirely (per MYND approach)
+
+7. **Add Bounded Storage** - Prevent memory bloat
+   - Max 200 distilled insights
+   - Max 100 corrections
+   - Rotate oldest when full
+
+8. **Create Self-Awareness Document** - Per MYND pattern
+   - Auto-generate from swarm.yaml + agent .md files
+   - Include capabilities and limitations
+   - Update on code changes
+
+#### Implementation Priority Order
+
+| Priority | Action | Effort | Impact |
+|----------|--------|--------|--------|
+| 1 | Add `/api/context` unified endpoint | Low | High |
+| 2 | Implement knowledge distillation from agent outputs | Medium | High |
+| 3 | Add meta-learning for source effectiveness | Medium | Medium |
+| 4 | Create self-awareness document generator | Low | Medium |
+| 5 | Add background learning daemon (evolution) | High | High |
+| 6 | Add embeddings for semantic search | Medium | Medium |
+| 7 | Consider graph-based relationship learning | High | Optional |
+
+#### Key Insight
+
+**MYND's secret sauce is NOT a fine-tuned local model** - it's the bidirectional learning loop with Claude:
+- Claude teaches the brain (knowledge distillation)
+- Brain teaches Claude (context injection)
+- Meta-learning optimizes which knowledge sources matter
+
+This is achievable WITHOUT fine-tuning a local model. We should adopt this pattern first.
+
+---
+
+### 2026-01-06: Local Model Integration Architecture Review - COO
+- **COO** reviewed two local model integration design documents:
+  - `workspace/LOCAL_NEURAL_BRAIN_DESIGN.md` - Local Brain for personalization
+  - `knowledge/architecture/local_knowledge_layer.md` - Knowledge Layer for context
+
+#### Assessment Summary
+Both documents are well-researched but represent **two separate designs without unified vision**:
+- **Neural Brain**: Focuses on Qwen2.5-3B for personalization, simple query handling, LoRA fine-tuning
+- **Knowledge Layer**: Focuses on knowledge distillation, vector search, context synthesis API
+
+#### Critical Gaps Identified
+1. **Two designs, no unified architecture** - Should be merged into single "Local Intelligence Layer"
+2. **No fallback strategy** - No confidence scoring or automatic fallback when local model quality is insufficient
+3. **Missing quality metrics** - No defined success metrics (response quality, latency, cost savings)
+4. **Training data quality filters missing** - Assumes all session data is high-quality; needs filtering for failed tasks, user corrections
+5. **Memory contention** - Both designs target 8GB RAM but combined would exceed budget (~7-10GB total)
+6. **No model versioning/rollback** - Fine-tuned models can regress with no recovery strategy
+
+#### High-Priority Concerns
+- **Premature optimization**: Core execution layer (Phase 0) has blocking issues (#11-14). Local model work should wait.
+- **Knowledge Layer Phase 1 incomplete**: "Add to memory API for persistence" still unchecked
+- **MYND reference unclear**: References code in different swarm's workspace
+
+#### Recommendations (Priority Order)
+| Priority | Action | Prerequisite |
+|----------|--------|--------------|
+| 1 | Unify designs into single architecture doc | None |
+| 2 | Complete Knowledge Store Phase 1 | None |
+| 3 | Add confidence scoring + fallback design | #1 |
+| 4 | Implement basic vector search (Phase 3) | #2 |
+| 5 | Set up Ollama + small model for distillation | #4 |
+| 6 | Create training data extraction pipeline | #5 |
+| 7 | Fine-tune local model (Neural Brain) | #6 + Core issues resolved |
+
+#### Key Design Decisions Required
+- **Memory strategy**: Choose ONE approach for 8GB systems, or require 16GB+ for combined
+- **Unified vs separate**: Single model for both distillation AND query handling, or keep separate?
+- **Quality gates**: Define confidence threshold for local vs Claude fallback
+
+#### Status
+- **Current Priority**: #4 (per LOCAL_NEURAL_BRAIN_DESIGN.md) - **CONFIRMED APPROPRIATE**
+- **Blocker**: Core execution issues (#11-14) should be resolved before local model work
+- **Action**: Merge designs, complete Phase 1, then proceed with vector search before training
+
+---
 
 ### 2026-01-03: Critical Architecture Fixes - COO Execution & Escalation Integration
 - **COO** completed three high-priority tasks from the architecture review

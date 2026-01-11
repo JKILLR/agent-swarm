@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, Brain } from 'lucide-react'
+import { ChevronDown, ChevronUp, Brain, Bot } from 'lucide-react'
 import { cn, getAgentColor, getAgentIcon } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -25,7 +25,7 @@ function highlightDecisions(content: string): React.ReactNode[] {
       return (
         <div
           key={index}
-          className="my-4 p-4 rounded-lg border border-orange-500/50 bg-orange-500/5 text-orange-200"
+          className="my-4 p-4 rounded-lg border border-emerald-400/50 bg-emerald-400/5 text-emerald-200"
         >
           <ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-invert prose-sm max-w-none prose-orange">
             {part}
@@ -61,9 +61,9 @@ export default function AgentResponse({
   const shouldCollapse = isCollapsible && content.length > 500
   const hasThinking = thinking && thinking.length > 0
 
-  // Use orange for orchestrator/supreme types, otherwise use agent color
+  // Use emerald for orchestrator/supreme types, otherwise use agent color
   const isOrchestratorType = agentType.toLowerCase() === 'orchestrator' || agentType.toLowerCase() === 'supreme'
-  const borderColor = isOrchestratorType ? '#ea580c' : `var(--color-${colorClass}, #6b7280)`
+  const borderColor = isOrchestratorType ? '#34d399' : `var(--color-${colorClass}, #6b7280)`
 
   return (
     <div
@@ -81,11 +81,15 @@ export default function AgentResponse({
         onClick={() => shouldCollapse && setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2">
-          <span className="text-lg">{icon}</span>
+          {agent === 'Axel' ? (
+            <Bot className="w-5 h-5 text-violet-400" />
+          ) : (
+            <span className="text-lg">{icon}</span>
+          )}
           <span className={cn(
             'font-medium',
-            isOrchestratorType ? 'text-orange-500' : `text-${colorClass}`
-          )} style={{ color: isOrchestratorType ? '#ea580c' : undefined }}>
+            isOrchestratorType ? 'text-emerald-400' : `text-${colorClass}`
+          )}>
             {agent}
           </span>
           {status === 'thinking' && !content && !isThinking && (

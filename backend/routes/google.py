@@ -353,3 +353,80 @@ async def complete_task(task_id: str, task_list_id: str = "@default"):
         raise HTTPException(status_code=500, detail="Failed to complete task")
 
     return {"success": True}
+
+
+# ==================== Forms Endpoints ====================
+
+@router.get("/forms")
+async def list_forms(max_results: int = Query(20, ge=1, le=100)):
+    """List Google Forms from Drive."""
+    google = get_google_service()
+
+    if not google.is_authenticated():
+        raise HTTPException(status_code=401, detail="Not authenticated with Google")
+
+    forms = await google.list_forms_in_drive(max_results)
+    return {"forms": forms, "count": len(forms)}
+
+
+@router.get("/forms/{form_id}")
+async def get_form(form_id: str):
+    """Get a Google Form's structure and questions."""
+    google = get_google_service()
+
+    if not google.is_authenticated():
+        raise HTTPException(status_code=401, detail="Not authenticated with Google")
+
+    form = await google.get_form(form_id)
+
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    return form
+
+
+@router.get("/forms/{form_id}/responses")
+async def get_form_responses(form_id: str, max_results: int = Query(100, ge=1, le=1000)):
+    """Get responses submitted to a Google Form."""
+    google = get_google_service()
+
+    if not google.is_authenticated():
+        raise HTTPException(status_code=401, detail="Not authenticated with Google")
+
+    responses = await google.get_form_responses(form_id, max_results)
+    return {"responses": responses, "count": len(responses)}
+
+
+# ==================== Sheets Endpoints ====================
+
+@router.get("/sheets/{spreadsheet_id}")
+async def get_spreadsheet(spreadsheet_id: str, range: str = Query("Sheet1", alias="range")):
+    """Get values from a Google Spreadsheet.
+
+    Args:
+        spreadsheet_id: The spreadsheet ID (from URL)
+        range: A1 notation range (e.g., "Sheet1", "Sheet1!A1:E10")
+    """
+    google = get_google_service()
+
+    if not google.is_authenticated():
+        raise HTTPException(status_code=401, detail="Not authenticated with Google")
+
+    values = await google.get_spreadsheet_values(spreadsheet_id, range)
+    return {"values": values, "rows": len(values)}
+
+
+@router.get("/sheets/{spreadsheet_id}/metadata")
+async def get_spreadsheet_metadata(spreadsheet_id: str):
+    """Get spreadsheet metadata including sheet names."""
+    google = get_google_service()
+
+    if not google.is_authenticated():
+        raise HTTPException(status_code=401, detail="Not authenticated with Google")
+
+    metadata = await google.get_spreadsheet_metadata(spreadsheet_id)
+
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Spreadsheet not found")
+
+    return metadata

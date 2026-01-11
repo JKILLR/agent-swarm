@@ -32,6 +32,19 @@ export interface PanelToolActivity {
   agentName?: string
 }
 
+// Streaming message that persists across navigation
+export interface StreamingMessage {
+  id: string
+  type: 'agent'
+  content: string
+  agent: string
+  agentType: string
+  status: 'thinking' | 'complete'
+  timestamp: Date
+  thinking?: string
+  isThinking?: boolean
+}
+
 interface AgentActivityContextType {
   activities: Record<string, AgentActivity>
   isAgentActive: (swarm: string, agent: string) => boolean
@@ -43,6 +56,11 @@ interface AgentActivityContextType {
   setPanelAgentActivities: React.Dispatch<React.SetStateAction<PanelAgentActivity[]>>
   setPanelToolActivities: React.Dispatch<React.SetStateAction<PanelToolActivity[]>>
   clearPanelActivities: () => void
+  // Streaming message (persistent across navigation)
+  streamingMessage: StreamingMessage | null
+  setStreamingMessage: React.Dispatch<React.SetStateAction<StreamingMessage | null>>
+  isStreaming: boolean
+  setIsStreaming: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 const AgentActivityContext = createContext<AgentActivityContextType>({
@@ -55,6 +73,10 @@ const AgentActivityContext = createContext<AgentActivityContextType>({
   setPanelAgentActivities: () => {},
   setPanelToolActivities: () => {},
   clearPanelActivities: () => {},
+  streamingMessage: null,
+  setStreamingMessage: () => {},
+  isStreaming: false,
+  setIsStreaming: () => {},
 })
 
 export function AgentActivityProvider({ children }: { children: React.ReactNode }) {
@@ -62,6 +84,9 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
   // Panel activities - persistent across navigation
   const [panelAgentActivities, setPanelAgentActivities] = useState<PanelAgentActivity[]>([])
   const [panelToolActivities, setPanelToolActivities] = useState<PanelToolActivity[]>([])
+  // Streaming message - persistent across navigation
+  const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null)
+  const [isStreaming, setIsStreaming] = useState(false)
   const wsRef = useRef(getChatWebSocket())
 
   useEffect(() => {
@@ -229,6 +254,10 @@ export function AgentActivityProvider({ children }: { children: React.ReactNode 
         setPanelAgentActivities,
         setPanelToolActivities,
         clearPanelActivities,
+        streamingMessage,
+        setStreamingMessage,
+        isStreaming,
+        setIsStreaming,
       }}
     >
       {children}
