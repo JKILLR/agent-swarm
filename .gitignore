@@ -77,3 +77,26 @@ htmlcov/
 swarms/*/workspace/*
 !swarms/*/workspace/STATE.md
 !swarms/*/workspace/.gitkeep
+
+# Root workspace (same pattern)
+workspace/*
+!workspace/STATE.md
+!workspace/.gitkeep
+
+# Node modules - NEVER commit
+node_modules/
+**/node_modules/
+
+# Large data files
+*.pdf
+*.json.bak
+polymarket_batch*.json
+
+# Lock files
+*.lock
+!package-lock.json
+!yarn.lock
+
+# Memory/session artifacts
+memory/sessions/*
+logs/chat/.locks/*
